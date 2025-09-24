@@ -1,6 +1,8 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import cors from "cors";
+import roomRouter from "./routers/rooms.js";
 
 dotenv.config();
 
@@ -8,6 +10,10 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(cors({ origin: "http://localhost:5173" }));
+
+// Routes
+app.use("/api/rooms", roomRouter);
 
 // 🔗 connect to MongoDB
 const connectDB = async () => {
@@ -21,10 +27,10 @@ const connectDB = async () => {
 };
 connectDB();
 
-// Routes
-app.get("/", (req, res) => {
-  res.send("API is running...");
-});
+// // Routes
+// app.get("/", (req, res) => {
+//   res.send("API is running...");
+// });
 
 // Server
 const PORT = process.env.PORT || 5000;
