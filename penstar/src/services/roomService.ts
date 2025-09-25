@@ -29,3 +29,12 @@ export async function addRoom(data: any) {
     throw new Error("Failed to add room");
   }
 }
+
+export async function updateRoom(id: string | number, data: any) {
+  const res = await axios.put(`${API_URL}/${id}`, data);
+  if (res.status === 200) {
+    return res.data;
+  } else {
+    throw new Error("Failed to update room");
+  }
+}

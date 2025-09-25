@@ -10,6 +10,7 @@ import Users from "@/components/pages/admin/users/Users";
 import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import LocationAdd from "@/components/pages/admin/location/LocationAdd";
+import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
 
 const AppRouter = () => {
   return (
@@ -23,6 +24,7 @@ const AppRouter = () => {
           {/* Rooms */}
           <Route path="rooms" element={<Rooms />} />
           <Route path="rooms/add" element={<RoomAdd />} />
+          <Route path="rooms/edit/:id" element={<RoomEdit />} />
           {/* Hotels */}
           <Route path="hotels" element={<Hotels />} />
           <Route path="hotels/add" element={<HotelAdd />} />

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback } from "react";
-import { addRoom } from "@/services/roomService";
+import { useParams, useNavigate } from "react-router-dom"; // Thêm useNavigate
+import { getRoomById, updateRoom } from "@/services/roomService";
 import { getHotels } from "@/services/hotelService";
 import toast from "react-hot-toast";
 
@@ -21,7 +22,9 @@ interface RoomForm {
   status: "available" | "booked" | "maintenance";
 }
 
-const RoomAdd = () => {
+const RoomEdit = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [form, setForm] = useState<RoomForm>({
     hotel_id: "",
@@ -37,35 +40,54 @@ const RoomAdd = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchHotels = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getHotels();
-        setHotels(data);
+        const [hotelData, roomData] = await Promise.all([
+          getHotels(),
+          getRoomById(id!),
+        ]);
+        setHotels(hotelData);
+        // Điền dữ liệu phòng vào form
+        setForm({
+          hotel_id: roomData.hotel_id,
+          name: roomData.name,
+          description: roomData.description,
+          price_per_night: roomData.price_per_night.toString(),
+          capacity: roomData.capacity.toString(),
+          bed_count: roomData.bed_count.toString(),
+          bed_type: roomData.bed_type,
+          quantity: roomData.quantity.toString(),
+          status: roomData.status,
+        });
       } catch (err) {
-        toast.error("❌ Failed to load hotels");
-        console.error("Error loading hotels:", err);
+        toast.error("❌ Failed to load room data");
+        console.error("Error loading room data:", err);
       }
     };
-    fetchHotels();
-  }, []);
+    if (id) fetchData();
+  }, [id]);
 
   const onChange = useCallback((key: keyof RoomForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const resetForm = useCallback(() => {
-    setForm({
-      hotel_id: "",
-      name: "",
-      description: "",
-      price_per_night: "",
-      capacity: "",
-      bed_count: "",
-      bed_type: "Queen",
-      quantity: "",
-      status: "available",
-    });
-  }, []);
+    if (id) {
+      getRoomById(id).then((roomData) => {
+        setForm({
+          hotel_id: roomData.hotel_id,
+          name: roomData.name,
+          description: roomData.description,
+          price_per_night: roomData.price_per_night.toString(),
+          capacity: roomData.capacity.toString(),
+          bed_count: roomData.bed_count.toString(),
+          bed_type: roomData.bed_type,
+          quantity: roomData.quantity.toString(),
+          status: roomData.status,
+        });
+      });
+    }
+  }, [id]);
 
   const validateForm = () => {
     const errors: string[] = [];
@@ -95,18 +117,20 @@ const RoomAdd = () => {
 
     setIsSubmitting(true);
     try {
-      const newRoom = await addRoom({
-        ...form,
-        price_per_night: Number(form.price_per_night),
-        capacity: Number(form.capacity),
-        bed_count: Number(form.bed_count),
-        quantity: Number(form.quantity),
-      });
-      toast.success("🎉 Room added successfully!");
-      resetForm();
+      if (id) {
+        const updatedRoom = await updateRoom(id, {
+          ...form,
+          price_per_night: Number(form.price_per_night),
+          capacity: Number(form.capacity),
+          bed_count: Number(form.bed_count),
+          quantity: Number(form.quantity),
+        });
+        toast.success("🎉 Room updated successfully!");
+        navigate("/admin/rooms");
+      }
     } catch (error) {
-      toast.error("🚨 Failed to add room");
-      console.error("Failed to add room:", error);
+      toast.error("🚨 Failed to update room");
+      console.error("Failed to update room:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +139,7 @@ const RoomAdd = () => {
   return (
     <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Add Room</h2>
+        <h2 className="text-xl font-bold text-gray-800">Edit Room</h2>
         <a href="/admin/rooms">
           <button className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded">
             Back to List
@@ -276,7 +300,15 @@ const RoomAdd = () => {
           </select>
         </div>
 
-        <div className="sm:col-span-2 flex justify-end">
+        <div className="sm:col-span-2 flex justify-end space-x-4">
+          <button
+            type="button"
+            onClick={resetForm}
+            className="px-6 py-2 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300"
+            disabled={isSubmitting}
+          >
+            Reset
+          </button>
           <button
             type="submit"
             className={`px-6 py-2 rounded-md text-white ${
@@ -294,4 +326,4 @@ const RoomAdd = () => {
   );
 };
 
-export default RoomAdd;
+export default RoomEdit;
