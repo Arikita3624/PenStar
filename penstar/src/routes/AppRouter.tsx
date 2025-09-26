@@ -11,6 +11,8 @@ import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import LocationAdd from "@/components/pages/admin/location/LocationAdd";
 import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
+import LocationEdit from "@/components/pages/admin/location/LocationEdit";
+import HotelEdit from "@/components/pages/admin/hotels/HotelEdit";
 
 const AppRouter = () => {
   return (
@@ -28,9 +30,11 @@ const AppRouter = () => {
           {/* Hotels */}
           <Route path="hotels" element={<Hotels />} />
           <Route path="hotels/add" element={<HotelAdd />} />
+          <Route path="hotels/edit/:id" element={<HotelEdit />} />
           {/* Locations */}
           <Route path="locations" element={<Locations />} />
           <Route path="locations/add" element={<LocationAdd />} />
+          <Route path="locations/edit/:id" element={<LocationEdit />} />
           {/* Users */}
           <Route path="users" element={<Users />} />
         </Route>
