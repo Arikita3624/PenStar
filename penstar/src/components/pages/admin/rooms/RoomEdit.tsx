@@ -47,7 +47,6 @@ const RoomEdit = () => {
           getRoomById(id!),
         ]);
         setHotels(hotelData);
-        // Điền dữ liệu phòng vào form
         setForm({
           hotel_id: roomData.hotel_id,
           name: roomData.name,
@@ -93,7 +92,6 @@ const RoomEdit = () => {
     const errors: string[] = [];
     if (!form.hotel_id) errors.push("Hotel is required");
     if (!form.name) errors.push("Room name is required");
-    if (!form.description) errors.push("Description is required");
     if (!form.price_per_night || Number(form.price_per_night) <= 0)
       errors.push("Price per night must be a positive number");
     if (!form.capacity || Number(form.capacity) <= 0)
@@ -106,7 +104,7 @@ const RoomEdit = () => {
     return errors;
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors = validateForm();
 
@@ -147,7 +145,7 @@ const RoomEdit = () => {
         </a>
       </div>
 
-      <form onSubmit={onSubmit} className="grid gap-5 sm:grid-cols-2">
+      <form onSubmit={handleUpdate} className="grid gap-5 sm:grid-cols-2">
         {/* Hotel */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -195,7 +193,6 @@ const RoomEdit = () => {
             placeholder="Room description…"
             value={form.description}
             onChange={(e) => onChange("description", e.target.value)}
-            required
             disabled={isSubmitting}
           />
         </div>

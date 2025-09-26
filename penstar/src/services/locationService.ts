@@ -1,40 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/hotels";
+const API_URL = "http://localhost:5000/api/locations";
 
-export async function getHotels() {
+export async function getLocations() {
   const res = await axios.get(API_URL);
   if (res.status === 200) {
     return res.data;
   } else {
-    throw new Error("Failed to get hotels");
+    throw new Error("Failed to get locations");
   }
 }
 
-export async function getHotelById(id: string | number) {
+export async function getLocationById(id: string | number) {
   const res = await axios.get(`${API_URL}/${id}`);
   if (res.status === 200) {
     return res.data;
   } else {
-    throw new Error("Failed to get hotel");
+    throw new Error("Failed to get location");
   }
 }
 
-export async function addHotel(data: any) {
+export async function addLocation(data: any) {
   const res = await axios.post(API_URL, data);
   if (res.status === 200 || res.status === 201) {
     return res.data;
   } else {
-    throw new Error("Failed to add hotel");
+    throw new Error("Failed to add location");
   }
 }
 
-export async function updateHotel(id: string | number, data: any) {
+export async function updateLocation(id: string | number, data: any) {
   const res = await axios.put(`${API_URL}/${id}`, data);
   if (res.status === 200 || res.status === 201) {
     return res.data;
   } else {
-    throw new Error("Failed to update hotel");
+    throw new Error("Failed to update location");
   }
 }

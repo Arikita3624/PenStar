@@ -71,7 +71,6 @@ const RoomAdd = () => {
     const errors: string[] = [];
     if (!form.hotel_id) errors.push("Hotel is required");
     if (!form.name) errors.push("Room name is required");
-    if (!form.description) errors.push("Description is required");
     if (!form.price_per_night || Number(form.price_per_night) <= 0)
       errors.push("Price per night must be a positive number");
     if (!form.capacity || Number(form.capacity) <= 0)
@@ -171,7 +170,6 @@ const RoomAdd = () => {
             placeholder="Room description…"
             value={form.description}
             onChange={(e) => onChange("description", e.target.value)}
-            required
             disabled={isSubmitting}
           />
         </div>
