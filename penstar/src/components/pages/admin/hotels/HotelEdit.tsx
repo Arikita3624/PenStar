@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback } from "react";
-import { addHotel } from "@/services/hotelService";
+import { useParams, useNavigate } from "react-router-dom";
+import { getHotelById, updateHotel } from "@/services/hotelService";
 import { getLocations } from "@/services/locationService";
 import toast from "react-hot-toast";
-import { Link } from "react-router-dom";
 
 interface Location {
   _id: string;
@@ -20,7 +20,9 @@ interface HotelForm {
   description: string;
 }
 
-const HotelAdd = () => {
+const HotelEdit = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [locations, setLocations] = useState<Location[]>([]);
   const [form, setForm] = useState<HotelForm>({
     location_id: "",
@@ -34,33 +36,49 @@ const HotelAdd = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchLocations = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getLocations();
-        setLocations(data);
+        const [locationData, hotelData] = await Promise.all([
+          getLocations(),
+          getHotelById(id!),
+        ]);
+        setLocations(locationData);
+        setForm({
+          location_id: hotelData.location_id,
+          name: hotelData.name,
+          address: hotelData.address,
+          hotline: hotelData.hotline,
+          email: hotelData.email,
+          star: hotelData.star.toString(),
+          description: hotelData.description,
+        });
       } catch (err) {
-        toast.error("❌ Failed to load locations");
-        console.error("Error loading locations:", err);
+        toast.error("❌ Failed to load hotel data");
+        console.error("Error loading hotel data:", err);
       }
     };
-    fetchLocations();
-  }, []);
+    if (id) fetchData();
+  }, [id]);
 
   const onChange = useCallback((key: keyof HotelForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const resetForm = useCallback(() => {
-    setForm({
-      location_id: "",
-      name: "",
-      address: "",
-      hotline: "",
-      email: "",
-      star: "3",
-      description: "",
-    });
-  }, []);
+    if (id) {
+      getHotelById(id).then((hotelData) => {
+        setForm({
+          location_id: hotelData.location_id,
+          name: hotelData.name,
+          address: hotelData.address,
+          hotline: hotelData.hotline,
+          email: hotelData.email,
+          star: hotelData.star.toString(),
+          description: hotelData.description,
+        });
+      });
+    }
+  }, [id]);
 
   const validateForm = () => {
     const errors: string[] = [];
@@ -86,15 +104,17 @@ const HotelAdd = () => {
 
     setIsSubmitting(true);
     try {
-      const newHotel = await addHotel({
-        ...form,
-        star: Number(form.star),
-      });
-      toast.success("🎉 Hotel added successfully!");
-      resetForm();
+      if (id) {
+        const updatedHotel = await updateHotel(id, {
+          ...form,
+          star: Number(form.star),
+        });
+        toast.success("🎉 Hotel updated successfully!");
+        navigate("/admin/hotels");
+      }
     } catch (error) {
-      toast.error("🚨 Failed to add hotel");
-      console.error("Failed to add hotel:", error);
+      toast.error("🚨 Failed to update hotel");
+      console.error("Failed to update hotel:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -103,12 +123,12 @@ const HotelAdd = () => {
   return (
     <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Add Hotel</h2>
-        <Link to="/admin/hotels">
+        <h2 className="text-xl font-bold text-gray-800">Edit Hotel</h2>
+        <a href="/admin/hotels">
           <button className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded">
             Back to List
           </button>
-        </Link>
+        </a>
       </div>
 
       <form onSubmit={onSubmit} className="grid gap-5 sm:grid-cols-2">
@@ -227,7 +247,15 @@ const HotelAdd = () => {
           />
         </div>
 
-        <div className="sm:col-span-2 flex justify-end">
+        <div className="sm:col-span-2 flex justify-end space-x-4">
+          <button
+            type="button"
+            onClick={resetForm}
+            className="px-6 py-2 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300"
+            disabled={isSubmitting}
+          >
+            Reset
+          </button>
           <button
             type="submit"
             className={`px-6 py-2 rounded-md text-white ${
@@ -245,4 +273,4 @@ const HotelAdd = () => {
   );
 };
 
-export default HotelAdd;
+export default HotelEdit;
