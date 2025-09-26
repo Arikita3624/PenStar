@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import roomRouter from "./routers/rooms.js";
 import hotelRouter from "./routers/hotels.js";
+import locationRouter from "./routers/locations.js";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(cors({ origin: "http://localhost:5173" }));
 // Routes
 app.use("/api/rooms", roomRouter);
 app.use("/api/hotels", hotelRouter);
+app.use("/api/locations", locationRouter);
 
 // 🔗 connect to MongoDB
 const connectDB = async () => {

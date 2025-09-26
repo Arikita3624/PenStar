@@ -32,7 +32,7 @@ export async function addRoom(data: any) {
 
 export async function updateRoom(id: string | number, data: any) {
   const res = await axios.put(`${API_URL}/${id}`, data);
-  if (res.status === 200) {
+  if (res.status === 200 || res.status === 201) {
     return res.data;
   } else {
     throw new Error("Failed to update room");
