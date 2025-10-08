@@ -30,9 +30,9 @@
   "rooms": [
     {
       "id": 1,
+      "image": "https://picsum.photos/300/300",
       "number": "101",
       "branchId": 1,
-      "floor": 1,
       "status": "Available",
       "price": 250,
       "currency": "USD",
@@ -42,9 +42,9 @@
     },
     {
       "id": 2,
+      "image": "https://picsum.photos/300/300",
       "number": "102",
       "branchId": 1,
-      "floor": 1,
       "status": "Occupied",
       "price": 180,
       "currency": "USD",
@@ -54,9 +54,9 @@
     },
     {
       "id": 3,
+      "image": "https://picsum.photos/300/300",
       "number": "201",
       "branchId": 2,
-      "floor": 2,
       "status": "Available",
       "price": 500,
       "currency": "USD",
@@ -66,9 +66,9 @@
     },
     {
       "id": 4,
+      "image": "https://picsum.photos/300/300",
       "number": "202",
       "branchId": 2,
-      "floor": 2,
       "status": "Under Maintenance",
       "price": 700,
       "currency": "USD",
@@ -78,9 +78,9 @@
     },
     {
       "id": 5,
+      "image": "https://picsum.photos/300/300",
       "number": "301",
       "branchId": 3,
-      "floor": 3,
       "status": "Cleaning",
       "price": 450,
       "currency": "USD",
@@ -90,9 +90,9 @@
     },
     {
       "id": 6,
+      "image": "https://picsum.photos/300/300",
       "number": "302",
       "branchId": 3,
-      "floor": 3,
       "status": "Available",
       "price": 400,
       "currency": "USD",
