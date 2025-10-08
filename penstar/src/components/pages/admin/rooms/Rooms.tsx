@@ -4,7 +4,11 @@ import { Button, Popconfirm, Table } from "antd";
 import { Link } from "react-router-dom";
 
 const Rooms = () => {
-  const { data, isLoading, isError } = useQuery({
+  const {
+    data: rooms,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["rooms"],
     queryFn: async () => {
       const res = await fetch("http://localhost:8000/rooms");
@@ -12,7 +16,15 @@ const Rooms = () => {
     },
   });
 
-  console.log(data);
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const res = await fetch("http://localhost:8000/branches");
+      return res.json();
+    },
+  });
+
+  console.log(rooms);
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error</div>;
@@ -24,14 +36,25 @@ const Rooms = () => {
       key: "id",
     },
     {
+      title: "Image",
+      dataIndex: "image",
+      key: "image",
+      render: (image: string) => <img src={image} width={50} alt="img" />,
+    },
+    {
       title: "Room Number",
       dataIndex: "number",
       key: "number",
     },
     {
-      title: "branchId",
+      title: "Branches",
       dataIndex: "branchId",
       key: "branchId",
+      render: (branchId: number) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const branch = branches?.find((b: any) => b.id === branchId);
+        return branch ? branch.name : "Unknown";
+      },
     },
     {
       title: "Status",
@@ -67,7 +90,7 @@ const Rooms = () => {
     },
   ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dataSource = data?.map((room: any) => ({
+  const dataSource = rooms?.map((room: any) => ({
     key: room.id,
     ...room,
   }));
