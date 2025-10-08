@@ -1,0 +1,104 @@
+{
+  "branches": [
+    {
+      "id": 1,
+      "name": "PenStar Hanoi",
+      "city": "Hanoi",
+      "address": "123 Trang Tien, Hoan Kiem"
+    },
+    {
+      "id": 2,
+      "name": "PenStar Da Nang",
+      "city": "Da Nang",
+      "address": "456 Vo Nguyen Giap, Son Tra"
+    },
+    {
+      "id": 3,
+      "name": "PenStar Ho Chi Minh City",
+      "city": "Ho Chi Minh City",
+      "address": "789 Nguyen Hue, District 1"
+    }
+  ],
+
+  "room_types": [
+    { "id": 1, "name": "Standard" },
+    { "id": 2, "name": "Deluxe" },
+    { "id": 3, "name": "Suite" },
+    { "id": 4, "name": "Family" }
+  ],
+
+  "rooms": [
+    {
+      "id": 1,
+      "number": "101",
+      "branchId": 1,
+      "floor": 1,
+      "status": "Available",
+      "price": 250,
+      "currency": "USD",
+      "capacity": 2,
+      "amenities": ["Wi-Fi", "TV", "Minibar"],
+      "notes": "City view, non-smoking"
+    },
+    {
+      "id": 2,
+      "number": "102",
+      "branchId": 1,
+      "floor": 1,
+      "status": "Occupied",
+      "price": 180,
+      "currency": "USD",
+      "capacity": 2,
+      "amenities": ["Wi-Fi", "TV"],
+      "notes": "Twin beds"
+    },
+    {
+      "id": 3,
+      "number": "201",
+      "branchId": 2,
+      "floor": 2,
+      "status": "Available",
+      "price": 500,
+      "currency": "USD",
+      "capacity": 3,
+      "amenities": ["Wi-Fi", "Jacuzzi", "Balcony"],
+      "notes": "Ocean view suite"
+    },
+    {
+      "id": 4,
+      "number": "202",
+      "branchId": 2,
+      "floor": 2,
+      "status": "Under Maintenance",
+      "price": 700,
+      "currency": "USD",
+      "capacity": 4,
+      "amenities": ["Private pool", "Kitchenette"],
+      "notes": "Bungalow - direct beach access"
+    },
+    {
+      "id": 5,
+      "number": "301",
+      "branchId": 3,
+      "floor": 3,
+      "status": "Cleaning",
+      "price": 450,
+      "currency": "USD",
+      "capacity": 2,
+      "amenities": ["Wi-Fi", "Executive lounge access"],
+      "notes": "High-floor executive suite"
+    },
+    {
+      "id": 6,
+      "number": "302",
+      "branchId": 3,
+      "floor": 3,
+      "status": "Available",
+      "price": 400,
+      "currency": "USD",
+      "capacity": 5,
+      "amenities": ["Kids kit", "2 bathrooms"],
+      "notes": "Connecting family rooms"
+    }
+  ]
+}
