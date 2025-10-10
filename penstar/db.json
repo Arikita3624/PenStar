@@ -65,24 +65,6 @@
       "id": "7e8f"
     },
     {
-      "id": "1g2h",
-      "image": "https://picsum.photos/300/300",
-      "number": "302",
-      "branchId": 3,
-      "status": "Available",
-      "price": 400,
-      "created_at": "2024-06-20T10:00:00Z",
-      "updated_at": "2024-06-20T10:00:00Z"
-    },
-    {
-      "id": "9f79",
-      "image": "https://picsum.photos/300/300",
-      "number": "501",
-      "price": 200000,
-      "branchId": 2,
-      "status": "Active"
-    },
-    {
       "image": "https://picsum.photos/300/300",
       "number": "502 updated 1",
       "price": 20000001,
