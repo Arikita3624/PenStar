@@ -1,137 +1,197 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, Form, Input, InputNumber, message, Select } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
+import { instance } from "@/services/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Select,
+  Typography,
+} from "antd";
+import { useForm, type FormProps } from "antd/es/form/Form";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+
+type FieldType = {
+  image: string;
+  number: string;
+  branchId: number | string;
+  status: string;
+  price: number;
+};
+
+type Branch = {
+  id: number;
+  name: string;
+};
 
 const RoomEdit = () => {
-  const { id } = useParams();
+  const [form] = useForm();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [form] = Form.useForm();
+  const { id } = useParams();
 
-  // Lấy dữ liệu phòng
-  const { data: room, isLoading } = useQuery({
-    queryKey: ["room", id],
+  const {
+    data: room,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["rooms", id],
     queryFn: async () => {
-      const res = await fetch(`http://localhost:8000/rooms/${id}`);
-      return res.json();
+      const response = await instance.get(`/rooms/${id}`);
+      return response.data;
     },
   });
 
-  // Lấy danh sách chi nhánh
   const { data: branches } = useQuery({
     queryKey: ["branches"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:8000/branches");
-      return res.json();
+      const response = await instance.get("/branches");
+      return response.data;
     },
   });
 
-  // Mutation update
-  const mutation = useMutation({
-    mutationFn: async (updatedRoom: any) => {
-      const res = await fetch(`http://localhost:8000/rooms/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedRoom),
-      });
-      return res.json();
+  const { mutate } = useMutation({
+    mutationFn: async (roomData: FieldType) => {
+      const response = await instance.put(`/rooms/${id}`, roomData);
+      return response.data;
     },
     onSuccess: () => {
-      message.success("Room updated successfully!");
+      message.success("Room updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["rooms"] });
       navigate("/admin/rooms");
     },
     onError: () => {
-      message.error("Failed to update room!");
+      message.error("Failed to update room");
     },
   });
 
-  const onFinish = (values: any) => {
-    mutation.mutate(values);
+  const onFinish: FormProps<FieldType>["onFinish"] = (values) => {
+    mutate(values);
   };
 
+  useEffect(() => {
+    if (room) {
+      form.setFieldsValue(room);
+    }
+  }, [room, form]);
+
   if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error</div>;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Edit Room</h1>
-      <Form
-        layout="vertical"
-        form={form}
-        onFinish={onFinish}
-        initialValues={room}
-      >
-        <Form.Item
-          label="Room Number"
-          name="number"
-          rules={[{ required: true }]}
-        >
-          <Input />
-        </Form.Item>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="flex items-center justify-between mb-6 bg-white p-4">
+        <div className="flex items-center gap-2">
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            Edit Room
+          </Typography.Title>
+        </div>
+        <Link to={"/admin/rooms"}>
+          <Button type="primary">Back to List</Button>
+        </Link>
+      </div>
 
-        <Form.Item label="Branch" name="branchId" rules={[{ required: true }]}>
-          <Select placeholder="Select branch">
-            {branches?.map((b: any) => (
-              <Select.Option key={b.id} value={b.id}>
-                {b.name}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
+      <div className="max-w-lg mx-auto">
+        <Card bordered={false} className="rounded-lg shadow-md">
+          <Form
+            name="room-edit"
+            layout="vertical"
+            autoComplete="off"
+            form={form}
+            onFinish={onFinish}
+          >
+            {/* --- Image field with random + preview --- */}
+            <Form.Item<FieldType>
+              label="Image"
+              name="image"
+              rules={[{ required: true, message: "Please input room image!" }]}
+            >
+              <>
+                <Input
+                  placeholder="Enter image URL or click Random"
+                  onChange={(e) => form.setFieldValue("image", e.target.value)}
+                  addonAfter={
+                    <Button
+                      type="link"
+                      onClick={() => {
+                        const url = `https://picsum.photos/300/300?random=${Date.now()}`;
+                        form.setFieldValue("image", url);
+                      }}
+                    >
+                      Random
+                    </Button>
+                  }
+                />
+                {form.getFieldValue("image") && (
+                  <img
+                    src={form.getFieldValue("image")}
+                    alt="preview"
+                    style={{
+                      marginTop: 8,
+                      width: 120,
+                      height: 120,
+                      borderRadius: 8,
+                      border: "1px solid #eee",
+                      objectFit: "cover",
+                    }}
+                  />
+                )}
+              </>
+            </Form.Item>
 
-        <Form.Item label="Price" name="price" rules={[{ required: true }]}>
-          <InputNumber min={0} style={{ width: "100%" }} />
-        </Form.Item>
+            <Form.Item<FieldType>
+              label="Room Number"
+              name="number"
+              rules={[{ required: true, message: "Please input room number!" }]}
+            >
+              <Input placeholder="Enter room number" allowClear />
+            </Form.Item>
 
-        <Form.Item label="Status" name="status" rules={[{ required: true }]}>
-          <Select>
-            <Select.Option value="available">Available</Select.Option>
-            <Select.Option value="booked">Booked</Select.Option>
-          </Select>
-        </Form.Item>
-
-        <Form.Item
-          label="Image"
-          name="image"
-          rules={[{ required: true, message: "Please provide an image URL!" }]}
-        >
-          <>
-            <Input
-              placeholder="https://..."
-              onChange={(e) => form.setFieldValue("image", e.target.value)}
-              addonAfter={
-                <Button
-                  onClick={() => {
-                    const url = `https://picsum.photos/300/300?random=${Date.now()}`;
-                    form.setFieldValue("image", url);
-                  }}
-                  type="link"
-                >
-                  Random
-                </Button>
-              }
-            />
-            {form.getFieldValue("image") && (
-              <img
-                src={form.getFieldValue("image")}
-                alt="preview"
-                style={{
-                  marginTop: 8,
-                  width: 120,
-                  height: 120,
-                  borderRadius: 8,
-                  border: "1px solid #eee",
-                  objectFit: "cover",
-                }}
+            <Form.Item<FieldType>
+              label="Price"
+              name="price"
+              rules={[{ required: true, message: "Please input room price!" }]}
+            >
+              <InputNumber
+                placeholder="Enter room price"
+                style={{ width: "100%" }}
               />
-            )}
-          </>
-        </Form.Item>
+            </Form.Item>
 
-        <Form.Item>
-          <Button type="primary" htmlType="submit" loading={mutation.isPending}>
-            Update
-          </Button>
-        </Form.Item>
-      </Form>
+            <Form.Item<FieldType>
+              label="Branch"
+              name="branchId"
+              rules={[{ required: true, message: "Please select branch!" }]}
+            >
+              <Select placeholder="Select branch">
+                {Array.isArray(branches) &&
+                  branches.map((b: Branch) => (
+                    <Select.Option key={b.id} value={b.id}>
+                      {b.name}
+                    </Select.Option>
+                  ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item<FieldType>
+              label="Status"
+              name="status"
+              rules={[{ required: true, message: "Please input room status!" }]}
+            >
+              <Input placeholder="Enter status (e.g., Active)" allowClear />
+            </Form.Item>
+
+            <Form.Item>
+              <Button type="primary" htmlType="submit" block>
+                Save Changes
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+      </div>
     </div>
   );
 };
