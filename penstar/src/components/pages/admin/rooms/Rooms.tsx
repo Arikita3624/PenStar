@@ -11,7 +11,7 @@ const Rooms = () => {
   } = useQuery({
     queryKey: ["rooms"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:8000/rooms");
+      const res = await fetch("http://localhost:5000/rooms");
       return res.json();
     },
   });
@@ -19,7 +19,7 @@ const Rooms = () => {
   const { data: branches } = useQuery({
     queryKey: ["branches"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:8000/branches");
+      const res = await fetch("http://localhost:5000/branches");
       return res.json();
     },
   });

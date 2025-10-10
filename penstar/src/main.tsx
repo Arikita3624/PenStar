@@ -1,16 +1,19 @@
-import "./index.css";
-import App from "./App.tsx";
-import { BrowserRouter } from "react-router-dom";
-import "@ant-design/v5-patch-for-react-19";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
+import "antd/dist/reset.css"; // ← style Ant Design
 
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
+  <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
     </BrowserRouter>
-  </QueryClientProvider>
+  </React.StrictMode>
 );
+
