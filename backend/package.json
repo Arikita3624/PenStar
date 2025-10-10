@@ -4,7 +4,7 @@
   "main": "db.js",
   "type": "module",
   "scripts": {
-    "server": "nodemon server.js"
+    "server": "json-server --watch db.json --port 5000"
   },
   "keywords": [],
   "author": "",

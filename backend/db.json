@@ -1,19 +1,19 @@
 {
   "branches": [
     {
-      "id": 1,
+      "id": "1",
       "name": "PenStar Hanoi",
       "city": "Hanoi",
       "address": "123 Trang Tien, Hoan Kiem"
     },
     {
-      "id": 2,
+      "id": "2",
       "name": "PenStar Da Nang",
       "city": "Da Nang",
       "address": "456 Vo Nguyen Giap, Son Tra"
     },
     {
-      "id": 3,
+      "id": "3",
       "name": "PenStar Ho Chi Minh City",
       "city": "Ho Chi Minh City",
       "address": "789 Nguyen Hue, District 1"
@@ -29,12 +29,12 @@
       "price": 250
     },
     {
-      "id": "5y6x",
-      "image": "https://picsum.photos/300/300",
+      "image": "https://picsum.photos/300/300?random=1760092973714",
       "number": "102",
+      "price": 190,
       "branchId": 1,
       "status": "Occupied",
-      "price": 180
+      "id": "5y6x"
     },
     {
       "id": "2a3b",

@@ -40,7 +40,7 @@ const RoomEdit = () => {
   } = useQuery({
     queryKey: ["rooms", id],
     queryFn: async () => {
-      const response = await instance.get(`/rooms/${id}`);
+      const response = await instance.get(`http://localhost:5000/rooms/${id}`);
       return response.data;
     },
   });

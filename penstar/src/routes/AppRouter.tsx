@@ -1,3 +1,6 @@
+import Branches from "@/components/pages/admin/branches/Branches";
+import BranchAdd from "@/components/pages/admin/branches/BranchesAdd";
+import BranchEdit from "@/components/pages/admin/branches/BranchesEdit";
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
@@ -12,6 +15,9 @@ const AppRouter = () => {
         <Route path="admin" element={<LayoutAdmin />}>
           <Route index element={<Dashboard />} />
           <Route path="rooms" element={<Rooms />} />
+          <Route path="branches" element={<Branches />} />
+          <Route path="branches/add" element={<BranchAdd />} />
+          <Route path="branches/edit/:id" element={<BranchEdit />} />
           <Route path="rooms/add" element={<RoomAdd />} />
           <Route path="rooms/edit/:id" element={<RoomEdit />} />
         </Route>
