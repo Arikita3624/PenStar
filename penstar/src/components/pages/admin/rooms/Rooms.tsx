@@ -3,10 +3,15 @@ import { EditOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, message, Popconfirm, Table } from "antd";
+import type { ColumnsType } from "antd/es/table";
 import { Link } from "react-router-dom";
+import type { Room } from "@/types/room";
+import { getRooms } from "@/services/roomsApi";
+import { getFloors } from "@/services/floorsApi";
+import { getRoomTypes } from "@/services/roomTypeApi";
 
 const Rooms = () => {
-  const [massageApi, contextHolder] = message.useMessage();
+  const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
@@ -15,72 +20,59 @@ const Rooms = () => {
     data: rooms,
     isLoading,
     isError,
-  } = useQuery({
+  } = useQuery<Room[]>({
     queryKey: ["rooms"],
-    queryFn: async () => {
-      const response = await instance.get("/rooms");
-      return response.data;
-    },
+    queryFn: getRooms,
   });
 
-  const { data: branches } = useQuery({
-    queryKey: ["branches"],
-    queryFn: async () => {
-      const response = await instance.get("/branches");
-      return response.data;
-    },
+  const { data: floors } = useQuery({
+    queryKey: ["floors"],
+    queryFn: getFloors,
   });
+  console.log(floors);
+
+  const { data: room_types } = useQuery({
+    queryKey: ["room_types"],
+    queryFn: getRoomTypes,
+  });
+
+  console.log(room_types);
 
   const { mutate } = useMutation({
-    mutationFn: async (id: number | string) => {
+    mutationFn: async (id: number) => {
       const response = await instance.delete(`/rooms/${id}`);
       return response.data;
     },
     onSuccess: () => {
-      massageApi.success("Room deleted successfully");
+      messageApi.success("Room deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
     },
     onError: () => {
-      massageApi.error("Failed to delete room");
-      console.log("Error deleting room");
+      messageApi.error("Failed to delete room");
     },
   });
-
-  console.log(branches);
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error</div>;
 
-  const columns = [
+  const columns: ColumnsType<Room> = [
     {
       title: "STT",
       key: "stt",
-      render: (_value: unknown, _record: unknown, index: number) =>
+      render: (_value, _record, index) =>
         index + 1 + (currentPage - 1) * pageSize,
       width: 80,
     },
     {
-      title: "Image",
-      dataIndex: "image",
-      key: "image",
-      render: (image: string) => <img src={image} width={50} alt="" />,
+      title: "Thumbnail",
+      dataIndex: "thumbnail",
+      key: "thumbnail",
+      render: (thumbnail) => <img src={thumbnail} width={50} alt="" />,
     },
     {
-      title: "Room Number",
-      dataIndex: "number",
-      key: "number",
-    },
-    {
-      title: "Branch",
-      dataIndex: "branchId",
-      key: "branchId",
-      render: (branchId: number | string) => {
-        const branch = branches?.find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (b: any) => String(b.id) === String(branchId)
-        );
-        return branch ? branch.name : "Unknown";
-      },
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
     },
     {
       title: "Status",
@@ -88,25 +80,45 @@ const Rooms = () => {
       key: "status",
     },
     {
+      title: "Type",
+      dataIndex: "type_id",
+      key: "type_id",
+      render: (type_id) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        room_types?.find((type: any) => type.id === type_id)?.name || "N/A",
+    },
+    {
+      title: "Floor",
+      dataIndex: "floor_id",
+      key: "floor_id",
+      render: (floor_id) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        floors?.find((floor: any) => floor.id === floor_id)?.name || "N/A",
+    },
+    {
       title: "Price",
       dataIndex: "price",
       key: "price",
+      render: (price) =>
+        new Intl.NumberFormat("vi-VN", {
+          style: "currency",
+          currency: "VND",
+        }).format(price),
     },
     {
       title: "Action",
       key: "action",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: (_: any, rooom: any) => (
+      render: (_, room) => (
         <div className="flex gap-2">
-          <Link to={`edit/${rooom.id}`}>
+          <Link to={`edit/${room.id}`}>
             <Button type="primary" icon={<EditOutlined />}>
               Edit
             </Button>
           </Link>
           <Popconfirm
             title="Delete"
-            description="Are you sure to delete this product?"
-            onConfirm={() => mutate(rooom.id)}
+            description="Are you sure to delete this room?"
+            onConfirm={() => mutate(room.id)}
           >
             <Button type="primary" danger>
               Delete
@@ -116,28 +128,20 @@ const Rooms = () => {
       ),
     },
   ];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dataSource = rooms?.map((room: any) => ({
-    key: room.id,
-    ...room,
-  }));
 
   return (
     <div>
       {contextHolder}
       <div className="mb-4 flex justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Rooms List</h1>
-        </div>
-        <div>
-          <Link to={`add`}>
-            <Button type="primary">Create</Button>
-          </Link>
-        </div>
+        <h1 className="text-2xl font-bold">Rooms List</h1>
+        <Link to={`add`}>
+          <Button type="primary">Create</Button>
+        </Link>
       </div>
       <Table
         columns={columns}
-        dataSource={dataSource}
+        dataSource={rooms}
+        rowKey="id"
         pagination={{
           pageSize: pageSize,
           current: currentPage,

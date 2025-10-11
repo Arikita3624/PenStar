@@ -20,11 +20,11 @@ export const createRoom = async (data) => {
     description,
     status,
     thumbnail,
-    floor,
+    floor_id,
   } = data;
   const resuit = await pool.query(
-    "INSERT INTO rooms (name, type_id, price, capacity, description, status, thumbnail, floor) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-    [name, type_id, price, capacity, description, status, thumbnail, floor]
+    "INSERT INTO rooms (name, type_id, price, capacity, description, status, thumbnail, floor_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+    [name, type_id, price, capacity, description, status, thumbnail, floor_id]
   );
   console.log(resuit);
   return resuit.rows[0];
@@ -39,11 +39,21 @@ export const updateRoom = async (id, data) => {
     description,
     status,
     thumbnail,
-    floor,
+    floor_id,
   } = data;
   const resuit = await pool.query(
-    "UPDATE rooms SET name = $1, type_id = $2, price = $3, capacity = $4, description = $5, status = $6, thumbnail = $7, floor = $8 WHERE id = $9 RETURNING *",
-    [name, type_id, price, capacity, description, status, thumbnail, floor, id]
+    "UPDATE rooms SET name = $1, type_id = $2, price = $3, capacity = $4, description = $5, status = $6, thumbnail = $7, floor_id = $8 WHERE id = $9 RETURNING *",
+    [
+      name,
+      type_id,
+      price,
+      capacity,
+      description,
+      status,
+      thumbnail,
+      floor_id,
+      id,
+    ]
   );
   console.log(resuit);
   return resuit.rows[0];

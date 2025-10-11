@@ -8,7 +8,7 @@ const roomSchema = Joi.object({
   description: Joi.string().required(),
   status: Joi.string().required(),
   thumbnail: Joi.string().required(),
-  floor: Joi.number().positive().required(),
+  floor_id: Joi.number().positive().required(),
 });
 
 export const validateRoomCreate = (req, res, next) => {

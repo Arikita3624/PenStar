@@ -1,4 +1,3 @@
-import Branches from "@/components/pages/admin/branches/Branches";
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
@@ -16,7 +15,6 @@ const AppRouter = () => {
           <Route path="rooms/add" element={<RoomAdd />} />
           <Route path="rooms/edit/:id" element={<RoomEdit />} />
           {/* Branches */}
-          <Route path="branches" element={<Branches />} />
         </Route>
       </Routes>
     </div>
