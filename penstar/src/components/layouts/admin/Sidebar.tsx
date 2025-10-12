@@ -38,25 +38,6 @@ const Sidebar = () => {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/admin/users" className={navLinkClasses}>
-              <svg
-                className="w-6 h-6 mr-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-6-6v-1a6 6 0 016-6v-1H3a6 6 0 016 6v1a6 6 0 01-6 6z"
-                ></path>
-              </svg>
-              <span>Users</span>
-            </NavLink>
-          </li>
-          <li>
             <NavLink to="/admin/rooms" className={navLinkClasses}>
               <svg
                 className="w-6 h-6 mr-3"
@@ -73,6 +54,44 @@ const Sidebar = () => {
                 />
               </svg>
               <span>Rooms</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/admin/branches" className={navLinkClasses}>
+              <svg
+                className="w-6 h-6 mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 7h18M3 12h18M3 17h18"
+                />
+              </svg>
+              <span>Branches</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/admin/users" className={navLinkClasses}>
+              <svg
+                className="w-6 h-6 mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-6-6v-1a6 6 0 016-6v-1H3a6 6 0 016 6v1a6 6 0 01-6 6z"
+                ></path>
+              </svg>
+              <span>Users</span>
             </NavLink>
           </li>
           <li>
