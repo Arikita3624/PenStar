@@ -32,3 +32,26 @@ export const createFloor = async (floorData: {
     throw error;
   }
 };
+
+export const updateFloor = async (
+  id: number | string,
+  floorData: { name: string; description: string }
+) => {
+  try {
+    const response = await instance.put(`/floors/${id}`, floorData);
+    return response.data?.data ?? null;
+  } catch (error) {
+    console.error(`Error updating floor ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteFloor = async (id: number | string) => {
+  try {
+    const response = await instance.delete(`/floors/${id}`);
+    return response.data ?? null;
+  } catch (error) {
+    console.error(`Error deleting floor ${id}:`, error);
+    throw error;
+  }
+};

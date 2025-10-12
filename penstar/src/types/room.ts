@@ -4,7 +4,7 @@ export interface Room {
   number: string;
   status: string;
   capacity: number;
-  descriptiom: string;
+  description: string;
   price: number;
   type_id: number;
   floor_id: number;

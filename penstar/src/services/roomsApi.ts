@@ -45,3 +45,13 @@ export const updateRoom = async (
     throw error;
   }
 };
+
+export const deleteRoom = async (id: number | string) => {
+  try {
+    const response = await instance.delete(`/rooms/${id}`);
+    return response.data ?? null;
+  } catch (error) {
+    console.error(`Error deleting room ${id}:`, error);
+    throw error;
+  }
+};
