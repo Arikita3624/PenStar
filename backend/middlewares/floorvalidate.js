@@ -1,10 +1,9 @@
 import Joi from "joi";
 
 const FloorSchema = Joi.object({
+  // model createFloor currently expects { name, description }
   name: Joi.string().required(),
   description: Joi.string().required(),
-  status: Joi.string().required(),
-  building_id: Joi.number().positive().required(),
 });
 
 export const validateFloorCreate = (req, res, next) => {

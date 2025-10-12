@@ -17,7 +17,7 @@ export const createRoomType = async (roomTypeData: {
 }) => {
   try {
     const response = await instance.post("/roomtypes", roomTypeData);
-    return response.data;
+    return response.data?.data ?? null;
   } catch (error) {
     console.error("Error creating room type:", error);
     throw error;

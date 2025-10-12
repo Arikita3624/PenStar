@@ -3,6 +3,7 @@ import { EditOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, message, Popconfirm, Table } from "antd";
+import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { Link } from "react-router-dom";
 import type { Room } from "@/types/room";
@@ -78,6 +79,11 @@ const Rooms = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
+      render: (status) => (
+        <Tag color={status === "available" ? "green" : "volcano"}>
+          {String(status).toUpperCase()}
+        </Tag>
+      ),
     },
     {
       title: "Type",
@@ -85,7 +91,8 @@ const Rooms = () => {
       key: "type_id",
       render: (type_id) =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        room_types?.find((type: any) => type.id === type_id)?.name || "N/A",
+        room_types?.find((type: any) => String(type.id) === String(type_id))
+          ?.name || "N/A",
     },
     {
       title: "Floor",
@@ -93,7 +100,8 @@ const Rooms = () => {
       key: "floor_id",
       render: (floor_id) =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        floors?.find((floor: any) => floor.id === floor_id)?.name || "N/A",
+        floors?.find((floor: any) => String(floor.id) === String(floor_id))
+          ?.name || "N/A",
     },
     {
       title: "Price",
@@ -132,22 +140,27 @@ const Rooms = () => {
   return (
     <div>
       {contextHolder}
-      <div className="mb-4 flex justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Rooms List</h1>
-        <Link to={`add`}>
-          <Button type="primary">Create</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to={`add`}>
+            <Button type="primary">Create</Button>
+          </Link>
+        </div>
       </div>
-      <Table
-        columns={columns}
-        dataSource={rooms}
-        rowKey="id"
-        pagination={{
-          pageSize: pageSize,
-          current: currentPage,
-          onChange: (page) => setCurrentPage(page),
-        }}
-      />
+
+      <div className="bg-white p-4 rounded shadow-sm">
+        <Table
+          columns={columns}
+          dataSource={rooms}
+          rowKey="id"
+          pagination={{
+            pageSize: pageSize,
+            current: currentPage,
+            onChange: (page) => setCurrentPage(page),
+          }}
+        />
+      </div>
     </div>
   );
 };

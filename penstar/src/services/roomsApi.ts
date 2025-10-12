@@ -14,35 +14,32 @@ export const getRooms = async () => {
 export const getRoomID = async (id: number | string) => {
   try {
     const response = await instance.get(`/rooms/${id}`);
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    return response.data?.data ?? null;
   } catch (error) {
     console.error(`Error fetching room with ID ${id}:`, error);
     throw error;
   }
 };
 
-export const createRoom = async (roomData: FormData) => {
+export const createRoom = async (roomData: Record<string, unknown>) => {
   try {
-    const response = await instance.post("/rooms", roomData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    const response = await instance.post("/rooms", roomData);
+    console.log("Payload sent to createRoom:", roomData);
+    // controller returns { success, message, data }
+    return response.data?.data ?? null;
   } catch (error) {
     console.error("Error creating room:", error);
     throw error;
   }
 };
 
-export const updateRoom = async (id: number | string, roomData: FormData) => {
+export const updateRoom = async (
+  id: number | string,
+  roomData: Record<string, unknown>
+) => {
   try {
-    const response = await instance.put(`/rooms/${id}`, roomData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    const response = await instance.put(`/rooms/${id}`, roomData);
+    return response.data?.data ?? null;
   } catch (error) {
     console.error(`Error updating room with ID ${id}:`, error);
     throw error;

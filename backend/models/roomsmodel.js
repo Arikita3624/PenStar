@@ -58,3 +58,11 @@ export const updateRoom = async (id, data) => {
   console.log(resuit);
   return resuit.rows[0];
 };
+
+export const deleteRoom = async (id) => {
+  const resuit = await pool.query(
+    "DELETE FROM rooms WHERE id = $1 RETURNING *",
+    [id]
+  );
+  return resuit.rows[0];
+};

@@ -2,8 +2,9 @@ export interface Room {
   id: number;
   image: string;
   number: string;
-  branchId: number;
   status: string;
+  capacity: number;
+  descriptiom: string;
   price: number;
   type_id: number;
   floor_id: number;
