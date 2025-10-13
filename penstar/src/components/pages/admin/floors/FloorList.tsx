@@ -74,9 +74,9 @@ const FloorList = () => {
       queryClient.invalidateQueries({ queryKey: ["floors"] });
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Failed to delete floor";
+      const serverMsg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      const msg = serverMsg || "Failed to delete floor";
       message.error(msg);
     },
   });

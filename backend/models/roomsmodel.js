@@ -66,3 +66,28 @@ export const deleteRoom = async (id) => {
   );
   return resuit.rows[0];
 };
+
+// Backwards-compatible wrappers (camelCase) kept, but internal helpers accept snake_case keys
+export const countRoomsByTypeId = async (typeId) => {
+  return countRoomsBy_type_id(typeId);
+};
+
+export const countRoomsByFloorId = async (floorId) => {
+  return countRoomsBy_floor_id(floorId);
+};
+
+export const countRoomsBy_type_id = async (type_id) => {
+  const resuit = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM rooms WHERE type_id = $1",
+    [type_id]
+  );
+  return resuit.rows[0]?.count ?? 0;
+};
+
+export const countRoomsBy_floor_id = async (floor_id) => {
+  const resuit = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM rooms WHERE floor_id = $1",
+    [floor_id]
+  );
+  return resuit.rows[0]?.count ?? 0;
+};

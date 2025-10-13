@@ -74,19 +74,29 @@ export const updateFloor = async (req, res) => {
       data: updated,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
 export const deleteFloor = async (req, res) => {
   const { id } = req.params;
   try {
+    // check if any room uses this floor
+    const { countRoomsByFloorId } = await import("../models/roomsmodel.js");
+    const count = await countRoomsByFloorId(id);
+    if (count > 0) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Cannot delete floor: rooms still reference it",
+        });
+    }
+
     const deleted = await modelDeleteFloor(id);
     if (!deleted)
       return res
@@ -100,20 +110,16 @@ export const deleteFloor = async (req, res) => {
   } catch (error) {
     // handle FK constraint
     if (error && error.code === "23503") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Foreign key constraint failed: cannot delete",
-          error: error.message,
-        });
-    }
-    res
-      .status(500)
-      .json({
+      return res.status(400).json({
         success: false,
-        message: "🚨 Internal server error",
+        message: "Foreign key constraint failed: cannot delete",
         error: error.message,
       });
+    }
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };

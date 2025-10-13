@@ -75,9 +75,9 @@ const RoomType = () => {
       queryClient.invalidateQueries({ queryKey: ["room_types"] });
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Failed to delete";
+      const serverMsg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      const msg = serverMsg || "Failed to delete";
       message.error(msg);
     },
   });

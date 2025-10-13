@@ -50,13 +50,11 @@ export const getRoomTypeById = async (req, res) => {
         .json({ success: false, message: "Room type not found" });
     res.json({ success: true, message: "✅ Get room type", data: item });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -70,19 +68,29 @@ export const updateRoomType = async (req, res) => {
         .json({ success: false, message: "Room type not found" });
     res.json({ success: true, message: "✅ Room type updated", data: updated });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
 export const deleteRoomType = async (req, res) => {
   const { id } = req.params;
   try {
+    // check if any room uses this type
+    const { countRoomsByTypeId } = await import("../models/roomsmodel.js");
+    const count = await countRoomsByTypeId(id);
+    if (count > 0) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Cannot delete room type: rooms still reference it",
+        });
+    }
+
     const deleted = await modelDeleteRoomType(id);
     if (!deleted)
       return res
@@ -92,20 +100,16 @@ export const deleteRoomType = async (req, res) => {
   } catch (error) {
     // handle FK violation
     if (error && error.code === "23503") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot delete room type in use",
-          error: error.message,
-        });
-    }
-    res
-      .status(500)
-      .json({
+      return res.status(400).json({
         success: false,
-        message: "🚨 Internal server error",
+        message: "Cannot delete room type in use",
         error: error.message,
       });
+    }
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
