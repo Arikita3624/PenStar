@@ -12,12 +12,14 @@ const roomSchema = Joi.object({
 });
 
 export const validateRoomCreate = (req, res, next) => {
-  const { error } = roomSchema.validate(req.body);
+  const { value, error } = roomSchema.validate(req.body);
   if (error) {
     return res
       .status(400)
       .json({ success: false, message: error.details[0].message });
   }
+  // Use the validated/coerced values from Joi (e.g., string->number conversions)
+  req.body = value;
   next();
 };
 
@@ -27,14 +29,18 @@ export const validateRoomUpdate = (req, res, next) => {
     return res.status(400).json({ message: "Invalid ID" });
 
   // Cho phép update partial
-  const { error } = roomSchema
-    .fork(Object.keys(roomSchema.describe().keys), (field) => field.optional())
-    .validate(req.body);
+  const partialSchema = roomSchema.fork(
+    Object.keys(roomSchema.describe().keys),
+    (field) => field.optional()
+  );
+  const { value, error } = partialSchema.validate(req.body);
   if (error) {
     return res
       .status(400)
       .json({ success: false, message: error.details[0].message });
   }
+  // assign validated/coerced values back to req.body for downstream handlers
+  req.body = value;
   next();
 };
 

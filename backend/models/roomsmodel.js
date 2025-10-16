@@ -91,3 +91,22 @@ export const countRoomsBy_floor_id = async (floor_id) => {
   );
   return resuit.rows[0]?.count ?? 0;
 };
+
+export const existsRoomWithNameAndType = async (
+  name,
+  type_id,
+  excludeId = null
+) => {
+  if (excludeId) {
+    const res = await pool.query(
+      "SELECT 1 FROM rooms WHERE name = $1 AND type_id = $2 AND id <> $3 LIMIT 1",
+      [name, type_id, excludeId]
+    );
+    return res.rowCount > 0;
+  }
+  const res = await pool.query(
+    "SELECT 1 FROM rooms WHERE name = $1 AND type_id = $2 LIMIT 1",
+    [name, type_id]
+  );
+  return res.rowCount > 0;
+};

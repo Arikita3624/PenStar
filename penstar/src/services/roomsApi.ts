@@ -55,3 +55,19 @@ export const deleteRoom = async (id: number | string) => {
     throw error;
   }
 };
+
+export const checkRoomNameExists = async (
+  name: string,
+  type_id: number | string,
+  excludeId?: number | string
+) => {
+  try {
+    const params: Record<string, string | number> = { name, type_id };
+    if (excludeId) params.excludeId = excludeId;
+    const response = await instance.get(`/rooms/check-name`, { params });
+    return response.data?.exists ?? false;
+  } catch (error) {
+    console.error("Error checking room name exists:", error);
+    throw error;
+  }
+};

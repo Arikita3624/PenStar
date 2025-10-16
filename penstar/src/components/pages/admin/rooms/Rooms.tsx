@@ -1,6 +1,5 @@
 // services used: roomsApi wrapper functions
-import { EditOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -26,11 +25,21 @@ import {
 import { getFloors } from "@/services/floorsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
 
+import { useState } from "react";
+import QuillEditor from "@/components/common/QuillEditor";
+
 const Rooms = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
+  const [filterTypeId, setFilterTypeId] = useState<number | string | null>(
+    null
+  );
+  const [filterFloorId, setFilterFloorId] = useState<number | string | null>(
+    null
+  );
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const {
     data: rooms,
@@ -97,7 +106,6 @@ const Rooms = () => {
     }) => updateRoom(id, payload),
     onSuccess: () => {
       messageApi.success("Room updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
       setOpen(false);
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
@@ -112,6 +120,23 @@ const Rooms = () => {
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error</div>;
+
+  const filteredRooms = rooms?.filter((r) => {
+    if (filterTypeId && String(r.type_id) !== String(filterTypeId))
+      return false;
+    if (filterFloorId && String(r.floor_id) !== String(filterFloorId))
+      return false;
+    const q = String(searchTerm ?? "")
+      .trim()
+      .toLowerCase();
+    if (q) {
+      const name = String(
+        (r as unknown as Record<string, unknown>).name ?? ""
+      ).toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+    return true;
+  });
 
   const columns: ColumnsType<Room> = [
     {
@@ -136,11 +161,24 @@ const Rooms = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status) => (
-        <Tag color={status === "available" ? "green" : "volcano"}>
-          {String(status).toUpperCase()}
-        </Tag>
-      ),
+      render: (status) => {
+        const meta: Record<string, { label: string; color: string }> = {
+          available: { label: "Available", color: "green" },
+          booked: { label: "Booked", color: "gold" },
+          occupied: { label: "Occupied", color: "orange" },
+          unavailable: { label: "Unavailable", color: "red" },
+          cleaning: { label: "Cleaning", color: "purple" },
+          checked_out: { label: "Checked-out (History)", color: "blue" },
+          no_show: { label: "No-show", color: "magenta" },
+          pending_payment: { label: "Pending Payment", color: "cyan" },
+          cancelled: { label: "Cancelled", color: "volcano" },
+        };
+        const m = meta[String(status)] || {
+          label: String(status).toUpperCase(),
+          color: "default",
+        };
+        return <Tag color={m.color}>{m.label}</Tag>;
+      },
     },
     {
       title: "Type",
@@ -224,10 +262,64 @@ const Rooms = () => {
     <div>
       {contextHolder}
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Rooms List</h1>
+        <h1 className="text-2xl font-bold">ROOM LIST</h1>
         <div className="flex items-center gap-3">
+          <Input.Search
+            placeholder="Search by room name"
+            allowClear
+            style={{ width: 260 }}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+          <Select
+            allowClear
+            placeholder="Filter by room type"
+            style={{ width: 200 }}
+            value={filterTypeId ?? undefined}
+            onChange={(val) => {
+              setFilterTypeId(val ?? null);
+              setCurrentPage(1);
+            }}
+          >
+            {room_types?.map((t) => (
+              <Select.Option key={t.id} value={t.id}>
+                {t.name}
+              </Select.Option>
+            ))}
+          </Select>
+
+          <Select
+            allowClear
+            placeholder="Filter by floor"
+            style={{ width: 200 }}
+            value={filterFloorId ?? undefined}
+            onChange={(val) => {
+              setFilterFloorId(val ?? null);
+              setCurrentPage(1);
+            }}
+          >
+            {floors?.map((f) => (
+              <Select.Option key={f.id} value={f.id}>
+                {f.name}
+              </Select.Option>
+            ))}
+          </Select>
+
+          <Button
+            onClick={() => {
+              setFilterTypeId(null);
+              setFilterFloorId(null);
+              setCurrentPage(1);
+            }}
+          >
+            Clear
+          </Button>
+
           <Button
             type="primary"
+            icon={<PlusOutlined />}
             onClick={() => {
               setEditing(null);
               form.resetFields();
@@ -242,7 +334,7 @@ const Rooms = () => {
       <div className="bg-white p-4 rounded shadow-sm">
         <Table
           columns={columns}
-          dataSource={rooms}
+          dataSource={filteredRooms ?? rooms}
           rowKey="id"
           pagination={{
             pageSize: pageSize,
@@ -290,7 +382,36 @@ const Rooms = () => {
                   <Form.Item
                     name="name"
                     label="Room Name"
-                    rules={[{ required: true }]}
+                    rules={[
+                      { required: true, message: "Name is required" },
+                      {
+                        validator: async (_rule, value) => {
+                          const name = String(value ?? "").trim();
+                          if (!name)
+                            return Promise.reject(
+                              new Error("Name is required")
+                            );
+                          const type_id = form.getFieldValue("type_id");
+                          // If no type selected yet, skip server check
+                          if (!type_id) return Promise.resolve();
+                          // Call API to check existence
+                          const exists = await (
+                            await import("@/services/roomsApi")
+                          ).checkRoomNameExists(
+                            name,
+                            Number(type_id),
+                            editing?.id
+                          );
+                          if (exists)
+                            return Promise.reject(
+                              new Error(
+                                "Room name already exists for this room type"
+                              )
+                            );
+                          return Promise.resolve();
+                        },
+                      },
+                    ]}
                   >
                     <Input />
                   </Form.Item>
@@ -329,7 +450,23 @@ const Rooms = () => {
                     <Form.Item
                       name="capacity"
                       label="Capacity"
-                      rules={[{ required: true }]}
+                      rules={[
+                        { required: true, message: "Capacity is required" },
+                        {
+                          validator: (_rule, value) => {
+                            const n = Number(value);
+                            if (Number.isNaN(n))
+                              return Promise.reject(
+                                new Error("Capacity must be a number")
+                              );
+                            if (!Number.isInteger(n) || n <= 0)
+                              return Promise.reject(
+                                new Error("Capacity must be a positive integer")
+                              );
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
                     >
                       <InputNumber style={{ width: "100%" }} />
                     </Form.Item>
@@ -337,14 +474,45 @@ const Rooms = () => {
                     <Form.Item
                       name="price"
                       label="Price (VND)"
-                      rules={[{ required: true }]}
+                      rules={[
+                        { required: true, message: "Price is required" },
+                        {
+                          validator: (_rule, value) => {
+                            const n = Number(
+                              String(value ?? "").replace(/[^0-9.-]+/g, "")
+                            );
+                            if (Number.isNaN(n))
+                              return Promise.reject(
+                                new Error("Price must be a number")
+                              );
+                            if (n <= 0)
+                              return Promise.reject(
+                                new Error("Price must be > 0")
+                              );
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
                     >
-                      <InputNumber style={{ width: "100%" }} />
+                      {/* Formatted InputNumber with thousands separator */}
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value: string = "") =>
+                          value.replace(/\$|,|\s/g, "")
+                        }
+                      />
                     </Form.Item>
                   </div>
 
-                  <Form.Item name="description" label="Description">
-                    <Input.TextArea />
+                  <Form.Item
+                    name="description"
+                    label="Description"
+                    valuePropName="value"
+                  >
+                    <QuillEditor />
                   </Form.Item>
                 </div>
 
@@ -374,9 +542,25 @@ const Rooms = () => {
                   <Form.Item
                     name="status"
                     label="Status"
-                    rules={[{ required: true }]}
+                    rules={[{ required: true, message: "Status is required" }]}
                   >
-                    <Input />
+                    <Select placeholder="Select status">
+                      <Select.Option value="available">Available</Select.Option>
+                      <Select.Option value="booked">Booked</Select.Option>
+                      <Select.Option value="occupied">Occupied</Select.Option>
+                      <Select.Option value="unavailable">
+                        Unavailable
+                      </Select.Option>
+                      <Select.Option value="cleaning">Cleaning</Select.Option>
+                      <Select.Option value="checked_out">
+                        Checked-out (History)
+                      </Select.Option>
+                      <Select.Option value="no_show">No-show</Select.Option>
+                      <Select.Option value="pending_payment">
+                        Pending Payment
+                      </Select.Option>
+                      <Select.Option value="cancelled">Cancelled</Select.Option>
+                    </Select>
                   </Form.Item>
                 </div>
               </div>

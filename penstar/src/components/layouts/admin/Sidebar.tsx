@@ -125,6 +125,26 @@ const Sidebar = () => {
         </svg>
       ),
     },
+    {
+      to: "/admin/services",
+      label: "Services",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8c-3 0-5 2-5 5s2 5 5 5 5-2 5-5-2-5-5-5z M12 3v3M12 18v3"
+          />
+        </svg>
+      ),
+    },
   ];
 
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>

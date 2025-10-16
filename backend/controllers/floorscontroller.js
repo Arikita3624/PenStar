@@ -49,6 +49,13 @@ export const getFloorID = async (req, res) => {
 
 export const createFloor = async (req, res) => {
   try {
+    const { existsFloorWithName } = await import("../models/floorsmodel.js");
+    const { name } = req.body;
+    if (await existsFloorWithName(String(name))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Floor name already exists" });
+    }
     const newFloor = await modelCreateFloor(req.body);
     res.status(201).json({
       success: true,
@@ -67,6 +74,13 @@ export const createFloor = async (req, res) => {
 export const updateFloor = async (req, res) => {
   const { id } = req.params;
   try {
+    const { existsFloorWithName } = await import("../models/floorsmodel.js");
+    const { name } = req.body;
+    if (name && (await existsFloorWithName(String(name), Number(id)))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Floor name already exists" });
+    }
     const updated = await modelUpdateFloor(id, req.body);
     res.json({
       success: true,
@@ -85,16 +99,13 @@ export const updateFloor = async (req, res) => {
 export const deleteFloor = async (req, res) => {
   const { id } = req.params;
   try {
-    // check if any room uses this floor
     const { countRoomsByFloorId } = await import("../models/roomsmodel.js");
     const count = await countRoomsByFloorId(id);
     if (count > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot delete floor: rooms still reference it",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete floor: rooms still reference it",
+      });
     }
 
     const deleted = await modelDeleteFloor(id);

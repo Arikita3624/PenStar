@@ -1,4 +1,6 @@
 import "./index.css";
+// Styles for react-quill editor (installed: react-quill-new)
+import "react-quill-new/dist/quill.snow.css";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router-dom";
 import "@ant-design/v5-patch-for-react-19";

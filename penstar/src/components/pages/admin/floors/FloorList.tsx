@@ -12,6 +12,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
+import QuillEditor from "@/components/common/QuillEditor";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFloor, getFloors } from "@/services/floorsApi";
 import { deleteFloor, updateFloor } from "@/services/floorsApi";
@@ -25,10 +26,21 @@ const FloorList = () => {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const { data: floors = [], isLoading } = useQuery<Floors[]>({
     queryKey: ["floors"],
     queryFn: getFloors,
+  });
+
+  const filteredFloors = floors.filter((f: Floors) => {
+    const q = String(searchTerm ?? "")
+      .trim()
+      .toLowerCase();
+    if (!q) return true;
+    return String(f.name ?? "")
+      .toLowerCase()
+      .includes(q);
   });
 
   const createMut = useMutation({
@@ -88,7 +100,6 @@ const FloorList = () => {
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
       width: 80,
     },
-    { title: "ID", dataIndex: "id", key: "id" },
     { title: "Name", dataIndex: "name", key: "name" },
     { title: "Description", dataIndex: "description", key: "description" },
     {
@@ -126,23 +137,34 @@ const FloorList = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Floors</h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => {
-            form.resetFields();
-            setOpen(true);
-          }}
-        >
-          New
-        </Button>
+        <h1 className="text-2xl font-bold">FLOORS</h1>
+        <div className="flex items-center gap-3">
+          <Input.Search
+            placeholder="Search by name"
+            allowClear
+            style={{ width: 260 }}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              form.resetFields();
+              setOpen(true);
+            }}
+          >
+            New
+          </Button>
+        </div>
       </div>
 
       <Card>
         <Table
           columns={columns}
-          dataSource={floors}
+          dataSource={filteredFloors}
           rowKey="id"
           loading={isLoading}
           pagination={{
@@ -174,11 +196,37 @@ const FloorList = () => {
             }
           }}
         >
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+          <Form.Item
+            name="name"
+            label="Name"
+            rules={[
+              { required: true, message: "Name required" },
+              {
+                validator: async (_rule, value) => {
+                  const name = String(value ?? "").trim();
+                  if (!name) return Promise.reject(new Error("Name required"));
+                  try {
+                    const exists = await (
+                      await import("@/services/floorsApi")
+                    ).checkFloorNameExists(name, editing?.id);
+                    if (exists)
+                      return Promise.reject(new Error("Name already exists"));
+                    return Promise.resolve();
+                  } catch {
+                    return Promise.reject(new Error("Name validation failed"));
+                  }
+                },
+              },
+            ]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea />
+          <Form.Item
+            name="description"
+            label="Description"
+            valuePropName="value"
+          >
+            <QuillEditor />
           </Form.Item>
         </Form>
       </Modal>

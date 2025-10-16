@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Quill editor full-size helper */
+.quill-editor-full {
+  width: 100%;
+}
+.quill-editor-full .ql-container {
+  min-height: 220px; /* default taller height */
+}
+.quill-editor-full .ql-editor {
+  min-height: 180px;
+}

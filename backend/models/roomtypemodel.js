@@ -38,3 +38,18 @@ export const deleteRoomType = async (id) => {
   );
   return resuit.rows[0];
 };
+
+export const existsRoomTypeWithName = async (name, excludeId = null) => {
+  if (excludeId) {
+    const res = await pool.query(
+      "SELECT 1 FROM room_types WHERE name = $1 AND id <> $2 LIMIT 1",
+      [name, excludeId]
+    );
+    return res.rowCount > 0;
+  }
+  const res = await pool.query(
+    "SELECT 1 FROM room_types WHERE name = $1 LIMIT 1",
+    [name]
+  );
+  return res.rowCount > 0;
+};
