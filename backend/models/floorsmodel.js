@@ -37,3 +37,17 @@ export const deleteFloor = async (id) => {
   );
   return resuit.rows[0];
 };
+
+export const existsFloorWithName = async (name, excludeId = null) => {
+  if (excludeId) {
+    const res = await pool.query(
+      "SELECT 1 FROM floors WHERE name = $1 AND id <> $2 LIMIT 1",
+      [name, excludeId]
+    );
+    return res.rowCount > 0;
+  }
+  const res = await pool.query("SELECT 1 FROM floors WHERE name = $1 LIMIT 1", [
+    name,
+  ]);
+  return res.rowCount > 0;
+};

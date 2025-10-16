@@ -5,6 +5,7 @@ import pool from "./db.js";
 import roomsRouter from "./routers/rooms.js";
 import roomTypeRouter from "./routers/roomstype.js";
 import FloorsRouter from "./routers/floors.js";
+import serviceRouter from "./routers/services.js";
 
 dotenv.config();
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/api/rooms", roomsRouter);
 app.use("/api/roomtypes", roomTypeRouter);
 app.use("/api/floors", FloorsRouter);
+app.use("/api/services", serviceRouter);
 
 app.use((err, req, res, next) => {
   console.error("🔥 ERROR:", err);

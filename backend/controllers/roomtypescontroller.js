@@ -25,6 +25,15 @@ export const getRoomTypes = async (req, res) => {
 
 export const createRoomType = async (req, res) => {
   try {
+    const { existsRoomTypeWithName } = await import(
+      "../models/roomtypemodel.js"
+    );
+    const { name } = req.body;
+    if (await existsRoomTypeWithName(String(name))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Room type name already exists" });
+    }
     const newRoomType = await modelCreateRoomType(req.body);
     res.status(201).json({
       success: true,
@@ -61,6 +70,15 @@ export const getRoomTypeById = async (req, res) => {
 export const updateRoomType = async (req, res) => {
   const { id } = req.params;
   try {
+    const { existsRoomTypeWithName } = await import(
+      "../models/roomtypemodel.js"
+    );
+    const { name } = req.body;
+    if (name && (await existsRoomTypeWithName(String(name), Number(id)))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Room type name already exists" });
+    }
     const updated = await modelUpdateRoomType(id, req.body);
     if (!updated)
       return res
@@ -83,12 +101,10 @@ export const deleteRoomType = async (req, res) => {
     const { countRoomsByTypeId } = await import("../models/roomsmodel.js");
     const count = await countRoomsByTypeId(id);
     if (count > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot delete room type: rooms still reference it",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete room type: rooms still reference it",
+      });
     }
 
     const deleted = await modelDeleteRoomType(id);

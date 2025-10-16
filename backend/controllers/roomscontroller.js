@@ -5,6 +5,7 @@ import {
   updateRoom as modelUpdateRoom,
   deleteRoom as modelDeleteRoom,
 } from "../models/roomsmodel.js";
+import { existsRoomWithNameAndType } from "../models/roomsmodel.js";
 
 // 🏨 GET all rooms
 export const getRooms = async (req, res) => {
@@ -37,8 +38,9 @@ export const getRooms = async (req, res) => {
 // 🏨 GET room by ID
 export const getRoomID = async (req, res) => {
   const { id } = req.params;
+  const numericId = Number(id);
   try {
-    const room = await modelGetRoomById(id);
+    const room = await modelGetRoomById(numericId);
     if (!room) {
       return res.status(404).json({
         success: false,
@@ -71,7 +73,20 @@ export const getRoomID = async (req, res) => {
 // 🏨 CREATE room
 export const createRoom = async (req, res) => {
   try {
-    const newRoom = await modelCreateRoom(req.body);
+    const { name, type_id } = req.body;
+    const numericTypeId = type_id !== undefined ? Number(type_id) : undefined;
+    if (name && numericTypeId) {
+      const exists = await existsRoomWithNameAndType(name, numericTypeId);
+      if (exists) {
+        return res.status(400).json({
+          success: false,
+          message: "Room name already exists for this room type",
+        });
+      }
+    }
+    // ensure numeric fields are numbers for the model
+    const payload = { ...req.body, type_id: numericTypeId };
+    const newRoom = await modelCreateRoom(payload);
     res.status(201).json({
       success: true,
       message: "✅ Room created successfully",
@@ -89,8 +104,26 @@ export const createRoom = async (req, res) => {
 // 🏨 UPDATE room
 export const updateRoom = async (req, res) => {
   const { id } = req.params;
+  const numericId = Number(id);
   try {
-    const updated = await modelUpdateRoom(id, req.body);
+    const { name, type_id } = req.body;
+    const numericTypeId = type_id !== undefined ? Number(type_id) : undefined;
+    if (name && numericTypeId) {
+      const exists = await existsRoomWithNameAndType(
+        name,
+        numericTypeId,
+        numericId
+      );
+      if (exists) {
+        return res.status(400).json({
+          success: false,
+          message: "Room name already exists for this room type",
+        });
+      }
+    }
+    const payload = { ...req.body };
+    if (numericTypeId !== undefined) payload.type_id = numericTypeId;
+    const updated = await modelUpdateRoom(numericId, payload);
     res.json({
       success: true,
       message: "✅ Room updated successfully",
@@ -108,8 +141,9 @@ export const updateRoom = async (req, res) => {
 // 🗑️ DELETE room
 export const deleteRoom = async (req, res) => {
   const { id } = req.params;
+  const numericId = Number(id);
   try {
-    const deleted = await modelDeleteRoom(id);
+    const deleted = await modelDeleteRoom(numericId);
     if (!deleted) {
       return res
         .status(404)
@@ -129,12 +163,10 @@ export const deleteRoom = async (req, res) => {
         error: error.message,
       });
     }
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };

@@ -55,3 +55,18 @@ export const deleteFloor = async (id: number | string) => {
     throw error;
   }
 };
+
+export const checkFloorNameExists = async (
+  name: string,
+  excludeId?: number | string
+) => {
+  try {
+    const params: Record<string, string | number> = { name };
+    if (excludeId) params.excludeId = excludeId;
+    const response = await instance.get(`/floors/check-name`, { params });
+    return response.data?.exists ?? false;
+  } catch (error) {
+    console.error("Error checking floor name exists:", error);
+    throw error;
+  }
+};
