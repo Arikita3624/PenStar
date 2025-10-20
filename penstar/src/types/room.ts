@@ -1,7 +1,7 @@
 export interface Room {
+  name: string;
+  thumbnail: string;
   id: number;
-  image: string;
-  number: string;
   status: string;
   capacity: number;
   description: string;

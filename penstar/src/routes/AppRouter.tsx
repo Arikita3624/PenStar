@@ -5,11 +5,21 @@ import RoomType from "@/components/pages/admin/roomtypes/RoomType";
 import FloorList from "@/components/pages/admin/floors/FloorList";
 import ServicesPage from "@/components/pages/admin/services/Services";
 import { Route, Routes } from "react-router-dom";
+import LayoutClient from "@/components/pages/clients/LayoutClient";
+import HomePage from "@/components/pages/clients/HomePage";
+import RoomsList from "@/components/pages/clients/roooms/RoomsList";
+import RoomDetail from "@/components/pages/clients/roooms/RoomDetail";
 
 const AppRouter = () => {
   return (
     <div>
       <Routes>
+        <Route path="/" element={<LayoutClient />}>
+          <Route index element={<HomePage />} />
+          <Route path="home" element={<HomePage />} />
+          <Route path="rooms" element={<RoomsList />} />
+          <Route path="rooms/:id" element={<RoomDetail />} />
+        </Route>
         <Route path="admin" element={<LayoutAdmin />}>
           <Route index element={<Dashboard />} />
           <Route path="rooms" element={<Rooms />} />
