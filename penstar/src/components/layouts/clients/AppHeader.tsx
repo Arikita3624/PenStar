@@ -1,11 +1,27 @@
 import { Button } from "antd";
 import { PhoneOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 const AppHeader = () => {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="bg-[#0a4f86] text-white">
-      <div className="container mx-auto px-4 py-2 flex items-center justify-between">
+    <header
+      className={`bg-[#0a4f86] text-white sticky top-0 z-50 transition-all duration-300 ${
+        scrolled ? "shadow-xl py-1" : "py-2"
+      }`}
+    >
+      <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center text-white font-bold">
             PS
