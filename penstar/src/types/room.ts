@@ -1,13 +1,14 @@
 export interface Room {
-  name: string;
-  thumbnail: string;
   id: number;
-  status: string;
-  capacity: number;
-  description: string;
-  price: number;
+  name: string;
   type_id: number;
+  price: number;
+  capacity: number;
+  status: string;
+  thumbnail: string;
   floor_id: number;
+  short_desc: string;
+  long_desc: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getRoomID } from "@/services/roomsApi";
 import { getRoomTypeById } from "@/services/roomTypeApi";
 import { getFloorById } from "@/services/floorsApi";
+import { getImagesByRoom } from "@/services/roomImagesApi";
 import type { Room } from "@/types/room";
+import type { RoomImage } from "@/types/roomImage";
 
 const RoomDetail = () => {
   const { id } = useParams();
@@ -23,6 +25,13 @@ const RoomDetail = () => {
     queryKey: ["floor", room?.floor_id],
     queryFn: () => getFloorById(String(room?.floor_id ?? "")),
     enabled: Boolean(room?.floor_id),
+  });
+
+  // Fetch room images
+  const { data: images = [] } = useQuery<RoomImage[]>({
+    queryKey: ["roomImages", room?.id],
+    queryFn: () => getImagesByRoom(Number(room?.id)),
+    enabled: Boolean(room?.id),
   });
 
   if (isLoading)
@@ -64,7 +73,7 @@ const RoomDetail = () => {
   const obj = room as unknown as Record<string, unknown>;
   const img = String(obj.thumbnail ?? obj.image ?? "/room-default.jpg");
   const title = String(obj.name ?? obj.number ?? `Phòng ${obj.id ?? ""}`);
-  const desc = obj.description ? String(obj.description) : "";
+  const desc = obj.long_desc ? String(obj.long_desc) : "";
   const price = Number(obj.price ?? 0);
   const status = String(obj.status ?? "").toLowerCase();
 
@@ -96,10 +105,26 @@ const RoomDetail = () => {
     text: "text-gray-700",
     label: String(obj.status ?? "—"),
   };
-
-  const stripHtml = (html?: string) => {
+  // helper: strip tags for short description
+  const stripTags = (html?: string) => {
     if (!html) return "";
-    return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ");
+    return String(html)
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim();
+  };
+
+  // Basic sanitizer: remove script/style tags and on* attributes to reduce XSS risk
+  const sanitizeHtml = (html?: string) => {
+    if (!html) return "";
+    // remove script and style blocks
+    let s = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+    s = s.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
+    // remove on* attributes like onclick
+    s = s.replace(/on[a-z]+\s*=\s*"[^"]*"/gi, "");
+    s = s.replace(/on[a-z]+\s*=\s*'[^']*'/gi, "");
+    s = s.replace(/on[a-z]+\s*=\s*[^\s>]+/gi, "");
+    return s;
   };
 
   return (
@@ -162,11 +187,21 @@ const RoomDetail = () => {
                   {title}
                 </h1>
 
-                {/* Description */}
-                <p className="text-gray-600 text-base leading-relaxed mb-6">
-                  {stripHtml(desc) ||
-                    "Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải mái."}
-                </p>
+                {/* Short description (shown here). Long description moved below images. */}
+                <div className="text-gray-600 text-base leading-relaxed mb-6">
+                  {String(obj.short_desc ?? "").trim() ? (
+                    <p className="text-gray-700 mb-4">
+                      {stripTags(String(obj.short_desc))}
+                    </p>
+                  ) : (
+                    !desc && (
+                      <p>
+                        Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải
+                        mái.
+                      </p>
+                    )
+                  )}
+                </div>
 
                 {/* Price Section */}
                 <div className="bg-blue-50 rounded-xl p-6 mb-6">
@@ -294,6 +329,45 @@ const RoomDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Room Images Gallery */}
+        <div className="mt-8">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">
+            Hình ảnh phòng
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {images.map((imgItem) => (
+              <div key={imgItem.id} className="relative">
+                <img
+                  src={imgItem.image_url}
+                  alt={`Room image ${imgItem.id}`}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                {imgItem.is_thumbnail && (
+                  <span className="absolute top-1 left-1 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                    Thumbnail
+                  </span>
+                )}
+              </div>
+            ))}
+            {images.length === 0 && (
+              <p className="text-gray-500">Chưa có hình ảnh phòng.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Long description (rendered as HTML) */}
+        {desc && (
+          <div className="container mx-auto px-4 py-8">
+            <h3 className="text-xl font-bold text-gray-800 mb-3">
+              Mô tả chi tiết
+            </h3>
+            <div
+              className="bg-white rounded-xl p-6 shadow-sm text-gray-700"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(desc) }}
+            />
+          </div>
+        )}
 
         {/* Additional Info Section */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
