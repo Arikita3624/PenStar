@@ -81,6 +81,9 @@ const RoomsList = () => {
     });
   };
 
+  const truncate = (s: string, n = 120) =>
+    s.length > n ? s.slice(0, n).trimEnd() + "..." : s;
+
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
@@ -219,7 +222,14 @@ const RoomsList = () => {
 
                     {/* Mô tả ngắn */}
                     <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                      {stripHtml(room.description) || "Không có mô tả"}
+                      {(() => {
+                        const short = stripHtml(room.short_desc || "");
+                        if (short) return truncate(short, 120);
+                        const fromLong = stripHtml(room.long_desc || "");
+                        return fromLong
+                          ? truncate(fromLong, 120)
+                          : "Không có mô tả";
+                      })()}
                     </p>
 
                     {/* Giá + CTA */}

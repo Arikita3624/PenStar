@@ -1,33 +1,16 @@
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Space,
-  Table,
-  message,
-  Popconfirm,
-} from "antd";
+import { Button, Card, Input, Space, Table, message, Popconfirm } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
-import QuillEditor from "@/components/common/QuillEditor";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  createRoomType,
-  deleteRoomType,
-  getRoomTypes,
-  updateRoomType,
-} from "@/services/roomTypeApi";
+import { getRoomTypes, deleteRoomType } from "@/services/roomTypeApi";
 
 type RoomTypeItem = { id: number; name: string; description: string };
 
 const RoomType = () => {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<RoomTypeItem | null>(null);
-  const [form] = Form.useForm();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -47,41 +30,6 @@ const RoomType = () => {
       .includes(q);
   });
 
-  const createMut = useMutation({
-    mutationFn: (payload: { name: string; description: string }) =>
-      createRoomType(payload),
-    onSuccess: () => {
-      message.success("Room type created");
-      queryClient.invalidateQueries({ queryKey: ["room_types"] });
-      setOpen(false);
-      form.resetFields();
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Failed to create";
-      message.error(msg);
-    },
-  });
-
-  const updateMut = useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: { name: string; description: string };
-    }) => updateRoomType(id, payload),
-    onSuccess: () => {
-      message.success("Room type updated");
-      queryClient.invalidateQueries({ queryKey: ["room_types"] });
-      setOpen(false);
-      setEditing(null);
-      form.resetFields();
-    },
-    onError: () => message.error("Failed to update"),
-  });
-
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteRoomType(id),
     onSuccess: () => {
@@ -95,16 +43,6 @@ const RoomType = () => {
       message.error(msg);
     },
   });
-
-  const onCreate = () => {
-    form.validateFields().then((values) => {
-      if (editing) {
-        updateMut.mutate({ id: editing.id, payload: values });
-      } else {
-        createMut.mutate(values);
-      }
-    });
-  };
 
   const columns: ColumnsType<RoomTypeItem> = [
     {
@@ -123,14 +61,7 @@ const RoomType = () => {
           <Button
             type="primary"
             icon={<EditOutlined />}
-            onClick={() => {
-              setEditing(record);
-              form.setFieldsValue({
-                name: record.name,
-                description: record.description,
-              });
-              setOpen(true);
-            }}
+            onClick={() => navigate(`/admin/roomtypes/${record.id}/edit`)}
           >
             Edit
           </Button>
@@ -164,11 +95,7 @@ const RoomType = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => {
-              setEditing(null);
-              form.resetFields();
-              setOpen(true);
-            }}
+            onClick={() => navigate("/admin/roomtypes/new")}
           >
             New
           </Button>
@@ -182,59 +109,12 @@ const RoomType = () => {
           rowKey="id"
           loading={isLoading}
           pagination={{
-            pageSize: pageSize,
+            pageSize,
             current: currentPage,
-            onChange: (page) => setCurrentPage(page),
+            onChange: (p) => setCurrentPage(p),
           }}
         />
       </Card>
-
-      <Modal
-        title={editing ? "Edit Room Type" : "New Room Type"}
-        open={open}
-        onOk={onCreate}
-        onCancel={() => {
-          setOpen(false);
-          setEditing(null);
-          form.resetFields();
-        }}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="Name"
-            rules={[
-              { required: true, message: "Name required" },
-              {
-                validator: async (_rule, value) => {
-                  const name = String(value ?? "").trim();
-                  if (!name) return Promise.reject(new Error("Name required"));
-                  const excludeId = editing?.id;
-                  try {
-                    const exists = await (
-                      await import("@/services/roomTypeApi")
-                    ).checkRoomTypeNameExists(name, excludeId);
-                    if (exists)
-                      return Promise.reject(new Error("Name already exists"));
-                    return Promise.resolve();
-                  } catch {
-                    return Promise.reject(new Error("Name validation failed"));
-                  }
-                },
-              },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Description"
-            valuePropName="value"
-          >
-            <QuillEditor />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

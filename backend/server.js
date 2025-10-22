@@ -17,6 +17,13 @@ app.use("/api/rooms", roomsRouter);
 app.use("/api/roomtypes", roomTypeRouter);
 app.use("/api/floors", FloorsRouter);
 app.use("/api/services", serviceRouter);
+import roomImagesRouter from "./routers/roomimages.js";
+app.use("/api/room-images", roomImagesRouter);
+
+import path from "path";
+import expressStatic from "express";
+// serve uploaded files from /uploads
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use((err, req, res, next) => {
   console.error("🔥 ERROR:", err);

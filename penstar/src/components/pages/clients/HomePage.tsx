@@ -317,7 +317,7 @@ const HomePage = () => {
                               {getRoomTitle(room)}
                             </h3>
                             <p className="text-sm text-gray-600 mb-4 line-clamp-2 h-10">
-                              {stripHtml(room.description) ||
+                              {stripHtml(room.short_desc) ||
                                 "Phòng sang trọng với đầy đủ tiện nghi hiện đại"}
                             </p>
 

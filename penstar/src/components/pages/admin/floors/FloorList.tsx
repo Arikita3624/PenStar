@@ -1,28 +1,15 @@
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Table,
-  message,
-  Popconfirm,
-  Space,
-} from "antd";
+import { Button, Card, Input, Table, message, Popconfirm, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
-import QuillEditor from "@/components/common/QuillEditor";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFloor, getFloors } from "@/services/floorsApi";
-import { deleteFloor, updateFloor } from "@/services/floorsApi";
+import { getFloors, deleteFloor } from "@/services/floorsApi";
+import { useNavigate } from "react-router-dom";
 import type { Floors } from "@/types/floors";
 
 const FloorList = () => {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Floors | null>(null);
-  const [form] = Form.useForm();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
@@ -41,42 +28,6 @@ const FloorList = () => {
     return String(f.name ?? "")
       .toLowerCase()
       .includes(q);
-  });
-
-  const createMut = useMutation({
-    mutationFn: (payload: { name: string; description: string }) =>
-      createFloor(payload),
-    onSuccess: () => {
-      message.success("Floor created");
-      queryClient.invalidateQueries({ queryKey: ["floors"] });
-      setOpen(false);
-      setEditing(null);
-      form.resetFields();
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Failed to create floor";
-      message.error(msg);
-    },
-  });
-
-  const updateMut = useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: { name: string; description: string };
-    }) => updateFloor(id, payload),
-    onSuccess: () => {
-      message.success("Floor updated");
-      queryClient.invalidateQueries({ queryKey: ["floors"] });
-      setOpen(false);
-      setEditing(null);
-      form.resetFields();
-    },
-    onError: () => message.error("Failed to update floor"),
   });
 
   const deleteMut = useMutation({
@@ -110,14 +61,7 @@ const FloorList = () => {
           <Button
             type="primary"
             icon={<EditOutlined />}
-            onClick={() => {
-              setEditing(record);
-              form.setFieldsValue({
-                name: record.name,
-                description: record.description,
-              });
-              setOpen(true);
-            }}
+            onClick={() => navigate(`/admin/floors/${record.id}/edit`)}
           >
             Edit
           </Button>
@@ -151,10 +95,7 @@ const FloorList = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => {
-              form.resetFields();
-              setOpen(true);
-            }}
+            onClick={() => navigate("/admin/floors/new")}
           >
             New
           </Button>
@@ -175,61 +116,7 @@ const FloorList = () => {
         />
       </Card>
 
-      <Modal
-        title={editing ? "Edit Floor" : "New Floor"}
-        open={open}
-        onCancel={() => {
-          setOpen(false);
-          setEditing(null);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={(values) => {
-            if (editing) {
-              updateMut.mutate({ id: editing.id as number, payload: values });
-            } else {
-              createMut.mutate(values);
-            }
-          }}
-        >
-          <Form.Item
-            name="name"
-            label="Name"
-            rules={[
-              { required: true, message: "Name required" },
-              {
-                validator: async (_rule, value) => {
-                  const name = String(value ?? "").trim();
-                  if (!name) return Promise.reject(new Error("Name required"));
-                  try {
-                    const exists = await (
-                      await import("@/services/floorsApi")
-                    ).checkFloorNameExists(name, editing?.id);
-                    if (exists)
-                      return Promise.reject(new Error("Name already exists"));
-                    return Promise.resolve();
-                  } catch {
-                    return Promise.reject(new Error("Name validation failed"));
-                  }
-                },
-              },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Description"
-            valuePropName="value"
-          >
-            <QuillEditor />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* Add/Edit handled on separate pages */}
     </div>
   );
 };
