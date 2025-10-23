@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRoomID } from "@/services/roomsApi";
 import { getRoomTypeById } from "@/services/roomTypeApi";
@@ -33,6 +34,12 @@ const RoomDetail = () => {
     queryFn: () => getImagesByRoom(Number(room?.id)),
     enabled: Boolean(room?.id),
   });
+  // slider state (declare hooks unconditionally)
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
+  useEffect(() => {
+    // reset to first slide if room's thumbnail or images change
+    setCurrentSlide(0);
+  }, [room?.thumbnail, images.length]);
 
   if (isLoading)
     return (
@@ -127,6 +134,22 @@ const RoomDetail = () => {
     return s;
   };
 
+  // prepare gallery images: exclude thumbnail and dedupe by URL
+  const galleryImages = (() => {
+    const seen = new Set<string>();
+    return images
+      .filter((im) => !im.is_thumbnail && im.image_url !== img)
+      .filter((im) => {
+        if (!im.image_url) return false;
+        if (seen.has(im.image_url)) return false;
+        seen.add(im.image_url);
+        return true;
+      });
+  })();
+
+  // build slides: extras only (main thumbnail will be shown above)
+  const extras = galleryImages.map((g) => g.image_url);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Breadcrumb */}
@@ -149,33 +172,90 @@ const RoomDetail = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            {/* Left: Image Gallery */}
-            <div className="relative h-[400px] lg:h-auto">
-              <img
-                src={img}
-                alt={title}
-                className="w-full h-full object-cover"
-              />
-              {/* Status Badge */}
-              <div className="absolute top-4 right-4">
-                <span
-                  className={`${st.bg} ${st.text} px-4 py-2 rounded-full text-sm font-bold shadow-lg`}
+            {/* Left: Large thumbnail area and compact extras gallery below (design-like) */}
+            <div className="relative flex flex-col lg:pr-6">
+              {/* Main image area: make it tall and centered */}
+              <div className="h-[520px] lg:h-[620px] w-full bg-gray-100 rounded overflow-hidden relative">
+                <img
+                  src={
+                    extras.length > 0
+                      ? extras[currentSlide % extras.length]
+                      : img
+                  }
+                  alt={title}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Left large overlay Prev arrow */}
+                <button
+                  aria-label="Prev"
+                  onClick={() =>
+                    setCurrentSlide((s) =>
+                      extras.length > 0
+                        ? s <= 0
+                          ? extras.length - 1
+                          : s - 1
+                        : 0
+                    )
+                  }
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-2xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
                 >
-                  {st.label}
-                </span>
-              </div>
-              {/* Rating Badge */}
-              <div className="absolute top-4 left-4">
-                <div className="bg-yellow-400 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
+                  ‹
+                </button>
+
+                {/* Right large overlay Next arrow */}
+                <button
+                  aria-label="Next"
+                  onClick={() =>
+                    setCurrentSlide((s) =>
+                      extras.length > 0
+                        ? s >= extras.length - 1
+                          ? 0
+                          : s + 1
+                        : 0
+                    )
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-2xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+                >
+                  ›
+                </button>
+
+                {/* Status Badge */}
+                <div className="absolute top-6 right-6">
+                  <span
+                    className={`${st.bg} ${st.text} px-4 py-2 rounded-full text-sm font-bold shadow-lg`}
                   >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  5.0
+                    {st.label}
+                  </span>
                 </div>
+              </div>
+
+              {/* Thumbnails row (compact) */}
+              <div className="mt-4 flex items-center gap-3">
+                {extras.length > 0 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {extras.map((s, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentSlide(idx)}
+                        className={`flex-shrink-0 overflow-hidden rounded-lg border ${
+                          idx === currentSlide % extras.length
+                            ? "border-blue-600 ring-2 ring-blue-200"
+                            : "border-transparent"
+                        }`}
+                        aria-label={`Go to extra ${idx + 1}`}
+                      >
+                        <img
+                          src={s}
+                          alt={`thumb-${idx}`}
+                          className="w-36 h-24 object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">Không có ảnh phụ</div>
+                )}
               </div>
             </div>
 
@@ -330,31 +410,7 @@ const RoomDetail = () => {
           </div>
         </div>
 
-        {/* Room Images Gallery */}
-        <div className="mt-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
-            Hình ảnh phòng
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {images.map((imgItem) => (
-              <div key={imgItem.id} className="relative">
-                <img
-                  src={imgItem.image_url}
-                  alt={`Room image ${imgItem.id}`}
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                {imgItem.is_thumbnail && (
-                  <span className="absolute top-1 left-1 bg-blue-600 text-white text-xs px-2 py-1 rounded">
-                    Thumbnail
-                  </span>
-                )}
-              </div>
-            ))}
-            {images.length === 0 && (
-              <p className="text-gray-500">Chưa có hình ảnh phòng.</p>
-            )}
-          </div>
-        </div>
+        {/* Gallery moved into slider above */}
 
         {/* Long description (rendered as HTML) */}
         {desc && (

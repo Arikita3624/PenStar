@@ -18,11 +18,17 @@
     "axios": "^1.12.2",
     "framer-motion": "^12.23.24",
     "json-server": "^1.0.0-beta.3",
+    "jwt-decode": "^4.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-quill-new": "^3.6.0",
     "react-router-dom": "^7.9.3",
     "tailwindcss": "^4.1.13"
+  },
+  "dependenciesMeta": {
+    "jwt-decode": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

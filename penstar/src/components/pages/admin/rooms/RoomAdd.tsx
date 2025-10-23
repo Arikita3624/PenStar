@@ -11,9 +11,14 @@ import {
   Upload,
 } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
+import { useQuery } from "@tanstack/react-query";
 import { createRoom } from "@/services/roomsApi";
 import { uploadRoomImage } from "@/services/roomImagesApi";
+import { getRoomTypes } from "@/services/roomTypeApi";
+import { getFloors } from "@/services/floorsApi";
 import type { RcFile } from "antd/lib/upload";
+import type { RoomType } from "@/types/roomtypes";
+import type { Floors as Floor } from "@/types/floors";
 type FileWithMeta = RcFile & { lastModified?: number };
 
 const RoomAdd: React.FC = () => {
@@ -21,14 +26,25 @@ const RoomAdd: React.FC = () => {
   const [extras, setExtras] = useState<RcFile[]>([]);
   const [thumb, setThumb] = useState<RcFile | null>(null);
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  // use react-query like RoomEdit to fetch room types and floors
+  const { data: roomTypes = [], isLoading: typesLoading } = useQuery({
+    queryKey: ["roomtypes"],
+    queryFn: getRoomTypes,
+  });
+
+  const { data: floors = [], isLoading: floorsLoading } = useQuery({
+    queryKey: ["floors"],
+    queryFn: getFloors,
+  });
   const navigate = useNavigate();
-  const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     return () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
+
+  // room types and floors are fetched by react-query above
 
   const uploadSelectedFiles = async (roomId: number) => {
     if (thumb) {
@@ -56,7 +72,7 @@ const RoomAdd: React.FC = () => {
 
   return (
     <div>
-      {contextHolder}
+      {/* use global message so notifications persist across navigation */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold mb-4">ADD ROOM</h2>
         <Link to="/admin/rooms">
@@ -68,23 +84,37 @@ const RoomAdd: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={async (values) => {
+            // ensure required fields exist and types are correct for backend Joi validation
+            const PLACEHOLDER_THUMBNAIL =
+              "https://via.placeholder.com/800x600?text=No+Image";
             const payload = {
-              ...values,
+              name: values.name ?? "",
               type_id: values.type_id ? Number(values.type_id) : undefined,
               floor_id: values.floor_id ? Number(values.floor_id) : undefined,
-              price: values.price ? Number(values.price) : undefined,
-              capacity: values.capacity ? Number(values.capacity) : undefined,
+              price: values.price ? Number(values.price) : 0,
+              capacity: values.capacity ? Number(values.capacity) : 1,
+              short_desc: values.short_desc ?? "",
+              long_desc: values.long_desc ?? "",
+              // backend validation requires status and thumbnail on create
+              status: "available",
+              // placeholder thumbnail URL; upload will replace this after creation
+              thumbnail: PLACEHOLDER_THUMBNAIL,
             } as Record<string, unknown>;
+
+            console.log("Creating room with payload:", payload);
 
             try {
               const created = await createRoom(payload);
               const roomId = created && (created as { id?: number }).id;
               if (roomId) await uploadSelectedFiles(roomId);
-              messageApi.success("Room created");
+              message.success("Room created");
               navigate("/admin/rooms");
-            } catch (e) {
-              console.error(e);
-              messageApi.error("Failed to create room");
+            } catch (err) {
+              // surface server-side validation message if available
+              const e = err as { response?: { data?: { message?: string } } };
+              const serverMsg = e?.response?.data?.message;
+              console.error("Error creating room:", e, serverMsg ?? "");
+              message.error(serverMsg ?? "Failed to create room");
             }
           }}
         >
@@ -104,14 +134,26 @@ const RoomAdd: React.FC = () => {
                   label="Room Type"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select room type" />
+                  <Select placeholder="Select room type" loading={typesLoading}>
+                    {roomTypes.map((t: RoomType) => (
+                      <Select.Option key={t.id} value={t.id}>
+                        {t.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </Form.Item>
                 <Form.Item
                   name="floor_id"
                   label="Floor"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select floor" />
+                  <Select placeholder="Select floor" loading={floorsLoading}>
+                    {floors.map((f: Floor) => (
+                      <Select.Option key={f.id} value={f.id}>
+                        {f.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </Form.Item>
               </div>
 

@@ -330,9 +330,9 @@ const HomePage = () => {
                               </span>
                             </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t mt-2 pb-8">
-                              <div>
-                                <p className="text-2xl font-bold text-blue-600">
+                            <div className="flex items-center justify-between gap-4 pt-4 border-t mt-2 pb-8">
+                              <div className="min-w-0">
+                                <p className="text-2xl font-bold text-blue-600 truncate">
                                   {new Intl.NumberFormat("vi-VN", {
                                     style: "currency",
                                     currency: "VND",
@@ -341,7 +341,7 @@ const HomePage = () => {
                                 <p className="text-xs text-gray-500">/ đêm</p>
                               </div>
                               <Link to={`/rooms/${room.id}`}>
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition">
+                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md font-semibold text-sm transition flex-shrink-0 whitespace-nowrap md:px-4 md:py-2">
                                   Xem chi tiết
                                 </button>
                               </Link>

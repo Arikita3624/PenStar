@@ -6,6 +6,7 @@ import roomsRouter from "./routers/rooms.js";
 import roomTypeRouter from "./routers/roomstype.js";
 import FloorsRouter from "./routers/floors.js";
 import serviceRouter from "./routers/services.js";
+import usersRouter from "./routers/users.js";
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,9 @@ app.use("/api/floors", FloorsRouter);
 app.use("/api/services", serviceRouter);
 import roomImagesRouter from "./routers/roomimages.js";
 app.use("/api/room-images", roomImagesRouter);
+app.use("/api/users", usersRouter);
+import rolesRouter from "./routers/roles.js";
+app.use("/api/roles", rolesRouter);
 
 import path from "path";
 import expressStatic from "express";

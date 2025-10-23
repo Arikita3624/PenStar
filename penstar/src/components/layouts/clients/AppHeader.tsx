@@ -1,10 +1,16 @@
-import { Button } from "antd";
+import { Button, message } from "antd";
 import { PhoneOutlined } from "@ant-design/icons";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import useAuth from "@/hooks/useAuth";
 
 const AppHeader = () => {
   const [scrolled, setScrolled] = useState(false);
+  const authRaw = useAuth();
+  type AuthShape = { token?: string | null; logout?: () => void } | null;
+  const auth = authRaw as AuthShape;
+  const isLogged = !!auth?.token;
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,6 +20,24 @@ const AppHeader = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // We rely on AuthProvider to update auth state across the app.
+
+  const handleLogout = () => {
+    try {
+      if (auth && typeof auth.logout === "function") {
+        auth.logout();
+        message.success("Đã đăng xuất");
+      } else {
+        // fallback
+        localStorage.removeItem("penstar_token");
+        message.success("Đã đăng xuất");
+        navigate("/");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <header
@@ -56,17 +80,30 @@ const AppHeader = () => {
           >
             <PhoneOutlined className="text-base" /> <span>+84 24 0000 000</span>
           </a>
-          <Link to="/booking">
+          {isLogged ? (
             <Button
+              onClick={handleLogout}
               style={{
-                backgroundColor: "#0a66a3",
-                borderColor: "#0a66a3",
+                backgroundColor: "#e53e3e",
+                borderColor: "#e53e3e",
                 color: "#ffffff",
               }}
             >
-              Đăng nhập
+              Đăng xuất
             </Button>
-          </Link>
+          ) : (
+            <Link to="/signin">
+              <Button
+                style={{
+                  backgroundColor: "#0a66a3",
+                  borderColor: "#0a66a3",
+                  color: "#ffffff",
+                }}
+              >
+                Đăng nhập
+              </Button>
+            </Link>
+          )}
         </div>
         <div className="md:hidden">
           <Link to="/booking">

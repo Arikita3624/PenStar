@@ -6,6 +6,7 @@ import {
   updateRoom,
   deleteRoom,
 } from "../controllers/roomscontroller.js";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 import {
   validateRoomCreate,
   validateRoomUpdate,
@@ -14,6 +15,7 @@ import {
 
 const roomsRouter = express.Router();
 
+// Public: list rooms for client pages
 roomsRouter.get("/", getRooms);
 // Check if a room name exists for a given type (query params: name, type_id, excludeId)
 roomsRouter.get("/check-name", async (req, res) => {
@@ -35,9 +37,29 @@ roomsRouter.get("/check-name", async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+// Public: get room details
 roomsRouter.get("/:id", validateRoomIdParam, getRoomID);
-roomsRouter.post("/", validateRoomCreate, createRoom);
-roomsRouter.put("/:id", validateRoomIdParam, validateRoomUpdate, updateRoom);
-roomsRouter.delete("/:id", validateRoomIdParam, deleteRoom);
+roomsRouter.post(
+  "/",
+  requireAuth,
+  requireRole("staff"),
+  validateRoomCreate,
+  createRoom
+);
+roomsRouter.put(
+  "/:id",
+  requireAuth,
+  requireRole("staff"),
+  validateRoomIdParam,
+  validateRoomUpdate,
+  updateRoom
+);
+roomsRouter.delete(
+  "/:id",
+  requireAuth,
+  requireRole("staff"),
+  validateRoomIdParam,
+  deleteRoom
+);
 
 export default roomsRouter;

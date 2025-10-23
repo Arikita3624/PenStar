@@ -13,7 +13,11 @@ const roomSchema = Joi.object({
 });
 
 export const validateRoomCreate = (req, res, next) => {
-  const { value, error } = roomSchema.validate(req.body);
+  // For create, allow thumbnail to be optional (frontend may upload later)
+  const createSchema = roomSchema.fork(["thumbnail"], (field) =>
+    field.optional()
+  );
+  const { value, error } = createSchema.validate(req.body);
   if (error) {
     return res
       .status(400)

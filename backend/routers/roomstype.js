@@ -10,11 +10,13 @@ import {
   updateRoomType,
   deleteRoomType,
 } from "../controllers/roomtypescontroller.js";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 
 const roomTypeRouter = express.Router();
 
+// Public: list and read room types
 roomTypeRouter.get("/", getRoomTypes);
-roomTypeRouter.post("/", createRoomType);
+roomTypeRouter.post("/", requireAuth, requireRole("staff"), createRoomType);
 // Check if a room type name exists (query: name, excludeId)
 roomTypeRouter.get("/check-name", async (req, res) => {
   try {
@@ -34,7 +36,12 @@ roomTypeRouter.get("/check-name", async (req, res) => {
   }
 });
 roomTypeRouter.get("/:id", getRoomTypeById);
-roomTypeRouter.put("/:id", updateRoomType);
-roomTypeRouter.delete("/:id", deleteRoomType);
+roomTypeRouter.put("/:id", requireAuth, requireRole("staff"), updateRoomType);
+roomTypeRouter.delete(
+  "/:id",
+  requireAuth,
+  requireRole("staff"),
+  deleteRoomType
+);
 
 export default roomTypeRouter;

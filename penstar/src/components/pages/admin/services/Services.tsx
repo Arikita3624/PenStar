@@ -57,7 +57,17 @@ const ServicesPage = () => {
           currency: "VND",
         }).format(p),
     },
-    { title: "Description", dataIndex: "description", key: "description" },
+    {
+      title: "Description",
+      dataIndex: "description",
+      key: "description",
+      render: (text: string) => (
+        <div
+          className="max-w-[520px] whitespace-normal overflow-hidden"
+          dangerouslySetInnerHTML={{ __html: String(text ?? "") }}
+        />
+      ),
+    },
     {
       title: "Action",
       key: "action",
