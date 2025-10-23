@@ -10,8 +10,10 @@ import {
   validateServiceCreate,
   validateServiceUpdate,
 } from "../middlewares/servicevalidate.js";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 const serviceRouter = express.Router();
 
+// Public: list and read services
 serviceRouter.get("/", getServices);
 // Check if a service name exists (query: name, excludeId)
 serviceRouter.get("/check-name", async (req, res) => {
@@ -32,8 +34,20 @@ serviceRouter.get("/check-name", async (req, res) => {
   }
 });
 serviceRouter.get("/:id", getServiceById);
-serviceRouter.post("/", validateServiceCreate, createService);
-serviceRouter.put("/:id", validateServiceUpdate, updateService);
-serviceRouter.delete("/:id", deleteService);
+serviceRouter.post(
+  "/",
+  requireAuth,
+  requireRole("staff"),
+  validateServiceCreate,
+  createService
+);
+serviceRouter.put(
+  "/:id",
+  requireAuth,
+  requireRole("staff"),
+  validateServiceUpdate,
+  updateService
+);
+serviceRouter.delete("/:id", requireAuth, requireRole("staff"), deleteService);
 
 export default serviceRouter;

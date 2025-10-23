@@ -1,5 +1,6 @@
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
+import RequireRole from "@/components/common/RequireRole";
 import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
@@ -17,6 +18,10 @@ import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
 import RoomsList from "@/components/pages/clients/roooms/RoomsList";
 import RoomDetail from "@/components/pages/clients/roooms/RoomDetail";
+import SignUp from "@/components/pages/clients/users/SignUp";
+import SignIn from "@/components/pages/clients/users/SignIn";
+import Userslist from "@/components/pages/admin/users/Userslist";
+import NotFound from "@/components/common/NotFound";
 
 const AppRouter = () => {
   return (
@@ -27,8 +32,17 @@ const AppRouter = () => {
           <Route path="home" element={<HomePage />} />
           <Route path="rooms" element={<RoomsList />} />
           <Route path="rooms/:id" element={<RoomDetail />} />
+          <Route path="signup" element={<SignUp />} />
+          <Route path="signin" element={<SignIn />} />
         </Route>
-        <Route path="admin" element={<LayoutAdmin />}>
+        <Route
+          path="admin"
+          element={
+            <RequireRole>
+              <LayoutAdmin />
+            </RequireRole>
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="rooms" element={<Rooms />} />
           <Route path="rooms/add" element={<RoomAdd />} />
@@ -42,7 +56,9 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
+          <Route path="users" element={<Userslist />} />
         </Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   );
