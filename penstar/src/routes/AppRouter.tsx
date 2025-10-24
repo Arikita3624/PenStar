@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RequireRole from "@/components/common/RequireRole";
@@ -18,6 +19,11 @@ import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
 import RoomsList from "@/components/pages/clients/roooms/RoomsList";
 import RoomDetail from "@/components/pages/clients/roooms/RoomDetail";
+import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
+import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
+import BookingsList from "@/components/pages/admin/bookings/BookingsList";
+import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
+import BookingCreate from "@/components/pages/clients/bookings/BookingCreate";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
 import Userslist from "@/components/pages/admin/users/Userslist";
@@ -32,6 +38,25 @@ const AppRouter = () => {
           <Route path="home" element={<HomePage />} />
           <Route path="rooms" element={<RoomsList />} />
           <Route path="rooms/:id" element={<RoomDetail />} />
+          <Route path="booking/create" element={<BookingCreate />} />
+          <Route path="bookings/confirm" element={<BookingConfirm />} />
+          <Route path="bookings/success/:id" element={<BookingSuccess />} />
+          <Route
+            path="admin/bookings"
+            element={
+              <RequireRole {...({ role: "staff" } as any)}>
+                <BookingsList />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="admin/bookings/:id"
+            element={
+              <RequireRole {...({ role: "staff" } as any)}>
+                <BookingDetail />
+              </RequireRole>
+            }
+          />
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
         </Route>
