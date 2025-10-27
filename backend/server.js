@@ -12,6 +12,7 @@ import roomImagesRouter from "./routers/roomimages.js";
 import bookingsRouter from "./routers/bookings.js";
 import bookingItemsRouter from "./routers/booking_items.js";
 import bookingServicesRouter from "./routers/booking_services.js";
+import stayStatusRouter from "./routers/stay_status.js";
 dotenv.config();
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/booking-items", bookingItemsRouter);
 app.use("/api/booking-services", bookingServicesRouter);
+app.use("/api/stay-status", stayStatusRouter);
 
 import path from "path";
 import expressStatic from "express";

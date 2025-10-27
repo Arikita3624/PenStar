@@ -1,28 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, Button, List, Divider, message, Radio } from "antd";
-import { instance } from "@/services/api";
+import { Card, Button, List, Divider, message } from "antd";
+import { createBooking } from "@/services/bookingsApi";
+import type { BookingItem, BookingService } from "@/types/bookings";
 import useAuth from "@/hooks/useAuth";
-
-type RoomItem = {
-  room_id: number;
-  name?: string;
-  check_in: string;
-  check_out: string;
-  room_price: number;
-};
-
-type ServiceItem = {
-  service_id: number;
-  name?: string;
-  quantity: number;
-  total_service_price: number;
-};
 
 type BookingState = {
   payload: unknown;
-  rooms: RoomItem[];
-  services?: ServiceItem[];
+  rooms: (BookingItem & { name?: string })[];
+  services?: (BookingService & { name?: string })[];
 } | null;
 
 const BookingConfirm: React.FC = () => {
@@ -46,9 +33,13 @@ const BookingConfirm: React.FC = () => {
       if (!payload.customer_name && auth?.user?.email) {
         payload.customer_name = auth.user.email;
       }
-      const res = await instance.post("/bookings", payload);
+      const res = await createBooking(payload as any);
       message.success("Booking created successfully");
-      const booking = res.data?.data;
+      const booking = res;
+      if (!booking || !booking.id) {
+        message.error("Booking created but missing ID");
+        return;
+      }
       navigate(`/bookings/success/${booking.id}`, { state: { booking } });
     } catch (errorUnknown) {
       console.error(errorUnknown);
@@ -63,38 +54,6 @@ const BookingConfirm: React.FC = () => {
     }
   };
 
-  const onPayVnpay = async () => {
-    try {
-      const payload = {
-        ...(data!.payload as Record<string, unknown>),
-      } as Record<string, unknown>;
-      if (!payload.customer_name && auth?.user?.email)
-        payload.customer_name = auth.user.email;
-      const createRes = await instance.post("/bookings", payload);
-      const booking = createRes.data?.data;
-      if (!booking || !booking.id) throw new Error("Booking creation failed");
-      const amount = booking.total_price ?? payload.total_price;
-      const payRes = await instance.post("/bookings/create-payment", {
-        bookingId: booking.id,
-        amount,
-        returnUrl: `${window.location.origin}/bookings/success/${booking.id}`,
-      });
-      const url = payRes.data?.url;
-      if (url) {
-        window.location.href = url;
-      } else {
-        message.error("Payment creation failed");
-      }
-    } catch (err) {
-      console.error(err);
-      message.error("Payment error");
-    }
-  };
-
-  const [paymentMethod, setPaymentMethod] = React.useState<
-    "pay_at_hotel" | "vnpay"
-  >("pay_at_hotel");
-
   if (!data) return null;
 
   return (
@@ -108,7 +67,7 @@ const BookingConfirm: React.FC = () => {
           <h3>Rooms</h3>
           <List
             dataSource={data.rooms}
-            renderItem={(r: RoomItem) => (
+            renderItem={(r) => (
               <List.Item>
                 <div className="w-full">
                   <div className="font-semibold">{r.name}</div>
@@ -125,7 +84,7 @@ const BookingConfirm: React.FC = () => {
           <h3>Services</h3>
           <List
             dataSource={data.services || []}
-            renderItem={(s: ServiceItem) => (
+            renderItem={(s) => (
               <List.Item>
                 <div className="w-full">
                   <div className="font-semibold">
@@ -140,26 +99,10 @@ const BookingConfirm: React.FC = () => {
           />
 
           <Divider />
-          <h3>Payment method</h3>
-          <Radio.Group
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            value={paymentMethod}
-          >
-            <Radio value="pay_at_hotel">Pay at hotel (cash on arrival)</Radio>
-            <Radio value="vnpay" style={{ marginLeft: 16 }}>
-              Pay with VNPAY
-            </Radio>
-          </Radio.Group>
-          <Divider />
           <div className="flex justify-end gap-2">
             <Button onClick={() => navigate(-1)}>Back</Button>
-            <Button
-              type="primary"
-              onClick={() =>
-                paymentMethod === "vnpay" ? onPayVnpay() : onConfirm()
-              }
-            >
-              {paymentMethod === "vnpay" ? "Confirm & Pay" : "Confirm booking"}
+            <Button type="primary" onClick={onConfirm}>
+              Confirm booking
             </Button>
           </div>
         </div>

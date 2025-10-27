@@ -43,9 +43,11 @@ const RoomsList = () => {
 
   const statusMeta: Record<string, { color: string; label: string }> = {
     available: { color: "green", label: "Sẵn sàng" },
+    pending: { color: "orange", label: "Đã có người đặt" },
     booked: { color: "gold", label: "Đã đặt" },
     occupied: { color: "red", label: "Đang ở" },
     cleaning: { color: "purple", label: "Đang dọn" },
+    maintenance: { color: "blue", label: "Bảo trì" },
     unavailable: { color: "volcano", label: "Tạm ngưng" },
   };
 
@@ -240,15 +242,26 @@ const RoomsList = () => {
                           currency: "VND",
                         }).format(Number(room.price) || 0)}
                       </div>
-                      <Link to={`/booking/create?room_id=${room.id}`}>
+                      {room.status === "available" ? (
+                        <Link to={`/booking/create?room_id=${room.id}`}>
+                          <Button
+                            type="primary"
+                            size="middle"
+                            className="ps-btn-primary"
+                          >
+                            Đặt phòng
+                          </Button>
+                        </Link>
+                      ) : (
                         <Button
                           type="primary"
                           size="middle"
-                          className="ps-btn-primary"
+                          disabled
+                          title="Phòng không khả dụng"
                         >
-                          Đặt phòng
+                          Không khả dụng
                         </Button>
-                      </Link>
+                      )}
                     </div>
                   </Card>
                 </Col>

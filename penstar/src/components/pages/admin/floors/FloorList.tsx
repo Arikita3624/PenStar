@@ -121,6 +121,8 @@ const FloorList = () => {
           pagination={{
             pageSize,
             current: currentPage,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showQuickJumper: true,
             onChange: (p) => setCurrentPage(p),
           }}
         />
