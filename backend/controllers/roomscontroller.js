@@ -4,8 +4,8 @@ import {
   createRoom as modelCreateRoom,
   updateRoom as modelUpdateRoom,
   deleteRoom as modelDeleteRoom,
+  existsRoomWithName,
 } from "../models/roomsmodel.js";
-import { existsRoomWithNameAndType } from "../models/roomsmodel.js";
 
 // 🏨 GET all rooms
 export const getRooms = async (req, res) => {
@@ -75,15 +75,18 @@ export const createRoom = async (req, res) => {
   try {
     const { name, type_id } = req.body;
     const numericTypeId = type_id !== undefined ? Number(type_id) : undefined;
-    if (name && numericTypeId) {
-      const exists = await existsRoomWithNameAndType(name, numericTypeId);
+
+    // Check trùng tên phòng tuyệt đối
+    if (name) {
+      const exists = await existsRoomWithName(name);
       if (exists) {
         return res.status(400).json({
           success: false,
-          message: "Room name already exists for this room type",
+          message: "Tên phòng đã tồn tại. Vui lòng chọn tên khác.",
         });
       }
     }
+
     // ensure numeric fields are numbers for the model
     const payload = { ...req.body, type_id: numericTypeId };
     const newRoom = await modelCreateRoom(payload);
@@ -108,19 +111,18 @@ export const updateRoom = async (req, res) => {
   try {
     const { name, type_id } = req.body;
     const numericTypeId = type_id !== undefined ? Number(type_id) : undefined;
-    if (name && numericTypeId) {
-      const exists = await existsRoomWithNameAndType(
-        name,
-        numericTypeId,
-        numericId
-      );
+
+    // Check trùng tên phòng tuyệt đối (exclude ID hiện tại)
+    if (name) {
+      const exists = await existsRoomWithName(name, numericId);
       if (exists) {
         return res.status(400).json({
           success: false,
-          message: "Room name already exists for this room type",
+          message: "Tên phòng đã tồn tại. Vui lòng chọn tên khác.",
         });
       }
     }
+
     const payload = { ...req.body };
     if (numericTypeId !== undefined) payload.type_id = numericTypeId;
     const updated = await modelUpdateRoom(numericId, payload);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -238,9 +239,11 @@ const RoomEdit = () => {
               await uploadSelectedFiles(Number(id));
               message.success("Room updated");
               navigate("/admin/rooms");
-            } catch (e) {
+            } catch (e: any) {
               console.error("Failed to update room:", e);
-              message.error("Failed to update room");
+              const errorMsg =
+                e?.response?.data?.message || "Failed to update room";
+              message.error(errorMsg);
             }
           }}
         >

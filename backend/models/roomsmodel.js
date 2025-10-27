@@ -125,3 +125,19 @@ export const existsRoomWithNameAndType = async (
   );
   return res.rowCount > 0;
 };
+
+// Check trùng tên phòng tuyệt đối (không phụ thuộc type_id)
+export const existsRoomWithName = async (name, excludeId = null) => {
+  if (excludeId) {
+    const res = await pool.query(
+      "SELECT 1 FROM rooms WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id <> $2 LIMIT 1",
+      [name, excludeId]
+    );
+    return res.rowCount > 0;
+  }
+  const res = await pool.query(
+    "SELECT 1 FROM rooms WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
+    [name]
+  );
+  return res.rowCount > 0;
+};
