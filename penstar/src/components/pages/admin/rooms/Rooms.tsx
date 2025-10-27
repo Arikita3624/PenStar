@@ -93,6 +93,7 @@ const Rooms = () => {
           available: { label: "Available", color: "green" },
           booked: { label: "Booked", color: "gold" },
           occupied: { label: "Occupied", color: "orange" },
+          cleaning: { label: "Cleaning", color: "cyan" },
           unavailable: { label: "Unavailable", color: "red" },
         };
         const m = meta[String(status)] || {
@@ -227,6 +228,8 @@ const Rooms = () => {
           pagination={{
             pageSize,
             current: currentPage,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showQuickJumper: true,
             onChange: (page) => setCurrentPage(page),
           }}
         />

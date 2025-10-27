@@ -38,6 +38,9 @@ export const validateBookingServiceCreate = (req, res, next) => {
 // Booking create schema: require customer_name, total_price, payment_status, booking_method
 export const bookingCreateSchema = Joi.object({
   customer_name: Joi.string().required(),
+  email: Joi.any().optional(), // Allow but ignore
+  phone: Joi.any().optional(), // Allow but ignore
+  notes: Joi.any().optional(), // Allow but ignore
   total_price: Joi.number().min(0).required(),
   payment_status: Joi.string().required(),
   booking_method: Joi.string().required(),

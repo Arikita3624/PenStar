@@ -2,11 +2,12 @@ import {
   getBookings as modelGetBookings,
   getBookingById as modelGetBookingById,
   createBooking as modelCreateBooking,
+  updateBookingStatus as modelUpdateBookingStatus,
+  getBookingsByUser as modelGetBookingsByUser,
+  confirmCheckout as modelConfirmCheckout,
+  cancelBooking as modelCancelBooking,
 } from "../models/bookingsmodel.js";
 import pool from "../db.js";
-import { updateBookingStatus as modelUpdateBookingStatus } from "../models/bookingsmodel.js";
-import crypto from "crypto";
-import querystring from "querystring";
 
 export const getBookings = async (req, res) => {
   try {
@@ -49,6 +50,24 @@ export const getBookingById = async (req, res) => {
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
 
+    // Add check_in and check_out from first booking_item for convenience
+    if (booking.items && booking.items.length > 0) {
+      booking.check_in = booking.items[0].check_in;
+      booking.check_out = booking.items[0].check_out;
+    }
+
+    // Calculate total prices
+    booking.total_room_price = booking.items.reduce(
+      (sum, item) => sum + Number(item.room_price || 0),
+      0
+    );
+    booking.total_service_price = booking.services.reduce(
+      (sum, service) => sum + Number(service.total_service_price || 0),
+      0
+    );
+    booking.total_amount =
+      booking.total_room_price + booking.total_service_price;
+
     res.json({
       success: true,
       message: "✅ Get booking by ID successfully",
@@ -66,11 +85,18 @@ export const getBookingById = async (req, res) => {
 
 export const createBooking = async (req, res) => {
   try {
+    console.log("=== CREATE BOOKING REQUEST ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("Request user:", req.user);
+
     const payload = req.body;
     // If authenticated, prefer user id from token
     if (req.user && req.user.id) {
       payload.user_id = Number(req.user.id);
     }
+
+    console.log("Final payload:", JSON.stringify(payload, null, 2));
+
     const booking = await modelCreateBooking(payload);
 
     // fetch created items and services
@@ -90,147 +116,90 @@ export const createBooking = async (req, res) => {
       data: booking,
     });
   } catch (error) {
-    console.error("bookingscontroller.createBooking error:", error);
+    console.error("=== CREATE BOOKING ERROR ===");
+    console.error("Error:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+
+    // Foreign key constraint - record liên quan không tồn tại
     if (error && error.code === "23503") {
+      const fieldMap = {
+        user_id: "Người dùng không tồn tại",
+        stay_status_id: "Trạng thái booking không hợp lệ",
+        room_id: "Phòng không tồn tại",
+        service_id: "Dịch vụ không tồn tại",
+      };
+
+      let detail = error.detail || "";
+      let friendlyMsg = "Dữ liệu liên quan không tồn tại";
+
+      for (const [field, msg] of Object.entries(fieldMap)) {
+        if (detail.includes(field)) {
+          friendlyMsg = msg;
+          break;
+        }
+      }
+
       return res.status(400).json({
         success: false,
-        message: "Foreign key constraint failed: related record not found",
+        message: friendlyMsg,
         error: error.message,
       });
     }
+
+    // Not null constraint - thiếu trường bắt buộc
+    if (error && error.code === "23502") {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin bắt buộc. Vui lòng điền đầy đủ form.",
+        error: error.message,
+      });
+    }
+
+    // Check constraint - dữ liệu không hợp lệ
+    if (error && error.code === "23514") {
+      return res.status(400).json({
+        success: false,
+        message: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.",
+        error: error.message,
+      });
+    }
+
+    // Custom error từ business logic
+    if (error.message && error.message.includes("Phòng đã được đặt")) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        error: error.message,
+      });
+    }
+
+    if (error.message && error.message.includes("Thiếu thông tin")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        error: error.message,
+      });
+    }
+
+    // Lỗi chung
     res.status(500).json({
       success: false,
-      message: "🚨 Internal server error",
+      message: error.message || "Lỗi hệ thống. Vui lòng thử lại sau.",
       error: error.message,
     });
   }
 };
 
-// Create payment URL for VNPAY (demo implementation)
-export const createPayment = async (req, res) => {
+export const getMyBookings = async (req, res) => {
   try {
-    const { bookingId, amount, returnUrl } = req.body;
-    if (!bookingId || !amount)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing bookingId or amount" });
-
-    const vnpUrl =
-      process.env.VNP_URL ||
-      "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    const vnp_TmnCode = process.env.VNP_TMN_CODE || "TEST";
-    const vnp_HashSecret = process.env.VNP_HASH_SECRET || "SECRET";
-
-    const params = {
-      vnp_Version: "2.1.0",
-      vnp_Command: "pay",
-      vnp_TmnCode,
-      vnp_Amount: String(Number(amount) * 100),
-      vnp_CurrCode: "VND",
-      vnp_TxnRef: String(bookingId),
-      vnp_OrderInfo: `Payment for booking ${bookingId}`,
-      vnp_ReturnUrl:
-        returnUrl ||
-        `${req.protocol}://${req.get("host")}/api/bookings/vnpay_return`,
-      vnp_IpAddr: req.ip,
-      vnp_CreateDate: new Date()
-        .toISOString()
-        .replace(/[-:]/g, "")
-        .slice(0, 14),
-    };
-
-    const signData = Object.keys(params)
-      .sort()
-      .map((k) => `${k}=${params[k]}`)
-      .join("&");
-    const hmac = crypto
-      .createHmac("sha512", vnp_HashSecret)
-      .update(signData)
-      .digest("hex");
-    const fullUrl =
-      vnpUrl + "?" + querystring.stringify(params) + `&vnp_SecureHash=${hmac}`;
-
-    res.json({ success: true, url: fullUrl });
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false });
+    const data = await modelGetBookingsByUser(userId);
+    res.json({ success: true, data });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal error", error: err.message });
-  }
-};
-
-// VNPAY return (customer redirect) - update payment_status accordingly
-export const vnpayReturn = async (req, res) => {
-  try {
-    // Verify VNPAY return signature and update booking status
-    const params = { ...req.query };
-    const vnp_SecureHash = params.vnp_SecureHash;
-    const vnp_ResponseCode = params.vnp_ResponseCode;
-    const vnp_TxnRef = params.vnp_TxnRef;
-    const bookingId = Number(vnp_TxnRef);
-    if (!bookingId) return res.status(400).send("Invalid txn");
-
-    // compute hash
-    const vnp_HashSecret = process.env.VNP_HASH_SECRET || "SECRET";
-    const signingData = Object.keys(params)
-      .filter((k) => k !== "vnp_SecureHash" && k !== "vnp_SecureHashType")
-      .sort()
-      .map((k) => `${k}=${params[k]}`)
-      .join("&");
-    const calcHash = crypto
-      .createHmac("sha512", vnp_HashSecret)
-      .update(signingData)
-      .digest("hex");
-
-    const valid = String(calcHash) === String(vnp_SecureHash);
-    if (!valid) {
-      console.warn("VNPAY return signature mismatch", { bookingId });
-    }
-
-    const success = vnp_ResponseCode === "00" && valid;
-    const fields = { payment_status: success ? "paid" : "failed" };
-    await modelUpdateBookingStatus(bookingId, fields);
-    const frontend = process.env.FRONTEND_URL || "/";
-    return res.redirect(`${frontend}bookings/success/${bookingId}`);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error");
-  }
-};
-
-// VNPAY IPN callback (server-to-server notify)
-export const vnpayIPN = async (req, res) => {
-  try {
-    const params = { ...req.body };
-    const vnp_SecureHash = params.vnp_SecureHash;
-    const vnp_ResponseCode = params.vnp_ResponseCode;
-    const vnp_TxnRef = params.vnp_TxnRef;
-    const bookingId = Number(vnp_TxnRef);
-    if (!bookingId) return res.status(400).json({ success: false });
-
-    const vnp_HashSecret = process.env.VNP_HASH_SECRET || "SECRET";
-    const signingData = Object.keys(params)
-      .filter((k) => k !== "vnp_SecureHash" && k !== "vnp_SecureHashType")
-      .sort()
-      .map((k) => `${k}=${params[k]}`)
-      .join("&");
-    const calcHash = crypto
-      .createHmac("sha512", vnp_HashSecret)
-      .update(signingData)
-      .digest("hex");
-    if (String(calcHash) !== String(vnp_SecureHash)) {
-      console.warn("VNPAY IPN signature mismatch", { bookingId });
-      return res.status(400).json({ success: false });
-    }
-
-    const success = vnp_ResponseCode === "00";
-    await modelUpdateBookingStatus(bookingId, {
-      payment_status: success ? "paid" : "failed",
-    });
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success: false, message: "Internal error" });
   }
 };
 
@@ -245,5 +214,132 @@ export const updateBookingStatus = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Internal error", error: err.message });
+  }
+};
+
+// Client can update their own booking status (check-in, check-out)
+export const updateMyBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stay_status_id } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Please login.",
+      });
+    }
+
+    // Verify booking belongs to user
+    const booking = await modelGetBookingById(id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking không tồn tại",
+      });
+    }
+
+    if (booking.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền cập nhật booking này",
+      });
+    }
+
+    // Only allow check-in (2) and check-out (3)
+    if (![2, 3].includes(stay_status_id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn chỉ có thể check-in hoặc check-out",
+      });
+    }
+
+    // Check-in requires: status = 1 (reserved) AND payment = paid
+    if (stay_status_id === 2) {
+      if (booking.stay_status_id !== 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Chỉ có thể check-in khi booking đã được duyệt",
+        });
+      }
+      if (booking.payment_status !== "paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng thanh toán trước khi check-in",
+        });
+      }
+    }
+
+    // Check-out requires: status = 2 (checked_in)
+    if (stay_status_id === 3) {
+      if (booking.stay_status_id !== 2) {
+        return res.status(400).json({
+          success: false,
+          message: "Chỉ có thể check-out khi đã check-in",
+        });
+      }
+    }
+
+    const updated = await modelUpdateBookingStatus(id, { stay_status_id });
+    res.json({
+      success: true,
+      message:
+        stay_status_id === 2 ? "Check-in thành công!" : "Check-out thành công!",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("updateMyBookingStatus error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Internal error", error: err.message });
+  }
+};
+
+export const confirmCheckout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await modelConfirmCheckout(id);
+    res.json({
+      success: true,
+      message: "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("confirmCheckout error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Internal error", error: err.message });
+  }
+};
+
+export const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role_id === 1; // Assuming role_id 1 is admin
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Please login.",
+      });
+    }
+
+    const result = await modelCancelBooking(id, userId, isAdmin);
+
+    res.json({
+      success: true,
+      message: result.message || "Đã hủy booking thành công.",
+      data: result.booking,
+    });
+  } catch (err) {
+    console.error("cancelBooking error:", err);
+    res.status(400).json({
+      success: false,
+      message: err.message || "Không thể hủy booking",
+      error: err.message,
+    });
   }
 };

@@ -308,14 +308,6 @@ const RoomEdit = () => {
                   <Select.Option value="occupied">Occupied</Select.Option>
                   <Select.Option value="unavailable">Unavailable</Select.Option>
                   <Select.Option value="cleaning">Cleaning</Select.Option>
-                  <Select.Option value="checked_out">
-                    Checked-out (History)
-                  </Select.Option>
-                  <Select.Option value="no_show">No-show</Select.Option>
-                  <Select.Option value="pending_payment">
-                    Pending Payment
-                  </Select.Option>
-                  <Select.Option value="cancelled">Cancelled</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item

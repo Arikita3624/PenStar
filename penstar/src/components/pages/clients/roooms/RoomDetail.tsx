@@ -93,12 +93,22 @@ const RoomDetail = () => {
       text: "text-green-700",
       label: "Sẵn sàng",
     },
+    pending: {
+      bg: "bg-orange-100",
+      text: "text-orange-700",
+      label: "Đã có người đặt",
+    },
     booked: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Đã đặt" },
     occupied: { bg: "bg-red-100", text: "text-red-700", label: "Đang ở" },
     cleaning: {
       bg: "bg-purple-100",
       text: "text-purple-700",
       label: "Đang dọn",
+    },
+    maintenance: {
+      bg: "bg-blue-100",
+      text: "text-blue-700",
+      label: "Bảo trì",
     },
     unavailable: {
       bg: "bg-gray-100",
@@ -285,17 +295,6 @@ const RoomDetail = () => {
 
                 {/* Price Section */}
                 <div className="bg-blue-50 rounded-xl p-6 mb-6">
-                  <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-gray-400 line-through text-lg">
-                      {new Intl.NumberFormat("vi-VN", {
-                        style: "currency",
-                        currency: "VND",
-                      }).format(price * 1.5)}
-                    </span>
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      GIẢM 33%
-                    </span>
-                  </div>
                   <div className="text-4xl font-bold text-blue-600 mb-2">
                     {new Intl.NumberFormat("vi-VN", {
                       style: "currency",
@@ -304,36 +303,6 @@ const RoomDetail = () => {
                     <span className="text-lg text-gray-600 font-normal">
                       {" "}
                       / đêm
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    <span className="text-green-600 font-medium flex items-center gap-1">
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Miễn phí hủy
-                    </span>
-                    <span className="text-green-600 font-medium flex items-center gap-1">
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Bao gồm bữa sáng
                     </span>
                   </div>
                 </div>
@@ -361,31 +330,6 @@ const RoomDetail = () => {
                   <div className="border rounded-lg p-4">
                     <div className="text-gray-500 text-sm mb-1">Check-in</div>
                     <div className="text-xl font-bold text-gray-800">14:00</div>
-                  </div>
-                </div>
-
-                {/* Amenities */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">
-                    Tiện nghi phòng
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { icon: "📶", text: "WiFi miễn phí" },
-                      { icon: "❄️", text: "Điều hòa nhiệt độ" },
-                      { icon: "📺", text: "TV màn hình phẳng" },
-                      { icon: "🏊", text: "Hồ bơi" },
-                      { icon: "🍳", text: "Bữa sáng buffet" },
-                      { icon: "🅿️", text: "Bãi đỗ xe" },
-                    ].map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 text-gray-700"
-                      >
-                        <span className="text-xl">{item.icon}</span>
-                        <span className="text-sm">{item.text}</span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import React, { createContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
-import { instance } from "@/services/api";
+import { getRoles } from "@/services/rolesApi";
 import type { User, RolesMap, AuthContextType } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,13 +35,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token]);
 
+  // Only fetch roles when we have an authenticated admin user.
+  // The roles endpoints are protected (admin-only), so calling them on public pages
+  // caused 403. Depend on `user` so we run after token decode.
   useEffect(() => {
+    if (!user) return;
+    const isAdmin =
+      (user.role && String(user.role).toLowerCase() === "admin") ||
+      (user.role_id && Number(user.role_id) >= 3);
+    if (!isAdmin) return;
+
     (async () => {
       try {
-        const res = await instance.get("/api/roles");
-        const roles = Array.isArray(res.data)
-          ? res.data
-          : res.data?.roles || res.data?.data || [];
+        const roles = await getRoles();
         const byId: Record<number, string> = {};
         const byName: Record<string, number> = {};
         const order: string[] = [];
@@ -61,7 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.debug("roles fetch failed", e);
       }
     })();
-  }, []);
+  }, [user]);
 
   const loginWithToken = (t: string) => {
     try {
