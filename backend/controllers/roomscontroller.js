@@ -5,6 +5,8 @@ import {
   updateRoom as modelUpdateRoom,
   deleteRoom as modelDeleteRoom,
   existsRoomWithName,
+  searchAvailableRooms as modelSearchAvailableRooms,
+  hasActiveBookings,
 } from "../models/roomsmodel.js";
 
 // 🏨 GET all rooms
@@ -109,6 +111,31 @@ export const updateRoom = async (req, res) => {
   const { id } = req.params;
   const numericId = Number(id);
   try {
+    // ⚠️ Check if room has active bookings
+    const isBooked = await hasActiveBookings(numericId);
+
+    // Nếu phòng có booking active, chỉ cho phép sửa một số trường an toàn
+    if (isBooked) {
+      const allowedFields = [
+        "status",
+        "description",
+        "long_description",
+        "thumbnail",
+      ];
+      const requestedFields = Object.keys(req.body);
+      const hasRestrictedField = requestedFields.some(
+        (field) => !allowedFields.includes(field)
+      );
+
+      if (hasRestrictedField) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "❌ Phòng đang có booking active. Chỉ có thể sửa: trạng thái, mô tả, hình ảnh",
+        });
+      }
+    }
+
     const { name, type_id } = req.body;
     const numericTypeId = type_id !== undefined ? Number(type_id) : undefined;
 
@@ -145,6 +172,15 @@ export const deleteRoom = async (req, res) => {
   const { id } = req.params;
   const numericId = Number(id);
   try {
+    // ⚠️ Check if room has active bookings
+    const isBooked = await hasActiveBookings(numericId);
+    if (isBooked) {
+      return res.status(400).json({
+        success: false,
+        message: "❌ Không thể xóa phòng đang có booking active",
+      });
+    }
+
     const deleted = await modelDeleteRoom(numericId);
     if (!deleted) {
       return res
@@ -168,6 +204,65 @@ export const deleteRoom = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "🚨 Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// 🔍 SEARCH available rooms
+export const searchRooms = async (req, res) => {
+  try {
+    const {
+      check_in,
+      check_out,
+      room_type_id,
+      floor_id,
+      num_adults,
+      num_children,
+    } = req.query;
+
+    // Validate required fields
+    if (!check_in || !check_out) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập ngày check-in và check-out",
+      });
+    }
+
+    // Convert to numbers
+    const numAdults = num_adults ? Number(num_adults) : 1;
+    const numChildren = num_children ? Number(num_children) : 0;
+    const roomTypeId = room_type_id ? Number(room_type_id) : null;
+    const floorId = floor_id ? Number(floor_id) : null;
+
+    const rooms = await modelSearchAvailableRooms({
+      check_in,
+      check_out,
+      room_type_id: roomTypeId,
+      floor_id: floorId,
+      num_adults: numAdults,
+      num_children: numChildren,
+    });
+
+    res.json({
+      success: true,
+      message: `✅ Tìm thấy ${rooms.length} phòng trống`,
+      data: rooms,
+      search_params: {
+        check_in,
+        check_out,
+        room_type_id: roomTypeId,
+        floor_id: floorId,
+        num_adults: numAdults,
+        num_children: numChildren,
+        total_guests: numAdults + numChildren,
+      },
+    });
+  } catch (error) {
+    console.error("roomscontroller.searchRooms error:", error);
+    res.status(500).json({
+      success: false,
+      message: "🚨 Lỗi tìm kiếm phòng",
       error: error.message,
     });
   }

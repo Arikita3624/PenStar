@@ -17,11 +17,12 @@ import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
 import { Route, Routes } from "react-router-dom";
 import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
-import RoomsList from "@/components/pages/clients/roooms/RoomsList";
-import RoomDetail from "@/components/pages/clients/roooms/RoomDetail";
+import RoomsList from "@/components/pages/clients/rooms/RoomsList";
+import RoomDetail from "@/components/pages/clients/rooms/RoomDetail";
+import RoomSearchResults from "@/components/pages/clients/rooms/RoomSearchResults";
 import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
-import BookingCreate from "@/components/pages/clients/bookings/BookingCreate";
+import MultiRoomBookingCreate from "@/components/pages/clients/bookings/MultiRoomBookingCreate";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
@@ -29,6 +30,9 @@ import SignIn from "@/components/pages/clients/users/SignIn";
 import Userslist from "@/components/pages/admin/users/Userslist";
 import NotFound from "@/components/common/NotFound";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
+import StaffBookingCreate from "@/components/pages/clients/bookings/StaffBookingCreate";
+import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
+import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 
 const AppRouter = () => {
   return (
@@ -38,12 +42,22 @@ const AppRouter = () => {
           <Route index element={<HomePage />} />
           <Route path="home" element={<HomePage />} />
           <Route path="rooms" element={<RoomsList />} />
+          <Route path="rooms/search-results" element={<RoomSearchResults />} />
           <Route path="rooms/:id" element={<RoomDetail />} />
-          <Route path="booking/create" element={<BookingCreate />} />
+          <Route path="booking/staff-create" element={<StaffBookingCreate />} />
+          <Route
+            path="booking/multi-create"
+            element={<MultiRoomBookingCreate />}
+          />
           <Route path="bookings" element={<MyBookings />} />
           <Route path="my-bookings" element={<MyBookings />} />
           <Route path="bookings/confirm" element={<BookingConfirm />} />
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
+          <Route
+            path="bookings/payment-method"
+            element={<PaymentMethodSelect />}
+          />
+          <Route path="payment-result" element={<PaymentResult />} />
           {/* admin booking routes moved to admin layout below */}
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
@@ -51,7 +65,7 @@ const AppRouter = () => {
         <Route
           path="admin"
           element={
-            <RequireRole role="staff">
+            <RequireRole role="admin">
               <LayoutAdmin />
             </RequireRole>
           }

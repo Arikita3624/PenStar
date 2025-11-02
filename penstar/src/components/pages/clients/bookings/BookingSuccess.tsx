@@ -44,10 +44,10 @@ const BookingSuccess: React.FC = () => {
   }, [id]);
 
   React.useEffect(() => {
-    if (!booking && id) {
+    if (id) {
       fetchBooking();
     }
-  }, [id, booking, fetchBooking]);
+  }, [id, fetchBooking]);
 
   const handleCheckIn = async () => {
     if (!booking?.id) return;
@@ -243,8 +243,20 @@ const BookingSuccess: React.FC = () => {
               {paymentStatus?.toUpperCase() || "-"}
             </Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="Phương thức">
-            {booking?.booking_method ?? "-"}
+          <Descriptions.Item label="Phương thức thanh toán">
+            {booking?.payment_method === "vnpay" && "💰 VNPAY"}
+            {booking?.payment_method === "momo" && "📱 Ví MoMo"}
+            {booking?.payment_method === "transfer" && "🏦 Chuyển khoản"}
+            {booking?.payment_method === "cash" && "💵 Tiền mặt"}
+            {booking?.payment_method === "card" && "💳 Thẻ"}
+            {booking?.payment_method === "cod" &&
+              "🏨 Thanh toán tại quầy (COD)"}
+            {!booking?.payment_method && "—"}
+          </Descriptions.Item>
+          <Descriptions.Item label="Phương thức đặt phòng">
+            {booking?.booking_method === "online"
+              ? "🌐 Online"
+              : "🏨 Trực tiếp"}
           </Descriptions.Item>
           {booking?.is_refunded && (
             <Descriptions.Item label="Trạng thái hoàn tiền">
@@ -290,6 +302,26 @@ const BookingSuccess: React.FC = () => {
             )}
           />
         </div>
+
+        {/* Thông báo thanh toán tại khách sạn */}
+        {booking?.id && paymentStatus === "pending" && (
+          <Card title="💳 Thanh toán" style={{ marginTop: 24 }} bordered>
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <p style={{ fontSize: 16, marginBottom: 16 }}>
+                Vui lòng thanh toán{" "}
+                <strong>{fmtPrice(booking.total_price)}</strong> khi đến khách
+                sạn
+              </p>
+              <Tag
+                color="warning"
+                style={{ fontSize: 14, padding: "8px 16px" }}
+              >
+                Trạng thái: Chờ thanh toán
+              </Tag>
+            </div>
+          </Card>
+        )}
+
         <div className="flex justify-between mt-6">
           <Button onClick={() => navigate("/my-bookings")}>
             Xem booking của tôi

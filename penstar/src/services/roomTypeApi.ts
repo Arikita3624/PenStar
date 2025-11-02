@@ -4,7 +4,7 @@ export const getRoomTypes = async () => {
   try {
     const response = await instance.get("/roomtypes");
     console.log("📦 Response from /roomtypes API:", response.data);
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    return response.data?.data ?? []; // Trả về array data hoặc array rỗng
   } catch (error) {
     console.error("Error fetching room types:", error);
     throw error;

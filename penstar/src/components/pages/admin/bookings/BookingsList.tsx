@@ -80,6 +80,20 @@ const BookingsList: React.FC = () => {
       },
     },
     {
+      title: "Method",
+      dataIndex: "booking_method",
+      key: "booking_method",
+      render: (method: string) => {
+        const isOnline = method === "online";
+        return (
+          <Tag color={isOnline ? "blue" : "green"} style={{ fontSize: 11 }}>
+            {isOnline ? "📱 Online" : "🏨 Trực tiếp"}
+          </Tag>
+        );
+      },
+      width: 100,
+    },
+    {
       title: "Status",
       dataIndex: "stay_status_id",
       key: "stay_status_id",

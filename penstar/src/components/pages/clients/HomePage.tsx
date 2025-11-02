@@ -1,14 +1,16 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getRooms } from "@/services/roomsApi";
-import type { Room } from "@/types/room";
+import type { Room, RoomSearchParams } from "@/types/room";
 import { useState, useEffect, useRef } from "react";
+import RoomSearchBar from "@/components/common/RoomSearchBar";
 
 // Import images from assets
 import bannerImage from "@/assets/images/banner.png";
 import heroImage from "@/assets/images/heroImage.png";
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["rooms"],
     queryFn: getRooms,
@@ -88,7 +90,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section - Gradient Blue Background */}
-      <section className="relative bg-gradient-to-r from-cyan-400 via-blue-500 to-blue-600 min-h-[600px] flex items-center overflow-hidden">
+      <section className="relative bg-gradient-to-r from-cyan-400 via-blue-500 to-blue-600 min-h-[600px] flex items-center overflow-visible pb-16">
         {/* Decorative Banner Image */}
         <div className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-end">
           <img
@@ -99,7 +101,7 @@ const HomePage = () => {
         </div>
 
         <div className="container mx-auto px-4 py-16 relative z-10">
-          <div className="max-w-2xl">
+          <div className="max-w-2xl mb-12">
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
               Đặt phòng cùng PenStar
             </h1>
@@ -108,17 +110,22 @@ const HomePage = () => {
               vụ, Lữ hành PenStar luôn mang đến cho khách hàng những dịch vụ
               khách sạn giá trị nhất.
             </p>
-            <Link to="/rooms">
-              <button className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 transition shadow-lg">
-                Tìm hiểu ngay
-              </button>
-            </Link>
           </div>
         </div>
+
+        {/* Search Bar - Floating at bottom */}
+        <RoomSearchBar
+          variant="floating"
+          onSearch={(params: RoomSearchParams) => {
+            navigate("/rooms/search-results", {
+              state: { searchParams: params },
+            });
+          }}
+        />
       </section>
 
       {/* About Section with Stats */}
-      <section className="py-24">
+      <section className="py-24 mt-20">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: Text */}

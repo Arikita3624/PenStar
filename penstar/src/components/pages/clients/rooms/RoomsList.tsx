@@ -19,7 +19,7 @@ import type { Room } from "@/types/room";
 import { Link } from "react-router-dom";
 
 const RoomsList = () => {
-  const { data: rooms = [], isLoading } = useQuery<Room[]>({
+  const { data: rooms, isLoading } = useQuery<Room[]>({
     queryKey: ["rooms"],
     queryFn: getRooms,
   });
@@ -51,7 +51,7 @@ const RoomsList = () => {
     unavailable: { color: "volcano", label: "Tạm ngưng" },
   };
 
-  const filtered = rooms.filter((r) => {
+  const filtered = rooms?.filter((r) => {
     const q = search.trim().toLowerCase();
     if (q && !String(r.name).toLowerCase().includes(q)) return false;
     if (typeFilter && String(r.type_id) !== typeFilter) return false;
@@ -86,7 +86,7 @@ const RoomsList = () => {
   const truncate = (s: string, n = 120) =>
     s.length > n ? s.slice(0, n).trimEnd() + "..." : s;
 
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const paginated = filtered?.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -122,11 +122,12 @@ const RoomsList = () => {
             setPage(1);
           }}
         >
-          {types.map((t: any) => (
-            <Select.Option key={t.id} value={String(t.id)}>
-              {t.name}
-            </Select.Option>
-          ))}
+          {Array.isArray(types) &&
+            types.map((t: any) => (
+              <Select.Option key={t.id} value={String(t.id)}>
+                {t.name}
+              </Select.Option>
+            ))}
         </Select>
 
         <Select
@@ -139,11 +140,12 @@ const RoomsList = () => {
             setPage(1);
           }}
         >
-          {floors.map((f: any) => (
-            <Select.Option key={f.id} value={String(f.id)}>
-              {f.name}
-            </Select.Option>
-          ))}
+          {Array.isArray(floors) &&
+            floors?.map((f: any) => (
+              <Select.Option key={f.id} value={String(f.id)}>
+                {f.name}
+              </Select.Option>
+            ))}
         </Select>
 
         <Select
@@ -188,7 +190,7 @@ const RoomsList = () => {
         <>
           {/* --- LIST ROOMS --- */}
           <Row gutter={[20, 20]}>
-            {paginated.map((room) => {
+            {paginated?.map((room) => {
               const meta = statusMeta[room.status] || {
                 color: "default",
                 label: room.status,
@@ -243,7 +245,7 @@ const RoomsList = () => {
                         }).format(Number(room.price) || 0)}
                       </div>
                       {room.status === "available" ? (
-                        <Link to={`/booking/create?room_id=${room.id}`}>
+                        <Link to={`/booking/staff-create?room_id=${room.id}`}>
                           <Button
                             type="primary"
                             size="middle"
@@ -274,7 +276,7 @@ const RoomsList = () => {
             <Pagination
               current={page}
               pageSize={pageSize}
-              total={filtered.length}
+              total={filtered?.length}
               onChange={(p) => setPage(p)}
               showSizeChanger={false}
             />

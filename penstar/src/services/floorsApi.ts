@@ -4,7 +4,7 @@ export const getFloors = async () => {
   try {
     const response = await instance.get("/floors");
     console.log("📦 Response from /floors API:", response.data);
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    return response.data?.data ?? []; // Trả về array data hoặc array rỗng
   } catch (error) {
     console.error("Error fetching floors:", error);
     throw error;

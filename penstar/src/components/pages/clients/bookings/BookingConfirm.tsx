@@ -26,21 +26,55 @@ const BookingConfirm: React.FC = () => {
 
   const onConfirm = async () => {
     try {
+      if (!data) {
+        message.error("No booking data");
+        return;
+      }
       // ensure required customer_name is present (backend Joi requires it)
       const payload = {
-        ...(data!.payload as Record<string, unknown>),
+        ...(data.payload as Record<string, unknown>),
       } as Record<string, unknown>;
+      // Tính lại tổng tiền từ danh sách phòng và dịch vụ
+      const totalRoomPrice = (data.rooms || []).reduce(
+        (acc, item) => acc + (item.room_price || 0),
+        0
+      );
+      const totalServicePrice = (data.services || []).reduce(
+        (acc, item) => acc + (item.total_service_price || 0),
+        0
+      );
+      payload.total_price = totalRoomPrice + totalServicePrice;
       if (!payload.customer_name && auth?.user?.email) {
         payload.customer_name = auth.user.email;
       }
       const res = await createBooking(payload as any);
-      message.success("Booking created successfully");
       const booking = res;
+      console.log("[DEBUG] booking object:", booking);
       if (!booking || !booking.id) {
         message.error("Booking created but missing ID");
         return;
       }
-      navigate(`/bookings/success/${booking.id}`, { state: { booking } });
+      let successMessage = "Booking created successfully";
+      if (booking.payment_method === "cod") {
+        successMessage += ". Please pay at the front desk when checking in.";
+        message.success(successMessage);
+        navigate(`/bookings/success/${booking.id}`, { state: { booking } });
+      } else {
+        successMessage += ". Please select a payment method.";
+        message.success(successMessage);
+        // Lưu bookingInfo vào localStorage để PaymentMethodSelect có thể lấy được
+        try {
+          localStorage.setItem("bookingInfo", JSON.stringify(booking));
+        } catch {
+          // Do nothing
+        }
+        navigate("/bookings/payment-method", {
+          state: {
+            bookingId: booking.id,
+            bookingInfo: booking,
+          },
+        });
+      }
     } catch (errorUnknown) {
       console.error(errorUnknown);
       const e = errorUnknown as unknown;
