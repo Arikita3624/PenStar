@@ -1,8 +1,12 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
+import useAuth from "@/hooks/useAuth";
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const auth = useAuth();
+  const roleName = auth?.getRoleName(auth.user) || "user";
+  const isManagerOrAbove = roleName === "manager" || roleName === "admin";
 
   const navItems = [
     {
@@ -88,6 +92,7 @@ const Sidebar = () => {
     {
       to: "/admin/users",
       label: "Users",
+      requireRole: "manager", // Only manager and admin
       icon: (
         <svg
           className="w-6 h-6"
@@ -210,16 +215,24 @@ const Sidebar = () => {
 
       <nav className="flex-1 p-3">
         <ul className="space-y-2">
-          {navItems.map((item) => (
-            <li key={item.to} className="w-full">
-              <NavLink to={item.to} className={navLinkClasses} end>
-                <div className="flex items-center justify-center w-6">
-                  {item.icon}
-                </div>
-                {!collapsed && <span className="ml-1">{item.label}</span>}
-              </NavLink>
-            </li>
-          ))}
+          {navItems
+            .filter((item) => {
+              // Filter out items that require specific roles
+              if ("requireRole" in item && item.requireRole === "manager") {
+                return isManagerOrAbove;
+              }
+              return true;
+            })
+            .map((item) => (
+              <li key={item.to} className="w-full">
+                <NavLink to={item.to} className={navLinkClasses} end>
+                  <div className="flex items-center justify-center w-6">
+                    {item.icon}
+                  </div>
+                  {!collapsed && <span className="ml-1">{item.label}</span>}
+                </NavLink>
+              </li>
+            ))}
         </ul>
       </nav>
     </aside>

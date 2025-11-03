@@ -3,6 +3,14 @@ export type BookingItem = {
   check_in: string;
   check_out: string;
   room_price: number;
+  num_adults?: number;
+  num_children?: number;
+  guests?: Array<{
+    guest_name: string;
+    guest_type: "adult" | "child";
+    age?: number | null;
+    is_primary: boolean;
+  }>;
 };
 
 export type BookingService = {
@@ -19,6 +27,7 @@ export type Booking = {
   notes?: string;
   total_price: number;
   payment_status: string;
+  payment_method?: string; // cash, card, transfer, momo, vnpay, cod
   booking_method: string;
   stay_status_id: number;
   user_id?: number;
@@ -54,6 +63,7 @@ export type BookingDetails = Booking & {
 
 export type BookingUpdatePayload = {
   payment_status?: string;
+  payment_method?: string;
   stay_status_id?: number;
   is_refunded?: boolean;
 };

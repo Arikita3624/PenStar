@@ -11,8 +11,8 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
-// list and update users require admin
-router.get("/", requireAuth, requireRole("admin"), listUsers);
-router.put("/:id", requireAuth, requireRole("admin"), updateUserController);
+// list and update users require manager or higher
+router.get("/", requireAuth, requireRole("manager"), listUsers);
+router.put("/:id", requireAuth, requireRole("manager"), updateUserController);
 
 export default router;

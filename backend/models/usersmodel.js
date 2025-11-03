@@ -47,12 +47,48 @@ export const createUser = async (data) => {
 };
 
 export const updateUser = async (id, data) => {
-  const { full_name, email, password, phone, role_id, status } = data;
-  const res = await pool.query(
-    `UPDATE users SET full_name = $1, email = $2, password = $3, phone = $4, role_id = $5, status = $6, updated_at = NOW()
-     WHERE id = $7 RETURNING *`,
-    [full_name, email, password, phone, role_id, status, id]
-  );
+  // Build dynamic update query based on provided fields
+  const fields = [];
+  const values = [];
+  let paramCount = 1;
+
+  if (data.full_name !== undefined) {
+    fields.push(`full_name = $${paramCount++}`);
+    values.push(data.full_name);
+  }
+  if (data.email !== undefined) {
+    fields.push(`email = $${paramCount++}`);
+    values.push(data.email);
+  }
+  if (data.password !== undefined) {
+    fields.push(`password = $${paramCount++}`);
+    values.push(data.password);
+  }
+  if (data.phone !== undefined) {
+    fields.push(`phone = $${paramCount++}`);
+    values.push(data.phone);
+  }
+  if (data.role_id !== undefined) {
+    fields.push(`role_id = $${paramCount++}`);
+    values.push(data.role_id);
+  }
+  if (data.status !== undefined) {
+    fields.push(`status = $${paramCount++}`);
+    values.push(data.status);
+  }
+
+  if (fields.length === 0) {
+    // No fields to update, just return current user
+    return await getUserById(id);
+  }
+
+  fields.push(`updated_at = NOW()`);
+  values.push(id);
+
+  const query = `UPDATE users SET ${fields.join(
+    ", "
+  )} WHERE id = $${paramCount} RETURNING *`;
+  const res = await pool.query(query, values);
   return res.rows[0];
 };
 

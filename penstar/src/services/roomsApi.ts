@@ -1,4 +1,5 @@
 import { instance } from "./api";
+import type { RoomSearchParams, RoomSearchResponse } from "@/types/room";
 
 export const getRooms = async () => {
   try {
@@ -68,6 +69,20 @@ export const checkRoomNameExists = async (
     return response.data?.exists ?? false;
   } catch (error) {
     console.error("Error checking room name exists:", error);
+    throw error;
+  }
+};
+
+// Tìm kiếm phòng trống theo thời gian và yêu cầu
+export const searchAvailableRooms = async (
+  params: RoomSearchParams
+): Promise<RoomSearchResponse> => {
+  try {
+    const response = await instance.get("/rooms/search", { params });
+    console.log("🔍 Search rooms response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching available rooms:", error);
     throw error;
   }
 };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getBookingById,
   updateBookingStatus,
@@ -90,11 +91,11 @@ const BookingDetail = () => {
           );
         }
 
-        const uniqueRoomIds = Array.from(new Set(roomIds));
+        // Don't use Set - we need all room instances even if same room_id
         const uniqueServiceIds = Array.from(new Set(serviceIds));
 
         const [roomResults, serviceResults] = await Promise.all([
-          Promise.all(uniqueRoomIds.map(getRoomID)),
+          Promise.all(roomIds.map(getRoomID)), // Fetch all rooms including duplicates
           Promise.all(uniqueServiceIds.map(getServiceById)),
         ]);
 
@@ -182,12 +183,41 @@ const BookingDetail = () => {
 
     setUpdating(true);
     try {
-      await updateBookingStatus(booking.id, { payment_status: paymentStatus });
-      message.success(`Đã cập nhật trạng thái thanh toán: ${paymentStatus}`);
+      // ⚠️ Nếu payment_status = "failed" → tự động hủy booking (stay_status_id = 4)
+      if (paymentStatus === "failed") {
+        await updateBookingStatus(booking.id, {
+          payment_status: paymentStatus,
+          stay_status_id: 4, // cancelled
+        });
+        message.success(
+          `Đã cập nhật trạng thái thanh toán: ${paymentStatus} và hủy booking`
+        );
+      } else {
+        await updateBookingStatus(booking.id, {
+          payment_status: paymentStatus,
+        });
+        message.success(`Đã cập nhật trạng thái thanh toán: ${paymentStatus}`);
+      }
       refetch();
     } catch (err) {
       console.error("Lỗi cập nhật thanh toán:", err);
       message.error("Không thể cập nhật trạng thái thanh toán");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (paymentMethod: string) => {
+    if (!booking || !booking.id) return;
+
+    setUpdating(true);
+    try {
+      await updateBookingStatus(booking.id, { payment_method: paymentMethod });
+      message.success(`Đã cập nhật phương thức thanh toán: ${paymentMethod}`);
+      refetch();
+    } catch (err) {
+      console.error("Lỗi cập nhật phương thức thanh toán:", err);
+      message.error("Không thể cập nhật phương thức thanh toán");
     } finally {
       setUpdating(false);
     }
@@ -365,6 +395,17 @@ const BookingDetail = () => {
               <br />
               <Text>{booking.phone || "—"}</Text>
             </Col>
+            <Col span={12}>
+              <Text type="secondary">Phương thức đặt phòng</Text>
+              <br />
+              <Tag
+                color={booking.booking_method === "online" ? "blue" : "green"}
+              >
+                {booking.booking_method === "online"
+                  ? "📱 Online"
+                  : "🏨 Trực tiếp"}
+              </Tag>
+            </Col>
           </Row>
         </Card>
 
@@ -419,42 +460,131 @@ const BookingDetail = () => {
         <Card
           title={
             <Space>
-              <HomeOutlined /> Phòng đã đặt
+              <HomeOutlined /> Phòng đã đặt ({booking.items?.length || 0} phòng)
             </Space>
           }
           style={{ marginBottom: 16 }}
           loading={loadingExtras}
         >
           {rooms.length > 0 ? (
-            <List
-              dataSource={rooms}
-              renderItem={(room) => (
-                <List.Item>
-                  <List.Item.Meta
-                    avatar={
-                      room.thumbnail ? (
-                        <Avatar shape="square" size={64} src={room.thumbnail} />
-                      ) : (
-                        <Avatar
-                          shape="square"
-                          size={64}
-                          icon={<HomeOutlined />}
+            (() => {
+              // Group rooms by room_id
+              const roomGroups = new Map<
+                number,
+                {
+                  room: Room;
+                  count: number;
+                  totalGuests: number;
+                  totalAdults: number;
+                  totalChildren: number;
+                  totalPrice: number;
+                }
+              >();
+
+              booking.items?.forEach((item: any, index: number) => {
+                const room = rooms[index];
+                if (!room) return;
+
+                // Ưu tiên lấy từ num_adults/num_children, fallback sang guests array
+                const numAdults = item.num_adults || 0;
+                const numChildren = item.num_children || 0;
+
+                const guests = item.guests || [];
+                const adultsFromGuests = guests.filter(
+                  (g: any) => g.guest_type === "adult"
+                ).length;
+                const childrenFromGuests = guests.filter(
+                  (g: any) => g.guest_type === "child"
+                ).length;
+
+                // Sử dụng num_adults/num_children nếu có, không thì dùng guests
+                const adults = numAdults > 0 ? numAdults : adultsFromGuests;
+                const children =
+                  numChildren > 0 ? numChildren : childrenFromGuests;
+                const totalGuests = adults + children;
+
+                if (roomGroups.has(room.id)) {
+                  const existing = roomGroups.get(room.id)!;
+                  existing.count += 1;
+                  existing.totalGuests += totalGuests;
+                  existing.totalAdults += adults;
+                  existing.totalChildren += children;
+                  existing.totalPrice += Number(room.price || 0);
+                } else {
+                  roomGroups.set(room.id, {
+                    room,
+                    count: 1,
+                    totalGuests: totalGuests,
+                    totalAdults: adults,
+                    totalChildren: children,
+                    totalPrice: Number(room.price || 0),
+                  });
+                }
+              });
+
+              return (
+                <List
+                  dataSource={Array.from(roomGroups.values())}
+                  renderItem={(groupData) => {
+                    const {
+                      room,
+                      count,
+                      totalGuests,
+                      totalAdults,
+                      totalChildren,
+                      totalPrice,
+                    } = groupData;
+
+                    return (
+                      <List.Item>
+                        <List.Item.Meta
+                          avatar={
+                            room.thumbnail ? (
+                              <Avatar
+                                shape="square"
+                                size={64}
+                                src={room.thumbnail}
+                              />
+                            ) : (
+                              <Avatar
+                                shape="square"
+                                size={64}
+                                icon={<HomeOutlined />}
+                              />
+                            )
+                          }
+                          title={
+                            <Space direction="vertical" size={0}>
+                              <Text strong>
+                                {room.name || `Phòng ${room.id}`}
+                                {count > 1 && (
+                                  <Tag color="blue" style={{ marginLeft: 8 }}>
+                                    x{count} phòng
+                                  </Tag>
+                                )}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                <UserOutlined /> {totalAdults} người lớn
+                                {totalChildren > 0
+                                  ? `, ${totalChildren} trẻ em`
+                                  : ""}{" "}
+                                (Tổng: {totalGuests} khách)
+                              </Text>
+                            </Space>
+                          }
+                          description={`Loại phòng ${
+                            room.type_id || "Không xác định"
+                          }`}
                         />
-                      )
-                    }
-                    title={
-                      <Text strong>{room.name || `Phòng ${room.id}`}</Text>
-                    }
-                    description={`Loại phòng ${
-                      room.type_id || "Không xác định"
-                    }`}
-                  />
-                  <Text strong type="success">
-                    {room.price ? formatPrice(room.price) : "—"}
-                  </Text>
-                </List.Item>
-              )}
-            />
+                        <Text strong type="success">
+                          {formatPrice(totalPrice)}
+                        </Text>
+                      </List.Item>
+                    );
+                  }}
+                />
+              );
+            })()
           ) : (
             <Empty description="Không có thông tin phòng" />
           )}
@@ -496,6 +626,79 @@ const BookingDetail = () => {
           }
         >
           <Space direction="vertical" style={{ width: "100%" }}>
+            {/* Payment Method */}
+            <Row justify="space-between" align="middle">
+              <Text>Phương thức thanh toán</Text>
+              {booking.stay_status_id === 4 ? (
+                // Nếu đã hủy - chỉ hiển thị
+                <Tag color="default">
+                  {booking.payment_method
+                    ? booking.payment_method.toUpperCase()
+                    : "—"}
+                </Tag>
+              ) : booking.booking_method === "offline" &&
+                booking.stay_status_id === 1 &&
+                booking.payment_status !== "paid" ? (
+                // Cho phép sửa khi: offline booking, đã duyệt, chưa thanh toán
+                <Select
+                  value={booking.payment_method || undefined}
+                  placeholder="Chọn phương thức"
+                  style={{ width: 220 }}
+                  onChange={handleUpdatePaymentMethod}
+                  disabled={updating}
+                  allowClear
+                  options={[
+                    {
+                      label: "💵 Tiền mặt",
+                      value: "cash",
+                    },
+                    {
+                      label: " Ví MoMo",
+                      value: "momo",
+                    },
+                    {
+                      label: "💰 VNPAY",
+                      value: "vnpay",
+                    },
+                  ]}
+                />
+              ) : (
+                // Tất cả các trường hợp khác - chỉ xem
+                <Tag
+                  color={
+                    booking.payment_method === "cash"
+                      ? "green"
+                      : booking.payment_method === "momo"
+                      ? "magenta"
+                      : booking.payment_method === "vnpay"
+                      ? "purple"
+                      : "default"
+                  }
+                >
+                  {booking.payment_method
+                    ? booking.payment_method.toUpperCase()
+                    : "—"}
+                </Tag>
+              )}
+            </Row>
+
+            {/* Payment Method Helper Text */}
+            {booking.booking_method === "offline" &&
+              booking.stay_status_id === 1 &&
+              booking.payment_status !== "paid" && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  💡 Chọn phương thức thanh toán trực tiếp tại quầy lễ tân (tiền
+                  mặt, thẻ, chuyển khoản, v.v.)
+                </Text>
+              )}
+            {booking.booking_method === "online" && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                🌐 Booking online - Phương thức thanh toán được tự động ghi nhận
+                qua cổng thanh toán
+              </Text>
+            )}
+
+            {/* Payment Status */}
             <Row justify="space-between" align="middle">
               <Text>Trạng thái thanh toán</Text>
               {booking.stay_status_id === 4 ? (
@@ -511,11 +714,37 @@ const BookingDetail = () => {
                   style={{ width: 200 }}
                   onChange={handleUpdatePayment}
                   disabled={updating}
-                  options={[
-                    { label: "Pending (Chờ thanh toán)", value: "pending" },
-                    { label: "Paid (Đã thanh toán)", value: "paid" },
-                    { label: "Failed (Thất bại)", value: "failed" },
-                  ]}
+                  options={
+                    booking.booking_method === "online"
+                      ? [
+                          // Online booking - chỉ unpaid/paid/failed
+                          {
+                            label: "Unpaid (Chưa thanh toán)",
+                            value: "unpaid",
+                          },
+                          {
+                            label: "Paid (Đã thanh toán - Online)",
+                            value: "paid",
+                          },
+                          { label: "Failed (Thất bại)", value: "failed" },
+                        ]
+                      : [
+                          // Offline booking - có thêm pending (chờ thanh toán COD)
+                          {
+                            label: "Unpaid (Chưa thanh toán)",
+                            value: "unpaid",
+                          },
+                          {
+                            label: "Pending (Chờ thanh toán COD)",
+                            value: "pending",
+                          },
+                          {
+                            label: "Paid (Đã thanh toán - Tiền mặt)",
+                            value: "paid",
+                          },
+                          { label: "Failed (Thất bại)", value: "failed" },
+                        ]
+                  }
                 />
               ) : (
                 // Tất cả các trường hợp khác - chỉ xem, không sửa
@@ -523,6 +752,8 @@ const BookingDetail = () => {
                   color={
                     booking.payment_status === "paid"
                       ? "green"
+                      : booking.payment_status === "unpaid"
+                      ? "orange"
                       : booking.payment_status === "pending"
                       ? "gold"
                       : "red"
@@ -624,8 +855,8 @@ const BookingDetail = () => {
                 Duyệt
               </Button>
             )}
-            {/* Chỉ hiện nút Hủy khi đã duyệt (stay_status_id === 1 = reserved) */}
-            {booking.stay_status_id === 1 && (
+            {/* Hiện nút Hủy khi booking chưa bị hủy (stay_status_id !== 4) và chưa checked_out */}
+            {booking.stay_status_id !== 4 && booking.stay_status_id !== 3 && (
               <Button
                 danger
                 onClick={handleCancel}

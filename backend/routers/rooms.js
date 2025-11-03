@@ -5,6 +5,7 @@ import {
   createRoom,
   updateRoom,
   deleteRoom,
+  searchRooms,
 } from "../controllers/roomscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 import {
@@ -14,6 +15,9 @@ import {
 } from "../middlewares/roomvalidate.js";
 
 const roomsRouter = express.Router();
+
+// Public: tìm kiếm phòng trống
+roomsRouter.get("/search", searchRooms);
 
 // Public: list rooms for client pages
 roomsRouter.get("/", getRooms);

@@ -35,10 +35,14 @@ instance.interceptors.response.use(
       } catch {
         // ignore
       }
-      message.error("Unauthorized — please sign in again");
-      // redirect to sign in
-      window.location.href = "/signin";
+      message.error("Unauthorized — vui lòng đăng nhập lại");
+      // Nếu đang ở trang booking success thì không redirect
+      if (!window.location.pathname.includes("/bookings/success")) {
+        window.location.href = "/signin";
+      }
     }
     return Promise.reject(err);
   }
 );
+
+export default instance;

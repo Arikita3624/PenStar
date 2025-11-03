@@ -48,7 +48,6 @@ export const createBooking = async (data) => {
       booking_method,
       stay_status_id,
       user_id,
-      // Ignore email, phone, notes as they don't exist in database
     } = data;
 
     // Validate required fields
@@ -115,12 +114,13 @@ export const createBooking = async (data) => {
       }
     }
 
-    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, created_at, is_refunded)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), FALSE) RETURNING *`;
+    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, created_at, is_refunded)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), FALSE) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
       total_price,
       payment_status,
+      data.payment_method || null, // Phương thức thanh toán (optional)
       booking_method,
       stay_status_id,
       user_id,
@@ -138,18 +138,115 @@ export const createBooking = async (data) => {
 
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
       for (const item of data.items) {
-        const { room_id, check_in, check_out, room_price } = item;
-        await client.query(insertItemText, [
+        const {
+          room_id,
+          check_in,
+          check_out,
+          room_price,
+          num_adults,
+          num_children,
+          guests,
+        } = item;
+        const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
           check_in,
           check_out,
           room_price,
+          num_adults || 1,
+          num_children || 0,
         ]);
 
+        const booking_item_id = itemResult.rows[0].id;
+
+        // Insert guests for this booking_item
+        if (Array.isArray(guests) && guests.length > 0) {
+          const insertGuestText = `INSERT INTO booking_guests (booking_item_id, guest_name, guest_type, age, is_primary) VALUES ($1, $2, $3, $4, $5)`;
+          for (const guest of guests) {
+            await client.query(insertGuestText, [
+              booking_item_id,
+              guest.guest_name,
+              guest.guest_type,
+              guest.age || null,
+              guest.is_primary || false,
+            ]);
+          }
+        }
+
         // Update room status to 'pending' when booking is created (client creates → stay_status_id=6 pending)
+        await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
+          "pending",
+          room_id,
+        ]);
+      }
+    }
+
+    // insert booking_items with multi-room support if rooms array provided
+    if (Array.isArray(data.rooms)) {
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+
+      for (const room of data.rooms) {
+        const { room_id, num_adults, num_children, special_requests } = room;
+        const check_in = data.check_in;
+        const check_out = data.check_out;
+
+        // Get room price
+        const roomResult = await client.query(
+          "SELECT price FROM rooms WHERE id = $1",
+          [room_id]
+        );
+        const room_price = roomResult.rows[0]?.price || 0;
+
+        const itemResult = await client.query(insertItemText, [
+          booking.id,
+          room_id,
+          check_in,
+          check_out,
+          room_price,
+          num_adults || 1,
+          num_children || 0,
+          special_requests || null,
+        ]);
+
+        const booking_item_id = itemResult.rows[0].id;
+
+        // Insert guests for this room
+        if (Array.isArray(room.guests)) {
+          const insertGuestText = `INSERT INTO booking_guests (booking_item_id, guest_name, guest_type, age, is_primary) VALUES ($1, $2, $3, $4, $5)`;
+          for (const guest of room.guests) {
+            await client.query(insertGuestText, [
+              booking_item_id,
+              guest.guest_name,
+              guest.guest_type,
+              guest.age || null,
+              guest.is_primary || false,
+            ]);
+          }
+        }
+
+        // Insert services for this room
+        if (Array.isArray(room.service_ids) && room.service_ids.length > 0) {
+          const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4)`;
+          for (const service_id of room.service_ids) {
+            // Get service price
+            const serviceResult = await client.query(
+              "SELECT price FROM services WHERE id = $1",
+              [service_id]
+            );
+            const service_price = serviceResult.rows[0]?.price || 0;
+
+            await client.query(insertServiceText, [
+              booking.id,
+              service_id,
+              1, // quantity default to 1
+              service_price,
+            ]);
+          }
+        }
+
+        // Update room status to 'pending'
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
           "pending",
           room_id,
@@ -345,16 +442,16 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
             "Không thể hủy booking trong vòng 24h trước check-in. Vui lòng liên hệ admin."
           );
         }
-      } else if (currentStatus === 6) {
-        // pending (6) - can cancel freely
+      } else if (currentStatus === 0) {
+        // pending (0) - can cancel freely
         // Allow cancellation
       } else if (currentStatus === 2) {
         // checked_in (2) - cannot cancel, only checkout
         throw new Error(
           "Không thể hủy khi đã check-in. Vui lòng liên hệ admin."
         );
-      } else if ([3, 4, 5].includes(currentStatus)) {
-        // checked_out/cancelled/no_show - already finished
+      } else if ([3, 4].includes(currentStatus)) {
+        // checked_out/cancelled - already finished
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
@@ -365,20 +462,18 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
         throw new Error("Bạn không có quyền hủy booking này");
       }
     } else {
-      // Admin cancellation rules
-      if (currentStatus === 6) {
-        // pending (6) - admin can cancel
+      // Admin/Staff/Manager cancellation rules - more permissive
+      if (currentStatus === 0) {
+        // pending (0) - staff can cancel
         // Allow
       } else if (currentStatus === 1) {
-        // reserved (1) - admin can cancel (only if payment is pending)
+        // reserved (1) - staff can cancel
         // Allow
       } else if (currentStatus === 2) {
-        // checked_in (2) - admin CANNOT cancel after check-in
-        throw new Error(
-          "Không thể hủy khi đã check-in. Vui lòng sử dụng chức năng checkout."
-        );
-      } else if ([3, 4, 5].includes(currentStatus)) {
-        // checked_out/cancelled/no_show
+        // checked_in (2) - staff CAN cancel (force cancel)
+        // Allow (staff has more power)
+      } else if ([3, 4].includes(currentStatus)) {
+        // checked_out/cancelled
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       }
     }

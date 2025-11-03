@@ -18,6 +18,29 @@ export const requireAuth = (req, res, next) => {
   }
 };
 
+// Optional auth: Try to authenticate, but allow request through if no token
+export const optionalAuth = (req, res, next) => {
+  const auth = req.headers.authorization;
+  if (!auth) {
+    req.user = null; // No user, but allow through
+    return next();
+  }
+  const parts = auth.split(" ");
+  if (parts.length !== 2 || parts[0] !== "Bearer") {
+    req.user = null;
+    return next();
+  }
+  const token = parts[1];
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.user = payload;
+    next();
+  } catch (err) {
+    req.user = null; // Invalid token, but allow through
+    next();
+  }
+};
+
 // role hierarchy: customer < staff < manager < admin
 const ROLE_LEVEL = {
   customer: 0,

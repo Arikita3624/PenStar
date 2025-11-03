@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // services used: roomsApi wrapper functions
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,15 +32,18 @@ const Rooms = () => {
     isError,
   } = useQuery<Room[]>({ queryKey: ["rooms"], queryFn: getRooms });
   type FloorShort = { id: number | string; name: string };
-  const { data: floors } = useQuery<FloorShort[]>({
+  const { data: floorsResponse } = useQuery<any>({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
+  const floors = floorsResponse?.data || [];
+
   type RoomTypeShort = { id: number | string; name: string };
-  const { data: room_types } = useQuery<RoomTypeShort[]>({
+  const { data: roomTypesResponse } = useQuery<any>({
     queryKey: ["room_types"],
     queryFn: getRoomTypes,
   });
+  const room_types = roomTypesResponse?.data || [];
 
   const { mutate: deleteMut } = useMutation({
     mutationFn: async (id: number) => deleteRoom(id),
@@ -105,19 +109,15 @@ const Rooms = () => {
     },
     {
       title: "Type",
-      dataIndex: "type_id",
-      key: "type_id",
-      render: (type_id) =>
-        room_types?.find((t: RoomTypeShort) => String(t.id) === String(type_id))
-          ?.name || "N/A",
+      dataIndex: "type_name",
+      key: "type_name",
+      render: (type_name) => type_name || "N/A",
     },
     {
       title: "Floor",
-      dataIndex: "floor_id",
-      key: "floor_id",
-      render: (floor_id) =>
-        floors?.find((f: FloorShort) => String(f.id) === String(floor_id))
-          ?.name || "N/A",
+      dataIndex: "floor_name",
+      key: "floor_name",
+      render: (floor_name) => floor_name || "N/A",
     },
     {
       title: "Price",
@@ -180,11 +180,12 @@ const Rooms = () => {
               setCurrentPage(1);
             }}
           >
-            {room_types?.map((t: RoomTypeShort) => (
-              <Select.Option key={t.id} value={t.id}>
-                {t.name}
-              </Select.Option>
-            ))}
+            {Array.isArray(room_types) &&
+              room_types.map((t: RoomTypeShort) => (
+                <Select.Option key={t.id} value={t.id}>
+                  {t.name}
+                </Select.Option>
+              ))}
           </Select>
           <Select
             allowClear
@@ -196,11 +197,12 @@ const Rooms = () => {
               setCurrentPage(1);
             }}
           >
-            {floors?.map((f: FloorShort) => (
-              <Select.Option key={f.id} value={f.id}>
-                {f.name}
-              </Select.Option>
-            ))}
+            {Array.isArray(floors) &&
+              floors.map((f: FloorShort) => (
+                <Select.Option key={f.id} value={f.id}>
+                  {f.name}
+                </Select.Option>
+              ))}
           </Select>
           <Button
             onClick={() => {

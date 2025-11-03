@@ -13,6 +13,7 @@ import bookingsRouter from "./routers/bookings.js";
 import bookingItemsRouter from "./routers/booking_items.js";
 import bookingServicesRouter from "./routers/booking_services.js";
 import stayStatusRouter from "./routers/stay_status.js";
+import paymentRouter from "./routers/payment.js";
 dotenv.config();
 const app = express();
 
@@ -30,9 +31,9 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/booking-items", bookingItemsRouter);
 app.use("/api/booking-services", bookingServicesRouter);
 app.use("/api/stay-status", stayStatusRouter);
+app.use("/api/payment", paymentRouter);
 
 import path from "path";
-import expressStatic from "express";
 // serve uploaded files from /uploads
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 

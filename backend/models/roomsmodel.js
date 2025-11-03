@@ -1,12 +1,34 @@
 import pool from "../db.js";
 
+// Độ tuổi quy chuẩn để tính là trẻ em
+export const CHILD_AGE_LIMIT = 8; // Trẻ em: < 8 tuổi, Người lớn: >= 8 tuổi
+
 export const getRooms = async () => {
-  const resuit = await pool.query("SELECT * FROM rooms");
+  const resuit = await pool.query(`
+    SELECT r.*, 
+           rt.name as type_name,
+           f.name as floor_name
+    FROM rooms r
+    LEFT JOIN room_types rt ON r.type_id = rt.id
+    LEFT JOIN floors f ON r.floor_id = f.id
+    ORDER BY r.id
+  `);
   return resuit.rows;
 };
 
 export const getRoomID = async (id) => {
-  const resuit = await pool.query("SELECT * FROM rooms WHERE id = $1", [id]);
+  const resuit = await pool.query(
+    `
+    SELECT r.*, 
+           rt.name as type_name,
+           f.name as floor_name
+    FROM rooms r
+    LEFT JOIN room_types rt ON r.type_id = rt.id
+    LEFT JOIN floors f ON r.floor_id = f.id
+    WHERE r.id = $1
+  `,
+    [id]
+  );
   console.log(resuit);
   return resuit.rows[0];
 };
@@ -74,6 +96,21 @@ export const updateRoom = async (id, data) => {
   return resuit.rows[0];
 };
 
+// Check if room has active bookings (đang được book)
+// Active = reserved (1) hoặc checked_in (2)
+// KHÔNG bao gồm checked_out (3) vì đã trả phòng
+export const hasActiveBookings = async (roomId) => {
+  const result = await pool.query(
+    `SELECT COUNT(*) as count
+     FROM booking_items bi
+     JOIN bookings b ON bi.booking_id = b.id
+     WHERE bi.room_id = $1
+       AND b.stay_status_id IN (1, 2, 6)`,
+    [roomId]
+  );
+  return parseInt(result.rows[0].count) > 0;
+};
+
 export const deleteRoom = async (id) => {
   const resuit = await pool.query(
     "DELETE FROM rooms WHERE id = $1 RETURNING *",
@@ -124,4 +161,92 @@ export const existsRoomWithNameAndType = async (
     [name, type_id]
   );
   return res.rowCount > 0;
+};
+
+// Check trùng tên phòng tuyệt đối (không phụ thuộc type_id)
+export const existsRoomWithName = async (name, excludeId = null) => {
+  if (excludeId) {
+    const res = await pool.query(
+      "SELECT 1 FROM rooms WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id <> $2 LIMIT 1",
+      [name, excludeId]
+    );
+    return res.rowCount > 0;
+  }
+  const res = await pool.query(
+    "SELECT 1 FROM rooms WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
+    [name]
+  );
+  return res.rowCount > 0;
+};
+
+// Tìm kiếm phòng trống theo thời gian và yêu cầu
+export const searchAvailableRooms = async ({
+  check_in,
+  check_out,
+  room_type_id = null,
+  floor_id = null,
+  num_adults = 1,
+  num_children = 0,
+}) => {
+  console.log("🔍 Search params:", {
+    check_in,
+    check_out,
+    room_type_id,
+    floor_id,
+    num_adults,
+    num_children,
+  });
+
+  const totalGuests = num_adults + num_children;
+
+  // Simplified query - chỉ check available và không conflict booking
+  let query = `
+    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.base_occupancy
+    FROM rooms r
+    LEFT JOIN room_types rt ON r.type_id = rt.id
+    WHERE r.status = 'available'
+      AND r.capacity >= $1
+  `;
+
+  const params = [totalGuests];
+  console.log("📦 Initial params:", params);
+  let paramIndex = 2;
+
+  // Filter theo loại phòng nếu có
+  if (room_type_id) {
+    query += ` AND r.type_id = $${paramIndex}`;
+    params.push(room_type_id);
+    paramIndex++;
+  }
+
+  // Filter theo tầng nếu có
+  if (floor_id) {
+    query += ` AND r.floor_id = $${paramIndex}`;
+    params.push(floor_id);
+    paramIndex++;
+  }
+
+  // Loại trừ phòng đã có booking conflict
+  query += `
+    AND NOT EXISTS (
+      SELECT 1 FROM booking_items bi
+      JOIN bookings b ON bi.booking_id = b.id
+      WHERE bi.room_id = r.id
+        AND b.stay_status_id IN (1, 2, 3) -- reserved, approved, checked_in
+        AND NOT (bi.check_out <= $${paramIndex} OR bi.check_in >= $${
+    paramIndex + 1
+  })
+    )
+  `;
+  params.push(check_in, check_out);
+
+  query += ` ORDER BY r.price ASC`;
+
+  console.log("📝 Final query:", query);
+  console.log("📦 Final params:", params);
+
+  const result = await pool.query(query, params);
+  console.log(`✅ Found ${result.rows.length} rooms`);
+
+  return result.rows;
 };
