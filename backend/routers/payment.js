@@ -25,7 +25,9 @@ paymentRouter.get("/create_payment", (req, res) => {
   const tmnCode = "1QN514ZX"; // Lấy từ VNPay .env
   const secretKey = "OC9XPP932WGHC29PZEX46NXITSHZKLX9"; // Lấy từ VNPay
 
-  const returnUrl = "http://localhost:5173/payment-result"; // Trang kết quả
+  // Lấy returnUrl từ query hoặc dùng mặc định
+  const returnUrl =
+    req.query.returnUrl || "http://localhost:5173/payment-result";
   const vnp_Url = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
   let ipAddr = req.ip;

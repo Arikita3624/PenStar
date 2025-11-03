@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RequireRole from "@/components/common/RequireRole";
@@ -28,7 +27,9 @@ import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
 import Userslist from "@/components/pages/admin/users/Userslist";
+import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
+import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import StaffBookingCreate from "@/components/pages/clients/bookings/StaffBookingCreate";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
@@ -44,14 +45,43 @@ const AppRouter = () => {
           <Route path="rooms" element={<RoomsList />} />
           <Route path="rooms/search-results" element={<RoomSearchResults />} />
           <Route path="rooms/:id" element={<RoomDetail />} />
+
+          {/* Staff booking - Walk-in customers (staff creates for guest) */}
           <Route path="booking/staff-create" element={<StaffBookingCreate />} />
+
+          {/* Customer bookings - REQUIRE authentication */}
           <Route
             path="booking/multi-create"
-            element={<MultiRoomBookingCreate />}
+            element={
+              <RequireRole role="customer">
+                <MultiRoomBookingCreate />
+              </RequireRole>
+            }
           />
-          <Route path="bookings" element={<MyBookings />} />
-          <Route path="my-bookings" element={<MyBookings />} />
-          <Route path="bookings/confirm" element={<BookingConfirm />} />
+          <Route
+            path="bookings"
+            element={
+              <RequireRole role="customer">
+                <MyBookings />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="my-bookings"
+            element={
+              <RequireRole role="customer">
+                <MyBookings />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="bookings/confirm"
+            element={
+              <RequireRole role="customer">
+                <BookingConfirm />
+              </RequireRole>
+            }
+          />
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
           <Route
             path="bookings/payment-method"
@@ -65,28 +95,18 @@ const AppRouter = () => {
         <Route
           path="admin"
           element={
-            <RequireRole role="admin">
+            <RequireRole role="staff">
               <LayoutAdmin />
             </RequireRole>
           }
         >
           <Route index element={<Dashboard />} />
-          <Route
-            path="bookings"
-            element={
-              <RequireRole {...({ role: "staff" } as any)}>
-                <BookingsList />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="bookings/:id"
-            element={
-              <RequireRole {...({ role: "staff" } as any)}>
-                <BookingDetail />
-              </RequireRole>
-            }
-          />
+
+          {/* Bookings management - Staff+ */}
+          <Route path="bookings" element={<BookingsList />} />
+          <Route path="bookings/:id" element={<BookingDetail />} />
+
+          {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
           <Route path="rooms" element={<Rooms />} />
           <Route path="rooms/add" element={<RoomAdd />} />
           <Route path="rooms/:id/edit" element={<RoomEdit />} />
@@ -99,8 +119,26 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
-          <Route path="users" element={<Userslist />} />
+
+          {/* Users management - Manager+ */}
+          <Route
+            path="users"
+            element={
+              <RequireRole role="manager">
+                <Userslist />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="users/:id/edit"
+            element={
+              <RequireRole role="manager">
+                <UserEdit />
+              </RequireRole>
+            }
+          />
         </Route>
+        <Route path="/403" element={<Forbidden />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

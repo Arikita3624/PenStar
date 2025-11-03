@@ -246,11 +246,7 @@ const BookingSuccess: React.FC = () => {
           <Descriptions.Item label="Phương thức thanh toán">
             {booking?.payment_method === "vnpay" && "💰 VNPAY"}
             {booking?.payment_method === "momo" && "📱 Ví MoMo"}
-            {booking?.payment_method === "transfer" && "🏦 Chuyển khoản"}
             {booking?.payment_method === "cash" && "💵 Tiền mặt"}
-            {booking?.payment_method === "card" && "💳 Thẻ"}
-            {booking?.payment_method === "cod" &&
-              "🏨 Thanh toán tại quầy (COD)"}
             {!booking?.payment_method && "—"}
           </Descriptions.Item>
           <Descriptions.Item label="Phương thức đặt phòng">

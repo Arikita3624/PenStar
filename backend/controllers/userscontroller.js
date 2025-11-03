@@ -84,6 +84,28 @@ export const listUsers = async (req, res) => {
 
 export const updateUserController = async (req, res) => {
   const { id } = req.params;
+  const userId = String(id);
+  const currentUserId = String(req.user?.id);
+
+  // Prevent users from changing their own role
+  if (userId === currentUserId && req.body.role_id !== undefined) {
+    return res.status(403).json({
+      message: "You cannot change your own role",
+    });
+  }
+
+  // Only admin can change roles (role_id in request body)
+  if (req.body.role_id !== undefined) {
+    const userRole = (req.user.role || req.user.role_name || "")
+      .toString()
+      .toLowerCase();
+    if (userRole !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can change user roles",
+      });
+    }
+  }
+
   try {
     const { updateUser } = await import("../models/usersmodel.js");
     const updated = await updateUser(id, req.body);

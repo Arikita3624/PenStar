@@ -94,41 +94,45 @@ const StaffBookingCreate: React.FC = () => {
   const createBookingMutation = useMutation({
     mutationFn: createBooking,
     onSuccess: async (data: any) => {
+      console.log("[StaffBookingCreate] onSuccess data:", data);
       const bookingId = data.id || data.data?.id;
+      console.log("[StaffBookingCreate] bookingId:", bookingId);
+
+      // Lấy payment method từ form
+      const paymentMethodValue = form.getFieldValue("payment_method") || "cash";
       message.success("✅ Tạo booking thành công!");
 
-      // Get payment method from form
-      const paymentMethod = form.getFieldValue("payment_method") || "cash";
-
-      // If VNPay, redirect to payment gateway
-      if (paymentMethod === "vnpay") {
+      // Xử lý theo payment method
+      if (paymentMethodValue === "vnpay") {
+        // Redirect sang VNPay
         try {
-          // Save bookingId for PaymentResult callback
-          localStorage.setItem("bookingId", bookingId.toString());
-
-          const res = await fetch(
-            `http://localhost:5000/api/payment/create_payment?amount=${totalAmount}`
+          const { instance } = await import("@/services/api");
+          const { data: paymentData } = await instance.get(
+            "/payment/create_payment",
+            {
+              params: {
+                amount: data.total_price,
+                language: "vn",
+                returnUrl: `${window.location.origin}/payment-result`,
+              },
+            }
           );
-          const responseData = await res.json();
-          if (responseData.paymentUrl) {
-            window.location.href = responseData.paymentUrl;
+
+          if (paymentData.paymentUrl) {
+            localStorage.setItem("bookingId", bookingId.toString());
+            window.location.href = paymentData.paymentUrl;
           } else {
-            navigate(`/bookings/success/${bookingId}`, {
-              state: { booking: data },
-            });
+            throw new Error("Không nhận được URL thanh toán");
           }
-        } catch (error) {
-          console.error("VNPay error:", error);
-          message.error("Lỗi kết nối VNPay. Chuyển sang trang success...");
-          navigate(`/bookings/success/${bookingId}`, {
-            state: { booking: data },
-          });
+        } catch (error: any) {
+          console.error("Lỗi tạo payment URL:", error);
+          message.error("Lỗi chuyển sang trang thanh toán");
+          // Fallback: navigate to success
+          navigate(`/bookings/success/${bookingId}`);
         }
       } else {
-        // Other payment methods: go to success page
-        navigate(`/bookings/success/${bookingId}`, {
-          state: { booking: data },
-        });
+        // Cash/COD - navigate to success luôn
+        navigate(`/bookings/success/${bookingId}`);
       }
     },
     onError: (error: any) => {
@@ -411,7 +415,8 @@ const StaffBookingCreate: React.FC = () => {
         email: customerInfo.customer_email || undefined,
         phone: customerInfo.customer_phone || undefined,
         total_price: totalAmount,
-        payment_status: values.payment_status || "pending",
+        payment_status:
+          values.payment_method === "vnpay" ? "unpaid" : "pending",
         payment_method: values.payment_method || "cash",
         booking_method: "offline", // Staff booking = offline/walk-in
         stay_status_id: values.stay_status_id || stayStatusId,
@@ -843,11 +848,6 @@ const StaffBookingCreate: React.FC = () => {
                     <Select.Option value="cash">Tiền mặt</Select.Option>
                     <Select.Option value="vnpay">VNPay</Select.Option>
                     <Select.Option value="momo">MoMo</Select.Option>
-                    <Select.Option value="card">Thẻ</Select.Option>
-                    <Select.Option value="transfer">Chuyển khoản</Select.Option>
-                    <Select.Option value="cod">
-                      COD (Thanh toán khi nhận phòng)
-                    </Select.Option>
                   </Select>
                 </Form.Item>
               </Col>

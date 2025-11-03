@@ -218,6 +218,30 @@ export const updateBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const fields = req.body;
+
+    // ⚠️ Nếu cập nhật stay_status_id = 4 (cancelled), cần giải phóng phòng
+    if (fields.stay_status_id === 4) {
+      // Lấy danh sách phòng từ booking_items
+      const itemsRes = await pool.query(
+        "SELECT room_id FROM booking_items WHERE booking_id = $1",
+        [id]
+      );
+
+      // Giải phóng tất cả phòng về "available"
+      for (const item of itemsRes.rows) {
+        if (item.room_id) {
+          await pool.query(
+            "UPDATE rooms SET status = 'available' WHERE id = $1",
+            [item.room_id]
+          );
+        }
+      }
+
+      console.log(
+        `✅ Đã giải phóng ${itemsRes.rows.length} phòng của booking #${id}`
+      );
+    }
+
     const updated = await modelUpdateBookingStatus(id, fields);
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -350,11 +374,48 @@ export const confirmCheckout = async (req, res) => {
   }
 };
 
+// Guest can update booking payment info (no auth required)
+export const updateGuestBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { payment_method, payment_status } = req.body;
+
+    // Only allow updating payment fields for guest
+    const allowedFields = {};
+    if (payment_method) allowedFields.payment_method = payment_method;
+    if (payment_status) allowedFields.payment_status = payment_status;
+
+    if (Object.keys(allowedFields).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields to update",
+      });
+    }
+
+    const result = await modelUpdateBookingStatus(id, allowedFields);
+
+    res.json({
+      success: true,
+      message: "Cập nhật booking thành công",
+      data: result,
+    });
+  } catch (err) {
+    console.error("updateGuestBooking error:", err);
+    res.status(400).json({
+      success: false,
+      message: err.message || "Không thể cập nhật booking",
+      error: err.message,
+    });
+  }
+};
+
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    const isAdmin = req.user?.role_id === 1; // Assuming role_id 1 is admin
+    const userRoleId = req.user?.role_id;
+    // Admin (4), Manager (3), Staff (2) đều có quyền hủy bất kỳ booking nào
+    const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
     if (!userId) {
       return res.status(401).json({
@@ -363,7 +424,7 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    const result = await modelCancelBooking(id, userId, isAdmin);
+    const result = await modelCancelBooking(id, userId, isStaffOrAbove);
 
     res.json({
       success: true,

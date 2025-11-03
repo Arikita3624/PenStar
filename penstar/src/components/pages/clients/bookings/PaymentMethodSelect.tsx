@@ -6,9 +6,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 const paymentMethods = [
   { value: "vnpay", label: "VNPAY" },
   { value: "momo", label: "MoMo" },
-  { value: "cod", label: "Thanh toán khi nhận phòng (COD)" },
-  { value: "transfer", label: "Chuyển khoản ngân hàng" },
-  { value: "card", label: "Thẻ tín dụng/ghi nợ" },
 ];
 
 const PaymentMethodSelect: React.FC = () => {

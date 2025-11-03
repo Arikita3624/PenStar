@@ -5,10 +5,10 @@ import { jwtDecode } from "jwt-decode";
 type Props = { children: React.ReactNode; role?: string | string[] };
 
 const ROLE_LEVEL: Record<string, number> = {
-  customer: 0,
-  staff: 1,
-  manager: 2,
-  admin: 3,
+  customer: 1,
+  staff: 2,
+  manager: 3,
+  admin: 4,
 };
 
 const RequireRole = ({ children, role }: Props) => {
@@ -35,13 +35,13 @@ const RequireRole = ({ children, role }: Props) => {
     const userLevel =
       typeof userRoleName === "string" && ROLE_LEVEL[userRoleName] !== undefined
         ? ROLE_LEVEL[userRoleName]
-        : typeof userRoleId === "number"
+        : typeof userRoleId === "number" && userRoleId >= 1 && userRoleId <= 4
         ? userRoleId
-        : -1;
+        : 0;
 
-    // if wrapper not given a required role, default: only block 'customer'
+    // if wrapper not given a required role, default: only authenticated users
     if (!role) {
-      if (userLevel <= (ROLE_LEVEL["customer"] ?? 0))
+      if (userLevel < ROLE_LEVEL["customer"])
         return <Navigate to="/403" replace />;
       return <>{children}</>;
     }

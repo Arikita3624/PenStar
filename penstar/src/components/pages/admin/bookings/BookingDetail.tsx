@@ -183,8 +183,21 @@ const BookingDetail = () => {
 
     setUpdating(true);
     try {
-      await updateBookingStatus(booking.id, { payment_status: paymentStatus });
-      message.success(`Đã cập nhật trạng thái thanh toán: ${paymentStatus}`);
+      // ⚠️ Nếu payment_status = "failed" → tự động hủy booking (stay_status_id = 4)
+      if (paymentStatus === "failed") {
+        await updateBookingStatus(booking.id, {
+          payment_status: paymentStatus,
+          stay_status_id: 4, // cancelled
+        });
+        message.success(
+          `Đã cập nhật trạng thái thanh toán: ${paymentStatus} và hủy booking`
+        );
+      } else {
+        await updateBookingStatus(booking.id, {
+          payment_status: paymentStatus,
+        });
+        message.success(`Đã cập nhật trạng thái thanh toán: ${paymentStatus}`);
+      }
       refetch();
     } catch (err) {
       console.error("Lỗi cập nhật thanh toán:", err);
@@ -640,24 +653,12 @@ const BookingDetail = () => {
                       value: "cash",
                     },
                     {
-                      label: "💳 Thẻ tín dụng/ghi nợ",
-                      value: "card",
-                    },
-                    {
-                      label: "🏦 Chuyển khoản ngân hàng",
-                      value: "transfer",
-                    },
-                    {
-                      label: "📱 Ví MoMo",
+                      label: " Ví MoMo",
                       value: "momo",
                     },
                     {
                       label: "💰 VNPAY",
                       value: "vnpay",
-                    },
-                    {
-                      label: "🏨 Thu tại quầy (COD)",
-                      value: "cod",
                     },
                   ]}
                 />
@@ -667,16 +668,10 @@ const BookingDetail = () => {
                   color={
                     booking.payment_method === "cash"
                       ? "green"
-                      : booking.payment_method === "card"
-                      ? "blue"
-                      : booking.payment_method === "transfer"
-                      ? "cyan"
                       : booking.payment_method === "momo"
                       ? "magenta"
                       : booking.payment_method === "vnpay"
                       ? "purple"
-                      : booking.payment_method === "cod"
-                      ? "orange"
                       : "default"
                   }
                 >
@@ -860,8 +855,8 @@ const BookingDetail = () => {
                 Duyệt
               </Button>
             )}
-            {/* Chỉ hiện nút Hủy khi đã duyệt (stay_status_id === 1 = reserved) */}
-            {booking.stay_status_id === 1 && (
+            {/* Hiện nút Hủy khi booking chưa bị hủy (stay_status_id !== 4) và chưa checked_out */}
+            {booking.stay_status_id !== 4 && booking.stay_status_id !== 3 && (
               <Button
                 danger
                 onClick={handleCancel}

@@ -1,8 +1,9 @@
 import React from "react";
 import AuthContext from "@/contexts/AuthProvider";
+import type { AuthContextType } from "@/types/auth";
 
 const useAuth = () => {
-  return React.useContext(AuthContext as unknown as React.Context<unknown>);
+  return React.useContext(AuthContext as React.Context<AuthContextType | null>);
 };
 
 export default useAuth;

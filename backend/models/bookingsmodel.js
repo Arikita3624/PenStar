@@ -442,16 +442,16 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
             "Không thể hủy booking trong vòng 24h trước check-in. Vui lòng liên hệ admin."
           );
         }
-      } else if (currentStatus === 6) {
-        // pending (6) - can cancel freely
+      } else if (currentStatus === 0) {
+        // pending (0) - can cancel freely
         // Allow cancellation
       } else if (currentStatus === 2) {
         // checked_in (2) - cannot cancel, only checkout
         throw new Error(
           "Không thể hủy khi đã check-in. Vui lòng liên hệ admin."
         );
-      } else if ([3, 4, 5].includes(currentStatus)) {
-        // checked_out/cancelled/no_show - already finished
+      } else if ([3, 4].includes(currentStatus)) {
+        // checked_out/cancelled - already finished
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
@@ -462,20 +462,18 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
         throw new Error("Bạn không có quyền hủy booking này");
       }
     } else {
-      // Admin cancellation rules
-      if (currentStatus === 6) {
-        // pending (6) - admin can cancel
+      // Admin/Staff/Manager cancellation rules - more permissive
+      if (currentStatus === 0) {
+        // pending (0) - staff can cancel
         // Allow
       } else if (currentStatus === 1) {
-        // reserved (1) - admin can cancel (only if payment is pending)
+        // reserved (1) - staff can cancel
         // Allow
       } else if (currentStatus === 2) {
-        // checked_in (2) - admin CANNOT cancel after check-in
-        throw new Error(
-          "Không thể hủy khi đã check-in. Vui lòng sử dụng chức năng checkout."
-        );
-      } else if ([3, 4, 5].includes(currentStatus)) {
-        // checked_out/cancelled/no_show
+        // checked_in (2) - staff CAN cancel (force cancel)
+        // Allow (staff has more power)
+      } else if ([3, 4].includes(currentStatus)) {
+        // checked_out/cancelled
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       }
     }

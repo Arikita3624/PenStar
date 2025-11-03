@@ -10,9 +10,12 @@ import { updateUser } from "@/services/usersApi";
 import { message } from "antd";
 import { getRoles } from "@/services/rolesApi";
 import type { Role } from "@/types/roles";
+import useAuth from "@/hooks/useAuth";
 
 const Userlist = () => {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const currentUserId = auth?.user?.id;
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 8;
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -103,29 +106,34 @@ const Userlist = () => {
     {
       title: "Action",
       key: "action",
-      render: (_v, record) => (
-        <Space>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/users/${record.id}/edit`)}
-          >
-            Edit
-          </Button>
-          <Button
-            type="primary"
-            danger
-            onClick={() =>
-              banMut.mutate({
-                id: record.id,
-                status: record.status === "banned" ? "active" : "banned",
-              })
-            }
-          >
-            {record.status === "banned" ? "Unban" : "Ban"}
-          </Button>
-        </Space>
-      ),
+      render: (_v, record) => {
+        const isCurrentUser = record.id === currentUserId;
+        return (
+          <Space>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/admin/users/${record.id}/edit`)}
+              disabled={isCurrentUser}
+            >
+              Edit
+            </Button>
+            <Button
+              type="primary"
+              danger
+              onClick={() =>
+                banMut.mutate({
+                  id: record.id,
+                  status: record.status === "banned" ? "active" : "banned",
+                })
+              }
+              disabled={isCurrentUser}
+            >
+              {record.status === "banned" ? "Unban" : "Ban"}
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 

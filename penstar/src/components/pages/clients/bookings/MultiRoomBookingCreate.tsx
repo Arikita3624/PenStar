@@ -83,8 +83,13 @@ const MultiRoomBookingCreate = () => {
       return { data: { id: result.id || 0 } };
     },
     onSuccess: (response) => {
+      console.log("[MultiRoomBookingCreate] onSuccess response:", response);
       message.success("Đặt phòng thành công!");
-      navigate(`/bookings/success/${response.data.id}`);
+      const bookingId = response.data.id;
+      console.log("[MultiRoomBookingCreate] bookingId:", bookingId);
+
+      // Customer đã đăng nhập -> đi đến customer success page
+      navigate(`/bookings/success/${bookingId}`);
     },
     onError: (error: any) => {
       console.error("Booking error:", error);
