@@ -1,111 +1,39 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getRooms } from "@/services/roomsApi";
-import type { Room, RoomSearchParams } from "@/types/room";
-import { useState, useEffect, useRef } from "react";
+import type { RoomSearchParams } from "@/types/room";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 
 // Import images from assets
-import bannerImage from "@/assets/images/banner.png";
 import heroImage from "@/assets/images/heroImage.png";
+import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { data: rooms = [], isLoading } = useQuery<Room[]>({
-    queryKey: ["rooms"],
-    queryFn: getRooms,
-  });
-
-  const featured = (rooms || []).slice(0, 6);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [slidesToShow, setSlidesToShow] = useState(4);
-  const sliderRef = useRef<HTMLDivElement>(null);
-
-  // Responsive slides
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setSlidesToShow(1);
-      } else if (window.innerWidth < 1024) {
-        setSlidesToShow(2);
-      } else if (window.innerWidth < 1280) {
-        setSlidesToShow(3);
-      } else {
-        setSlidesToShow(4);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => {
-      const maxSlide = Math.max(0, featured.length - slidesToShow);
-      return prev >= maxSlide ? 0 : prev + 1;
-    });
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => {
-      const maxSlide = Math.max(0, featured.length - slidesToShow);
-      return prev <= 0 ? maxSlide : prev - 1;
-    });
-  };
-
-  // Auto play
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => {
-        const maxSlide = Math.max(0, featured.length - slidesToShow);
-        return prev >= maxSlide ? 0 : prev + 1;
-      });
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, [featured.length, slidesToShow]);
-
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
-  };
-
-  const getRoomImage = (r: Room | Record<string, unknown>) => {
-    const obj = r as Record<string, unknown>;
-    const img = obj.thumbnail ?? obj.image ?? obj.image_url ?? "";
-    return String(img || "/room-default.jpg");
-  };
-
-  const getRoomTitle = (r: Room | Record<string, unknown>) => {
-    const obj = r as Record<string, unknown>;
-    const title = obj.name ?? obj.number ?? obj.title;
-    return String(title ?? `Phòng ${obj.id ?? ""}`);
-  };
-
-  const stripHtml = (html?: string) => {
-    if (!html) return "";
-    return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ");
-  };
-
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section - Gradient Blue Background */}
-      <section className="relative bg-gradient-to-r from-cyan-400 via-blue-500 to-blue-600 min-h-[600px] flex items-center overflow-visible pb-16">
-        {/* Decorative Banner Image */}
-        <div className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-end">
-          <img
-            src={bannerImage}
-            alt="PenStar Travel"
-            className="h-full w-auto object-contain opacity-90"
-          />
-        </div>
+      {/* Hero Section with Background Image - Mường Thanh Style */}
+      <section
+        className="relative min-h-[600px] flex items-center overflow-visible pb-24"
+        style={{
+          backgroundImage: `url(${heroImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Subtle dark overlay - much lighter */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            background:
+              "linear-gradient(to right, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.2) 100%)",
+          }}
+        />
 
-        <div className="container mx-auto px-4 py-16 relative z-10">
+        {/* Content */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 w-full">
           <div className="max-w-2xl mb-12">
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 drop-shadow-2xl">
               Đặt phòng cùng PenStar
             </h1>
-            <p className="text-xl text-white/90 mb-8 leading-relaxed">
+            <p className="text-xl text-white mb-8 leading-relaxed drop-shadow-lg">
               Với nguồn lực dồi dào, kinh nghiệm và uy tín trong lĩnh vực dịch
               vụ, Lữ hành PenStar luôn mang đến cho khách hàng những dịch vụ
               khách sạn giá trị nhất.
@@ -114,19 +42,22 @@ const HomePage = () => {
         </div>
 
         {/* Search Bar - Floating at bottom */}
-        <RoomSearchBar
-          variant="floating"
-          onSearch={(params: RoomSearchParams) => {
-            navigate("/rooms/search-results", {
-              state: { searchParams: params },
-            });
-          }}
-        />
+        <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 z-20">
+          <div className="max-w-6xl mx-auto px-4">
+            <RoomSearchBar
+              onSearch={(params: RoomSearchParams) => {
+                navigate("/rooms/search-results", {
+                  state: { searchParams: params },
+                });
+              }}
+            />
+          </div>
+        </div>
       </section>
 
       {/* About Section with Stats */}
       <section className="py-24 mt-20">
-        <div className="container mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: Text */}
             <div>
@@ -173,7 +104,7 @@ const HomePage = () => {
 
       {/* Features Section */}
       <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white rounded-2xl p-8 text-center shadow-md hover:shadow-xl transition">
               <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -253,200 +184,9 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Featured Rooms Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-blue-600 mb-3">
-              Phòng Nghỉ Nổi Bật
-            </h2>
-            <p className="text-gray-600 text-lg">
-              Khám phá những khách sạn chất lượng cao với dịch vụ tuyệt vời và
-              vị trí thuận lợi
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-20">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-              <p className="mt-4 text-gray-600">Đang tải...</p>
-            </div>
-          ) : (
-            <div className="relative px-8 pb-8">
-              {/* Slider Container */}
-              <div className="overflow-hidden" ref={sliderRef}>
-                <div
-                  className="flex transition-transform duration-700 ease-in-out gap-6"
-                  style={
-                    {
-                      transform: `translateX(-${
-                        currentSlide * (100 / slidesToShow)
-                      }%)`,
-                    } as React.CSSProperties
-                  }
-                >
-                  {featured.map((room) => {
-                    return (
-                      <div
-                        key={room.id}
-                        className="flex-shrink-0"
-                        style={
-                          {
-                            width: `calc(${100 / slidesToShow}% - ${
-                              (24 * (slidesToShow - 1)) / slidesToShow
-                            }px)`,
-                          } as React.CSSProperties
-                        }
-                      >
-                        <div className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group">
-                          <div className="relative h-56 overflow-hidden">
-                            <img
-                              src={getRoomImage(room)}
-                              alt={getRoomTitle(room)}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            />
-                            <div className="absolute top-3 right-3">
-                              <div className="bg-yellow-400 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                                5
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="p-6">
-                            <h3 className="font-bold text-gray-800 mb-2 text-lg line-clamp-1">
-                              {getRoomTitle(room)}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-4 line-clamp-2 h-10">
-                              {stripHtml(room.short_desc) ||
-                                "Phòng sang trọng với đầy đủ tiện nghi hiện đại"}
-                            </p>
-
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">
-                                WiFi miễn phí
-                              </span>
-                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">
-                                Bể bơi
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between gap-4 pt-4 border-t mt-2 pb-8">
-                              <div className="min-w-0">
-                                <p className="text-2xl font-bold text-blue-600 truncate">
-                                  {new Intl.NumberFormat("vi-VN", {
-                                    style: "currency",
-                                    currency: "VND",
-                                  }).format(Number(room.price || 0))}
-                                </p>
-                                <p className="text-xs text-gray-500">/ đêm</p>
-                              </div>
-                              <Link to={`/rooms/${room.id}`}>
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md font-semibold text-sm transition flex-shrink-0 whitespace-nowrap md:px-4 md:py-2">
-                                  Xem chi tiết
-                                </button>
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Navigation Buttons */}
-              <button
-                onClick={prevSlide}
-                title="Phòng trước"
-                className="absolute left-0 top-1/2 -translate-y-1/2 bg-white hover:bg-blue-600 text-gray-800 hover:text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition z-10"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={nextSlide}
-                title="Phòng tiếp theo"
-                className="absolute right-0 top-1/2 -translate-y-1/2 bg-white hover:bg-blue-600 text-gray-800 hover:text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition z-10"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-
-              {/* Dots Indicator */}
-              <div className="flex justify-center gap-2 mt-12">
-                {Array.from({
-                  length: Math.max(1, featured.length - slidesToShow + 1),
-                }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToSlide(index)}
-                    className={`w-3 h-3 rounded-full transition-all ${
-                      currentSlide === index
-                        ? "bg-blue-600 w-6"
-                        : "bg-gray-300 hover:bg-gray-400"
-                    }`}
-                    title={`Slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="text-center mt-12">
-            <Link to="/rooms">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold transition inline-flex items-center gap-2">
-                Xem tất cả phòng
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-              </button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* News Section */}
       <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-blue-600 mb-3">
               Tin tức mới nhất

@@ -6,6 +6,7 @@ import {
   getBookingsByUser as modelGetBookingsByUser,
   confirmCheckout as modelConfirmCheckout,
   cancelBooking as modelCancelBooking,
+  changeRoomInBooking as modelChangeRoomInBooking,
 } from "../models/bookingsmodel.js";
 import pool from "../db.js";
 
@@ -49,15 +50,6 @@ export const getBookingById = async (req, res) => {
 
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
-
-    // Fetch guests for each booking_item
-    for (const item of booking.items) {
-      const guestsRes = await pool.query(
-        "SELECT * FROM booking_guests WHERE booking_item_id = $1 ORDER BY is_primary DESC, id ASC",
-        [item.id]
-      );
-      item.guests = guestsRes.rows;
-    }
 
     // Add check_in and check_out from first booking_item for convenience
     if (booking.items && booking.items.length > 0) {
@@ -437,6 +429,42 @@ export const cancelBooking = async (req, res) => {
       success: false,
       message: err.message || "Không thể hủy booking",
       error: err.message,
+    });
+  }
+};
+
+export const changeRoomInBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { booking_item_id, new_room_id, reason } = req.body;
+    const changed_by = req.user?.id;
+
+    if (!booking_item_id || !new_room_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin booking_item_id hoặc new_room_id",
+      });
+    }
+
+    const result = await modelChangeRoomInBooking({
+      booking_id: Number(id),
+      booking_item_id: Number(booking_item_id),
+      new_room_id: Number(new_room_id),
+      changed_by: changed_by || null,
+      reason: reason || null,
+    });
+
+    res.json({
+      success: true,
+      message: "✅ Đổi phòng thành công",
+      data: result,
+    });
+  } catch (error) {
+    console.error("changeRoomInBooking error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Không thể đổi phòng",
+      error: error.message,
     });
   }
 };

@@ -40,27 +40,48 @@ const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
   return (
     <Card
-      className="sticky top-4 shadow-xl"
+      className="sticky top-0"
       style={{
-        borderRadius: "12px",
-        border: "2px solid #f0f0f0",
+        borderRadius: 0,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
+        border: "none",
+        borderTop: "3px solid #0a4f86",
+        boxShadow: "0 12px 48px rgba(10, 79, 134, 0.15)",
+        background: "linear-gradient(to bottom, #ffffff 0%, #f9fafb 100%)",
+        overflow: "hidden",
+      }}
+      styles={{
+        body: {
+          borderRadius: 0,
+        },
       }}
     >
-      <div className="mb-4">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">
-          📋 Thông tin đặt phòng
-        </h3>
+      <div>
+        <div className="mb-4">
+          <h3
+            className="text-xl font-bold mb-3"
+            style={{
+              background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            📋 Thông tin đặt phòng
+          </h3>
 
-        <div className="flex items-center gap-2 text-gray-600 mb-1">
-          <CalendarOutlined />
-          <span className="text-sm">
-            {dayjs(checkIn).format("DD/MM/YYYY")} -{" "}
-            {dayjs(checkOut).format("DD/MM/YYYY")}
-          </span>
-        </div>
+          <div className="flex items-center gap-2 text-gray-600 mb-1">
+            <CalendarOutlined className="text-[#0a4f86]" />
+            <span className="text-sm">
+              {dayjs(checkIn).format("DD/MM/YYYY")} -{" "}
+              {dayjs(checkOut).format("DD/MM/YYYY")}
+            </span>
+          </div>
 
-        <div className="text-sm text-gray-500">
-          ({nights} {nights === 1 ? "đêm" : "ngày"})
+          <div className="text-sm text-gray-500">
+            ({nights} {nights === 1 ? "đêm" : "ngày"})
+          </div>
         </div>
       </div>
 
@@ -78,7 +99,11 @@ const BookingSidebar: React.FC<BookingSidebarProps> = ({
           {rooms.map((room, index) => (
             <div
               key={`${room.id}-${index}`}
-              className="bg-gray-50 p-3 rounded-lg relative"
+              className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 relative border border-blue-100"
+              style={{
+                boxShadow: "0 2px 8px rgba(10, 79, 134, 0.08)",
+                borderRadius: 0,
+              }}
             >
               {room.onRemove && (
                 <Button
@@ -106,7 +131,7 @@ const BookingSidebar: React.FC<BookingSidebarProps> = ({
                   </span>
                 </div>
 
-                <div className="font-bold text-blue-600">
+                <div className="font-bold text-[#0a4f86] text-base">
                   {room.price.toLocaleString()} VNĐ / đêm
                 </div>
               </div>
@@ -121,7 +146,11 @@ const BookingSidebar: React.FC<BookingSidebarProps> = ({
           <Divider style={{ margin: "12px 0" }} />
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-gray-600">Mã khuyến mãi:</span>
-            <Tag color="gold" className="font-semibold">
+            <Tag
+              color="gold"
+              className="font-semibold"
+              style={{ borderRadius: 0 }}
+            >
               {promoCode}
             </Tag>
           </div>
@@ -166,9 +195,13 @@ const BookingSidebar: React.FC<BookingSidebarProps> = ({
             disabled={rooms.length === 0}
             className="font-bold text-lg"
             style={{
-              background: "#fbbf24",
-              borderColor: "#fbbf24",
-              height: "50px",
+              background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+              borderColor: "transparent",
+              height: "56px",
+              boxShadow: "0 6px 20px rgba(10, 79, 134, 0.35)",
+              fontSize: "16px",
+              letterSpacing: "1px",
+              borderRadius: 0,
             }}
           >
             ĐẶT NGAY

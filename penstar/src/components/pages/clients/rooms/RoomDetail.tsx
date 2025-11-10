@@ -77,12 +77,12 @@ const RoomDetail = () => {
       </div>
     );
 
-  const obj = room as unknown as Record<string, unknown>;
-  const img = String(obj.thumbnail ?? obj.image ?? "/room-default.jpg");
-  const title = String(obj.name ?? obj.number ?? `Phòng ${obj.id ?? ""}`);
-  const desc = obj.long_desc ? String(obj.long_desc) : "";
-  const price = Number(obj.price ?? 0);
-  const status = String(obj.status ?? "").toLowerCase();
+  // Use room properties directly with proper typing
+  const img = String(room.thumbnail ?? "/room-default.jpg");
+  const title = String(room.name ?? `Phòng ${room.id}`);
+  const desc = room.long_desc ? String(room.long_desc) : "";
+  const price = Number(room.price ?? 0);
+  const status = String(room.status ?? "").toLowerCase();
 
   const statusMeta: Record<
     string,
@@ -179,13 +179,13 @@ const RoomDetail = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="container mx-auto px-4 py-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             {/* Left: Large thumbnail area and compact extras gallery below (design-like) */}
-            <div className="relative flex flex-col lg:pr-6">
+            <div className="relative flex flex-col lg:pr-4">
               {/* Main image area: make it tall and centered */}
-              <div className="h-[520px] lg:h-[620px] w-full bg-gray-100 rounded overflow-hidden relative">
+              <div className="h-[400px] lg:h-[500px] w-full bg-gray-100 rounded overflow-hidden relative">
                 <img
                   src={
                     extras.length > 0
@@ -208,9 +208,9 @@ const RoomDetail = () => {
                         : 0
                     )
                   }
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-2xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-3xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg leading-none"
                 >
-                  ‹
+                  <span className="block -mt-1">‹</span>
                 </button>
 
                 {/* Right large overlay Next arrow */}
@@ -225,9 +225,9 @@ const RoomDetail = () => {
                         : 0
                     )
                   }
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-2xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-3xl rounded-full w-12 h-12 flex items-center justify-center shadow-lg leading-none"
                 >
-                  ›
+                  <span className="block -mt-1">›</span>
                 </button>
 
                 {/* Status Badge */}
@@ -241,111 +241,257 @@ const RoomDetail = () => {
               </div>
 
               {/* Thumbnails row (compact) */}
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-2 w-full px-4">
                 {extras.length > 0 ? (
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {extras.map((s, idx) => (
+                  <div className="grid grid-cols-4 gap-2 w-full">
+                    {extras.slice(0, 4).map((s, idx) => (
                       <button
                         key={idx}
                         onClick={() => setCurrentSlide(idx)}
-                        className={`flex-shrink-0 overflow-hidden rounded-lg border ${
+                        className={`w-full overflow-hidden rounded border-2 transition-all ${
                           idx === currentSlide % extras.length
-                            ? "border-blue-600 ring-2 ring-blue-200"
-                            : "border-transparent"
+                            ? "border-blue-600 ring-2 ring-blue-200 scale-95"
+                            : "border-gray-200 hover:border-gray-300"
                         }`}
                         aria-label={`Go to extra ${idx + 1}`}
                       >
                         <img
                           src={s}
                           alt={`thumb-${idx}`}
-                          className="w-36 h-24 object-cover"
+                          className="w-full h-16 object-cover"
                         />
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">Không có ảnh phụ</div>
+                  <div className="text-xs text-gray-500">Không có ảnh phụ</div>
                 )}
               </div>
             </div>
 
             {/* Right: Details */}
-            <div className="p-8 lg:p-12 flex flex-col">
+            <div className="p-4 lg:p-6 flex flex-col">
               <div className="flex-1">
-                {/* Title */}
-                <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4">
-                  {title}
-                </h1>
-
-                {/* Short description (shown here). Long description moved below images. */}
-                <div className="text-gray-600 text-base leading-relaxed mb-6">
-                  {String(obj.short_desc ?? "").trim() ? (
-                    <p className="text-gray-700 mb-4">
-                      {stripTags(String(obj.short_desc))}
-                    </p>
-                  ) : (
-                    !desc && (
-                      <p>
-                        Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải
-                        mái.
-                      </p>
-                    )
+                {/* Title with room type badge */}
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">
+                      {title}
+                    </h1>
+                  </div>
+                  {roomType?.name && (
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full border border-blue-200">
+                      <svg
+                        className="w-4 h-4 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                        />
+                      </svg>
+                      <span className="text-xs font-semibold text-blue-700">
+                        {roomType.name}
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                {/* Price Section */}
-                <div className="bg-blue-50 rounded-xl p-6 mb-6">
-                  <div className="text-4xl font-bold text-blue-600 mb-2">
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(price)}
-                    <span className="text-lg text-gray-600 font-normal">
-                      {" "}
-                      / đêm
-                    </span>
+                {/* Short description */}
+                {room.short_desc && String(room.short_desc).trim() ? (
+                  <div className="bg-gray-50 rounded-lg p-3 mb-3 border-l-4 border-blue-500">
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {stripTags(String(room.short_desc))}
+                    </p>
+                  </div>
+                ) : (
+                  !desc && (
+                    <div className="bg-gray-50 rounded-lg p-3 mb-3 border-l-4 border-blue-500">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải
+                        mái.
+                      </p>
+                    </div>
+                  )
+                )}
+
+                {/* Price Section - Enhanced */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 mb-3 shadow-lg relative overflow-hidden">
+                  {/* Decorative circles */}
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
+                  <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10"></div>
+
+                  <div className="relative z-10">
+                    <div className="text-white/90 text-xs font-medium mb-1 flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Giá phòng / đêm
+                    </div>
+                    <div className="text-3xl lg:text-4xl font-bold text-white">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                      }).format(price)}
+                    </div>
+                    <div className="mt-2 text-white/80 text-xs">
+                      💡 Đã bao gồm VAT & phí dịch vụ
+                    </div>
                   </div>
                 </div>
 
-                {/* Room Info Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="border rounded-lg p-4">
-                    <div className="text-gray-500 text-sm mb-1">Sức chứa</div>
-                    <div className="text-xl font-bold text-gray-800">
-                      {String(obj.capacity ?? "2")} người
+                {/* Room Info Grid - Enhanced */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200 hover:shadow-md transition">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-orange-600 text-xs font-semibold">
+                        Sức chứa
+                      </div>
                     </div>
-                  </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="text-gray-500 text-sm mb-1">Loại phòng</div>
-                    <div className="text-xl font-bold text-gray-800">
-                      {roomType?.name ?? "—"}
+                    <div className="text-xl font-bold text-orange-900">
+                      {room.capacity ?? 2} người
                     </div>
+                    {(room.max_adults || room.max_children) && (
+                      <div className="text-xs text-orange-600 mt-0.5">
+                        {room.max_adults && (
+                          <span>Tối đa: {room.max_adults} người lớn</span>
+                        )}
+                        {room.max_children && (
+                          <span>
+                            {room.max_adults ? ", " : "Tối đa: "}
+                            {room.max_children} trẻ em
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="text-gray-500 text-sm mb-1">Tầng</div>
-                    <div className="text-xl font-bold text-gray-800">
+
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200 hover:shadow-md transition">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-purple-600 text-xs font-semibold">
+                        Tầng
+                      </div>
+                    </div>
+                    <div className="text-xl font-bold text-purple-900">
                       {floor?.name ?? "—"}
                     </div>
-                  </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="text-gray-500 text-sm mb-1">Check-in</div>
-                    <div className="text-xl font-bold text-gray-800">14:00</div>
+                    <div className="text-xs text-purple-600 mt-0.5">
+                      Vị trí phòng trong khách sạn
+                    </div>
                   </div>
                 </div>
+
+                {/* Amenities Section */}
+                {roomType?.amenities &&
+                  Array.isArray(roomType.amenities) &&
+                  roomType.amenities.length > 0 && (
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-200 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg
+                          className="w-4 h-4 text-green-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <h3 className="text-sm font-bold text-green-800">
+                          Tiện ích phòng
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {roomType.amenities
+                          .slice(0, 6)
+                          .map((amenity: string, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1.5 text-xs text-green-700"
+                            >
+                              <svg
+                                className="w-3 h-3 text-green-500 flex-shrink-0"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="truncate">{amenity}</span>
+                            </div>
+                          ))}
+                      </div>
+                      {roomType.amenities.length > 6 && (
+                        <div className="mt-2 text-xs text-green-600 font-medium">
+                          + {roomType.amenities.length - 6} tiện ích khác
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* CTA Buttons */}
-              <div className="flex flex-wrap gap-4 pt-6 border-t">
-                <Link to="/rooms" className="flex-1 min-w-[200px]">
-                  <button className="w-full px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition">
+              <div className="flex flex-wrap gap-3 pt-4 border-t">
+                <Link to="/rooms" className="flex-1 min-w-[150px]">
+                  <button className="w-full px-4 py-2 border-2 border-blue-600 text-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-50 transition">
                     ← Quay lại
                   </button>
                 </Link>
                 <Link
                   to={`/booking/create?room_id=${room.id}`}
-                  className="flex-1 min-w-[200px]"
+                  className="flex-1 min-w-[150px]"
                 >
-                  <button className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition shadow-lg">
+                  <button className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-lg">
                     Đặt phòng ngay
                   </button>
                 </Link>
@@ -354,27 +500,25 @@ const RoomDetail = () => {
           </div>
         </div>
 
-        {/* Gallery moved into slider above */}
-
         {/* Long description (rendered as HTML) */}
         {desc && (
-          <div className="container mx-auto px-4 py-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-3">
+          <div className="mt-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
               Mô tả chi tiết
             </h3>
             <div
-              className="bg-white rounded-xl p-6 shadow-sm text-gray-700"
+              className="bg-white rounded-xl p-4 shadow-sm text-sm text-gray-700"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(desc) }}
             />
           </div>
         )}
 
         {/* Additional Info Section */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg p-4 shadow-md">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mb-3">
               <svg
-                className="w-6 h-6 text-blue-600"
+                className="w-5 h-5 text-blue-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -387,18 +531,18 @@ const RoomDetail = () => {
                 />
               </svg>
             </div>
-            <h3 className="font-bold text-gray-800 mb-2">
+            <h3 className="font-bold text-gray-800 mb-1 text-sm">
               Nhận phòng linh hoạt
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-600">
               Check-in từ 14:00, check-out trước 12:00. Hỗ trợ trả phòng muộn.
             </p>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+          <div className="bg-white rounded-lg p-4 shadow-md">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-3">
               <svg
-                className="w-6 h-6 text-green-600"
+                className="w-5 h-5 text-green-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -411,16 +555,18 @@ const RoomDetail = () => {
                 />
               </svg>
             </div>
-            <h3 className="font-bold text-gray-800 mb-2">Hủy miễn phí</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-bold text-gray-800 mb-1 text-sm">
+              Hủy miễn phí
+            </h3>
+            <p className="text-xs text-gray-600">
               Hủy miễn phí trước 24h. Hoàn tiền 100% nếu hủy sớm.
             </p>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+          <div className="bg-white rounded-lg p-4 shadow-md">
+            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-3">
               <svg
-                className="w-6 h-6 text-purple-600"
+                className="w-5 h-5 text-purple-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -433,8 +579,10 @@ const RoomDetail = () => {
                 />
               </svg>
             </div>
-            <h3 className="font-bold text-gray-800 mb-2">Hỗ trợ 24/7</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-bold text-gray-800 mb-1 text-sm">
+              Hỗ trợ 24/7
+            </h3>
+            <p className="text-xs text-gray-600">
               Đội ngũ chăm sóc khách hàng sẵn sàng hỗ trợ mọi lúc mọi nơi.
             </p>
           </div>

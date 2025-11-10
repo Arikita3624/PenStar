@@ -1,34 +1,26 @@
 import React from "react";
 import { List, Card, Button, message, Tag, Modal } from "antd";
-import { instance } from "@/services/api";
-import { cancelBooking } from "@/services/bookingsApi";
+import { cancelBooking, getMyBookings } from "@/services/bookingsApi";
 import useAuth from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import type { BookingShort } from "@/types/bookings";
 
 const MyBookings: React.FC = () => {
-  type Booking = {
-    id: number;
-    customer_name?: string;
-    total_price?: number;
-    payment_status?: string;
-    stay_status_id?: number;
-    stay_status_name?: string;
-    is_refunded?: boolean;
-  };
-  const [data, setData] = React.useState<Booking[]>([]);
+  const [data, setData] = React.useState<BookingShort[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [updating, setUpdating] = React.useState(false);
   const auth = useAuth() as unknown as { user?: { id?: number } };
   const nav = useNavigate();
 
-  const fetchBookings = () => {
+  const fetchBookings = async () => {
     if (!auth?.user) return;
     setLoading(true);
-    instance
-      .get("/bookings/mine")
-      .then((res) => setData(res.data?.data ?? []))
-      .catch(() => message.error("Load failed"))
-      .finally(() => setLoading(false));
+    try {
+      const bookings = await getMyBookings();
+      setData(bookings);
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {
@@ -89,7 +81,7 @@ const MyBookings: React.FC = () => {
         <List
           loading={loading}
           dataSource={data}
-          renderItem={(b: Booking) => {
+          renderItem={(b: BookingShort) => {
             // Có thể hủy khi: pending (6) HOẶC reserved (1)
             // Backend sẽ kiểm tra thêm điều kiện 24h
             const canCancel = b.stay_status_id === 6 || b.stay_status_id === 1;

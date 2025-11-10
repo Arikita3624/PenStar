@@ -58,7 +58,7 @@ const SignIn = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
+      <div className="max-w-md w-full bg-white shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Đăng nhập</h2>
         {error && <div className="mb-4 text-red-600">{error}</div>}
         <form onSubmit={submit} className="space-y-4">

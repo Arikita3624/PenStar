@@ -1,20 +1,17 @@
 export type BookingItem = {
+  id?: number;
   room_id: number;
   check_in: string;
   check_out: string;
   room_price: number;
   num_adults?: number;
   num_children?: number;
-  guests?: Array<{
-    guest_name: string;
-    guest_type: "adult" | "child";
-    age?: number | null;
-    is_primary: boolean;
-  }>;
+  special_requests?: string;
 };
 
 export type BookingService = {
   service_id: number;
+  booking_item_id?: number;
   quantity: number;
   total_service_price: number;
 };
@@ -32,6 +29,7 @@ export type Booking = {
   stay_status_id: number;
   user_id?: number;
   is_refunded?: boolean;
+  change_count?: number; // Số lần đã đổi phòng
   items: BookingItem[];
   services?: BookingService[];
   created_at?: string;
@@ -66,4 +64,30 @@ export type BookingUpdatePayload = {
   payment_method?: string;
   stay_status_id?: number;
   is_refunded?: boolean;
+};
+
+// For change room feature
+export type ChangeRoomRequest = {
+  booking_item_id: number;
+  new_room_id: number;
+  reason?: string; // Optional for customer, required for staff
+};
+
+export type ChangeRoomResponse = {
+  success: boolean;
+  old_room_id: number;
+  new_room_id: number;
+  price_difference: number;
+  new_total_price: number;
+  log?: {
+    id: number;
+    booking_id: number;
+    booking_item_id: number;
+    changed_by: number;
+    old_room_id: number;
+    new_room_id: number;
+    price_difference: number;
+    reason?: string;
+    changed_at: string;
+  };
 };

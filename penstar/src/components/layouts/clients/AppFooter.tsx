@@ -10,7 +10,7 @@ import {
 
 const AppFooter = () => {
   return (
-    <footer className="bg-[#0a4f86] text-white mt-12">
+    <footer className="bg-[#0a4f86] text-white mt-4">
       <div className="container mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
           <div className="text-2xl font-bold mb-3">Khách sạn PenStar</div>

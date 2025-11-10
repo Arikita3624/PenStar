@@ -31,19 +31,18 @@ const Rooms = () => {
     isLoading,
     isError,
   } = useQuery<Room[]>({ queryKey: ["rooms"], queryFn: getRooms });
+
   type FloorShort = { id: number | string; name: string };
-  const { data: floorsResponse } = useQuery<any>({
+  const { data: floors = [] } = useQuery<FloorShort[]>({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
-  const floors = floorsResponse?.data || [];
 
   type RoomTypeShort = { id: number | string; name: string };
-  const { data: roomTypesResponse } = useQuery<any>({
+  const { data: room_types = [] } = useQuery<RoomTypeShort[]>({
     queryKey: ["room_types"],
     queryFn: getRoomTypes,
   });
-  const room_types = roomTypesResponse?.data || [];
 
   const { mutate: deleteMut } = useMutation({
     mutationFn: async (id: number) => deleteRoom(id),

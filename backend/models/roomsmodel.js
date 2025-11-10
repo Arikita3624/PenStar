@@ -240,7 +240,9 @@ export const searchAvailableRooms = async ({
   `;
   params.push(check_in, check_out);
 
-  query += ` ORDER BY r.price ASC`;
+  // Sắp xếp theo tầng (floor_id) và tên phòng (name) tăng dần
+  // Điều này đảm bảo: Tầng 2 trước, trong cùng tầng thì P301 < P302 < P303...
+  query += ` ORDER BY r.floor_id ASC, r.name ASC`;
 
   console.log("📝 Final query:", query);
   console.log("📦 Final params:", params);

@@ -1,6 +1,7 @@
 import { instance } from "./api";
+import type { RoomType } from "@/types/roomtypes";
 
-export const getRoomTypes = async () => {
+export const getRoomTypes = async (): Promise<RoomType[]> => {
   try {
     const response = await instance.get("/roomtypes");
     console.log("📦 Response from /roomtypes API:", response.data);
@@ -11,7 +12,9 @@ export const getRoomTypes = async () => {
   }
 };
 
-export const getRoomTypeById = async (id: number | string) => {
+export const getRoomTypeById = async (
+  id: number | string
+): Promise<RoomType | null> => {
   try {
     const response = await instance.get(`/roomtypes/${id}`);
     return response.data?.data ?? null;
@@ -24,7 +27,7 @@ export const getRoomTypeById = async (id: number | string) => {
 export const createRoomType = async (roomTypeData: {
   name: string;
   description: string;
-}) => {
+}): Promise<RoomType | null> => {
   try {
     const response = await instance.post("/roomtypes", roomTypeData);
     return response.data?.data ?? null;
@@ -36,7 +39,11 @@ export const createRoomType = async (roomTypeData: {
 
 export const updateRoomType = async (
   id: number | string,
-  roomTypeData: { name: string; description: string }
+  roomTypeData: {
+    name: string;
+    description: string;
+    amenities?: string[];
+  }
 ) => {
   try {
     const response = await instance.put(`/roomtypes/${id}`, roomTypeData);

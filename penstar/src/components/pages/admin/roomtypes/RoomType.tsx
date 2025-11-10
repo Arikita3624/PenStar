@@ -1,14 +1,24 @@
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
-import { Button, Card, Input, Space, Table, message, Popconfirm } from "antd";
+import {
+  Button,
+  Card,
+  Input,
+  Space,
+  Table,
+  message,
+  Popconfirm,
+  Image,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomTypes, deleteRoomType } from "@/services/roomTypeApi";
+import type { RoomType } from "@/types/roomtypes";
 
-type RoomTypeItem = { id: number; name: string; description: string };
+type RoomTypeItem = RoomType;
 
-const RoomType = () => {
+const RoomTypesPage = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -49,16 +59,44 @@ const RoomType = () => {
       title: "STT",
       key: "stt",
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
-      width: 80,
+      width: 60,
     },
-    { title: "Name", dataIndex: "name", key: "name" },
+    {
+      title: "Thumbnail",
+      dataIndex: "thumbnail",
+      key: "thumbnail",
+      width: 100,
+      render: (thumbnail: string) => {
+        const imageUrl = thumbnail
+          ? thumbnail.startsWith("http")
+            ? thumbnail
+            : `http://localhost:5000${thumbnail}`
+          : "https://via.placeholder.com/80x60?text=No+Image";
+        return (
+          <Image
+            src={imageUrl}
+            alt="Thumbnail"
+            width={80}
+            height={60}
+            className="object-cover rounded"
+            fallback="https://via.placeholder.com/80x60?text=No+Image"
+          />
+        );
+      },
+    },
+    {
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
+      width: 150,
+    },
     {
       title: "Description",
       dataIndex: "description",
       key: "description",
       render: (text: string) => (
         <div
-          className="max-w-[520px] whitespace-normal overflow-hidden"
+          className="max-w-[400px] line-clamp-2 overflow-hidden"
           dangerouslySetInnerHTML={{ __html: String(text ?? "") }}
         />
       ),
@@ -66,6 +104,7 @@ const RoomType = () => {
     {
       title: "Action",
       key: "action",
+      width: 180,
       render: (_v, record) => (
         <Space>
           <Button
@@ -76,8 +115,10 @@ const RoomType = () => {
             Edit
           </Button>
           <Popconfirm
-            title="Delete?"
+            title="Delete this room type?"
             onConfirm={() => deleteMut.mutate(record.id)}
+            okText="Yes"
+            cancelText="No"
           >
             <Button type="primary" danger>
               Delete
@@ -131,4 +172,4 @@ const RoomType = () => {
   );
 };
 
-export default RoomType;
+export default RoomTypesPage;

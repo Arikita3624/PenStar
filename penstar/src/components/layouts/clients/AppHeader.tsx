@@ -65,7 +65,7 @@ const AppHeader = () => {
           <Link to="/rooms" className="text-white/90 hover:text-white">
             Phòng
           </Link>
-          <Link to="/booking" className="text-white/90 hover:text-white">
+          <Link to="/bookings" className="text-white/90 hover:text-white">
             Đặt phòng
           </Link>
           <Link to="/contact" className="text-white/90 hover:text-white">

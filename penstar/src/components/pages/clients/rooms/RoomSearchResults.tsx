@@ -1,33 +1,18 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
-import {
-  message,
-  Spin,
-  Empty,
-  Card,
-  Button,
-  Tag,
-  Collapse,
-  Row,
-  Col,
-  InputNumber,
-  Select,
-} from "antd";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { message, Spin, Empty, Button, Tag, Row, Col, Select } from "antd";
 import { searchAvailableRooms } from "@/services/roomsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
+import { getFloors } from "@/services/floorsApi";
 import type { Room, RoomSearchParams } from "@/types/room";
 import type { RoomType } from "@/types/roomtypes";
+import type { Floors } from "@/types/floors";
+import type { RoomBookingConfig } from "@/types/roomBooking";
 import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarOutlined,
-  HomeOutlined,
-  CheckCircleOutlined,
-} from "@ant-design/icons";
+import { CalendarOutlined } from "@ant-design/icons";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import BookingSidebar from "@/components/common/BookingSidebar";
-import { CHILD_AGE_LIMIT } from "@/constants/bookingConstants";
-
-const { Panel } = Collapse;
+import RoomTypeCard from "./RoomTypeCard";
 
 const RoomSearchResults = () => {
   const location = useLocation();
@@ -39,23 +24,23 @@ const RoomSearchResults = () => {
   );
 
   // Filter state
-  const [typeFilter, setTypeFilter] = useState<number | null>(null);
+  const [floorFilter, setFloorFilter] = useState<number | null>(null);
 
-  // Fetch room types for filter
+  // Fetch room types and floors
   const { data: roomTypes = [] } = useQuery<RoomType[]>({
     queryKey: ["roomtypes"],
     queryFn: getRoomTypes,
   });
 
-  // State cho room selection mới theo Mường Thanh
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const { data: floors = [] } = useQuery<Floors[]>({
+    queryKey: ["floors"],
+    queryFn: getFloors,
+  });
+
+  // State cho multi-room selection
+  const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [numRooms, setNumRooms] = useState(1);
-  const [roomsConfig, setRoomsConfig] = useState<
-    Array<{
-      num_adults: number;
-      num_children: number;
-    }>
-  >([{ num_adults: 1, num_children: 0 }]);
+  const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]);
 
   useEffect(() => {
     if (searchParams) {
@@ -63,26 +48,37 @@ const RoomSearchResults = () => {
       // Set num_rooms từ search params
       if (searchParams.num_rooms) {
         setNumRooms(searchParams.num_rooms);
-        setRoomsConfig(
-          Array.from({ length: searchParams.num_rooms }, () => ({
-            num_adults: 1,
-            num_children: 0,
-          }))
-        );
       }
+    }
+
+    // Xử lý auto-selected rooms từ catalog (nếu có)
+    if (
+      location.state?.autoSelectedRoomIds &&
+      location.state?.autoSelectedConfigs
+    ) {
+      setSelectedRoomIds(location.state.autoSelectedRoomIds);
+      setRoomsConfig(location.state.autoSelectedConfigs);
+      message.success(
+        `Đã tự động chọn ${location.state.autoSelectedRoomIds.length} phòng từ catalog`
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = async (params: RoomSearchParams) => {
     setLoading(true);
-    setSelectedRoom(null);
+    setSelectedRoomIds([]);
+    setRoomsConfig([]);
     try {
       console.log("🔍 Searching with params:", params);
       const response = await searchAvailableRooms(params);
       console.log("📦 Search response:", response);
       setRooms(response.data);
       setSearchParams(params);
+      // Cập nhật số phòng từ search params
+      if (params.num_rooms) {
+        setNumRooms(params.num_rooms);
+      }
       message.success(response.message);
     } catch (error) {
       console.error("Error searching rooms:", error);
@@ -93,86 +89,183 @@ const RoomSearchResults = () => {
     }
   };
 
-  const handleGuestChange = (
-    roomIndex: number,
-    field: "num_adults" | "num_children",
-    value: number | null
-  ) => {
-    if (!selectedRoom) return;
-
-    const newConfig = [...roomsConfig];
-    const currentConfig = { ...newConfig[roomIndex] };
-    const newValue = value || 0;
-
-    // Tính tổng sau khi thay đổi
-    const otherField = field === "num_adults" ? "num_children" : "num_adults";
-    const total = newValue + currentConfig[otherField];
-
-    // Kiểm tra vượt capacity
-    if (total > selectedRoom.capacity) {
-      message.warning(
-        `Tổng số khách không được vượt quá ${selectedRoom.capacity} người!`
-      );
-      return;
-    }
-
-    // Kiểm tra max_adults hoặc max_children
-    if (
-      field === "num_adults" &&
-      selectedRoom.max_adults &&
-      newValue > selectedRoom.max_adults
-    ) {
-      message.warning(`Số người lớn tối đa: ${selectedRoom.max_adults}`);
-      return;
-    }
-
-    if (
-      field === "num_children" &&
-      selectedRoom.max_children &&
-      newValue > selectedRoom.max_children
-    ) {
-      message.warning(`Số trẻ em tối đa: ${selectedRoom.max_children}`);
-      return;
-    }
-
-    currentConfig[field] = newValue;
-    newConfig[roomIndex] = currentConfig;
-    setRoomsConfig(newConfig);
-  };
-
-  const validateCapacity = () => {
-    if (!selectedRoom) return false;
-
-    for (let i = 0; i < numRooms; i++) {
-      const { num_adults, num_children } = roomsConfig[i];
-      const total = num_adults + num_children;
-
-      if (total > selectedRoom.capacity) {
-        message.error(
-          `Phòng ${i + 1}: Tổng số khách (${total}) vượt quá sức chứa (${
-            selectedRoom.capacity
-          })`
+  // Hàm chọn phòng theo loại (khi nhấn nút "Chọn phòng" trên card loại phòng)
+  const handleSelectRoomType = useCallback(
+    (roomsInType: Room[]) => {
+      // Kiểm tra đã chọn phòng chưa
+      if (selectedRoomIds.length > 0) {
+        message.warning(
+          "Vui lòng bỏ chọn các phòng đã chọn trước khi chọn loại phòng khác"
         );
-        return false;
+        return;
       }
 
-      if (selectedRoom.max_adults && num_adults > selectedRoom.max_adults) {
-        message.error(
-          `Phòng ${i + 1}: Số người lớn (${num_adults}) vượt quá giới hạn (${
-            selectedRoom.max_adults
-          })`
+      // Lọc phòng trống
+      const availableRooms = roomsInType.filter(
+        (room) => room.status === "available"
+      );
+
+      if (availableRooms.length === 0) {
+        message.warning("Không có phòng trống của loại này");
+        return;
+      }
+
+      // Kiểm tra số lượng phòng trống có đủ không
+      if (availableRooms.length < numRooms) {
+        message.warning(
+          `Loại phòng này chỉ còn ${availableRooms.length} phòng trống, không đủ ${numRooms} phòng`
         );
-        return false;
+        return;
+      }
+
+      // Sắp xếp theo tầng và số phòng tăng dần
+      const sortedRooms = [...availableRooms].sort((a, b) => {
+        // Ưu tiên tầng (floor_id)
+        if (a.floor_id !== b.floor_id) {
+          return a.floor_id - b.floor_id;
+        }
+        // Sau đó sắp xếp theo số phòng (ví dụ: P301 -> 301)
+        const numA = parseInt(a.name.replace(/[^\d]/g, "")) || 0;
+        const numB = parseInt(b.name.replace(/[^\d]/g, "")) || 0;
+        return numA - numB;
+      });
+
+      // Chọn số lượng phòng cần thiết
+      const roomsToSelect = sortedRooms.slice(0, numRooms);
+
+      // Cập nhật state
+      const newSelectedIds = roomsToSelect.map((r) => r.id);
+      const newConfigs = roomsToSelect.map((room) => ({
+        room_id: room.id,
+        num_adults: 1,
+        num_children: 0,
+      }));
+
+      setSelectedRoomIds(newSelectedIds);
+      setRoomsConfig(newConfigs);
+
+      message.success(
+        `Đã tự động chọn ${roomsToSelect.length} phòng: ${roomsToSelect
+          .map((r) => r.name)
+          .join(", ")}`
+      );
+    },
+    [numRooms, selectedRoomIds.length]
+  );
+
+  // Toggle room selection
+  const handleRoomSelect = useCallback(
+    (room: Room) => {
+      const isSelected = selectedRoomIds.includes(room.id);
+
+      if (isSelected) {
+        // Bỏ chọn phòng
+        setSelectedRoomIds(selectedRoomIds.filter((id) => id !== room.id));
+        setRoomsConfig(
+          roomsConfig.filter((config) => config.room_id !== room.id)
+        );
+      } else {
+        // Kiểm tra đã chọn đủ số phòng chưa
+        if (selectedRoomIds.length >= numRooms) {
+          message.warning(`Bạn chỉ được chọn tối đa ${numRooms} phòng!`);
+          return;
+        }
+
+        // Thêm phòng mới
+        setSelectedRoomIds([...selectedRoomIds, room.id]);
+        setRoomsConfig([
+          ...roomsConfig,
+          {
+            room_id: room.id,
+            num_adults: 1,
+            num_children: 0,
+          },
+        ]);
+      }
+    },
+    [numRooms, roomsConfig, selectedRoomIds]
+  );
+
+  const handleGuestChange = useCallback(
+    (
+      roomId: number,
+      field: "num_adults" | "num_children",
+      value: number | null
+    ) => {
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) return;
+
+      const configIndex = roomsConfig.findIndex((c) => c.room_id === roomId);
+      if (configIndex === -1) return;
+
+      const newConfig = [...roomsConfig];
+      const currentConfig = { ...newConfig[configIndex] };
+      const newValue = value || 0;
+
+      // Tính tổng sau khi thay đổi
+      const otherField = field === "num_adults" ? "num_children" : "num_adults";
+      const total = newValue + currentConfig[otherField];
+
+      // Kiểm tra vượt capacity
+      if (total > room.capacity) {
+        message.warning(
+          `Tổng số khách không được vượt quá ${room.capacity} người!`
+        );
+        return;
+      }
+
+      // Kiểm tra max_adults hoặc max_children
+      if (
+        field === "num_adults" &&
+        room.max_adults &&
+        newValue > room.max_adults
+      ) {
+        message.warning(`Số người lớn tối đa: ${room.max_adults}`);
+        return;
       }
 
       if (
-        selectedRoom.max_children &&
-        num_children > selectedRoom.max_children
+        field === "num_children" &&
+        room.max_children &&
+        newValue > room.max_children
       ) {
+        message.warning(`Số trẻ em tối đa: ${room.max_children}`);
+        return;
+      }
+
+      currentConfig[field] = newValue;
+      newConfig[configIndex] = currentConfig;
+      setRoomsConfig(newConfig);
+    },
+    [rooms, roomsConfig]
+  );
+
+  const validateCapacity = () => {
+    for (let i = 0; i < roomsConfig.length; i++) {
+      const config = roomsConfig[i];
+      const room = rooms.find((r) => r.id === config.room_id);
+      if (!room) continue;
+
+      const { num_adults, num_children } = config;
+      const total = num_adults + num_children;
+
+      if (total > room.capacity) {
         message.error(
-          `Phòng ${i + 1}: Số trẻ em (${num_children}) vượt quá giới hạn (${
-            selectedRoom.max_children
-          })`
+          `Phòng "${room.name}": Tổng số khách (${total}) vượt quá sức chứa (${room.capacity})`
+        );
+        return false;
+      }
+
+      if (room.max_adults && num_adults > room.max_adults) {
+        message.error(
+          `Phòng "${room.name}": Số người lớn (${num_adults}) vượt quá giới hạn (${room.max_adults})`
+        );
+        return false;
+      }
+
+      if (room.max_children && num_children > room.max_children) {
+        message.error(
+          `Phòng "${room.name}": Số trẻ em (${num_children}) vượt quá giới hạn (${room.max_children})`
         );
         return false;
       }
@@ -182,8 +275,13 @@ const RoomSearchResults = () => {
   };
 
   const handleBooking = () => {
-    if (!selectedRoom) {
-      message.warning("Vui lòng chọn loại phòng");
+    if (selectedRoomIds.length === 0) {
+      message.warning("Vui lòng chọn ít nhất 1 phòng");
+      return;
+    }
+
+    if (selectedRoomIds.length !== numRooms) {
+      message.warning(`Vui lòng chọn đúng ${numRooms} phòng`);
       return;
     }
 
@@ -196,105 +294,125 @@ const RoomSearchResults = () => {
       return;
     }
 
-    // ⚠️ Validation: Check số phòng đã chọn config phải = num_rooms từ search
-    const selectedRoomsCount = roomsConfig.length;
-    if (selectedRoomsCount !== numRooms) {
-      message.error(
-        `Bạn đã chọn đặt ${numRooms} phòng nhưng chỉ cấu hình ${selectedRoomsCount} phòng. Vui lòng điều chỉnh!`
-      );
-      return;
-    }
+    // Convert roomsConfig to format expected by MultiRoomBookingCreate
+    const roomsConfigForBooking = roomsConfig.map((config) => ({
+      num_adults: config.num_adults,
+      num_children: config.num_children,
+    }));
 
-    // Navigate to multi-room booking page với config
+    // Navigate to multi-room booking page
     navigate("/booking/multi-create", {
       state: {
-        selectedRoomIds: Array(numRooms).fill(selectedRoom.id),
+        selectedRoomIds,
         searchParams,
-        roomsConfig, // Truyền thông tin số khách cho từng phòng
+        roomsConfig: roomsConfigForBooking,
         numRooms,
       },
     });
   };
 
-  const formatPrice = (price: number | string) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(Number(price));
-  };
+  // Filter rooms by floor
+  const filteredRooms = useMemo(
+    () =>
+      floorFilter
+        ? rooms.filter((room) => room.floor_id === floorFilter)
+        : rooms,
+    [floorFilter, rooms]
+  );
 
-  // Filter rooms by type
-  const filteredRooms = typeFilter
-    ? rooms.filter((room) => room.type_id === typeFilter)
-    : rooms;
-
-  const stripHtml = (html?: string) => {
-    if (!html) return "";
-    const tmp = html.replace(/<[^>]+>/g, "");
-    return tmp.replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/g, (m) => {
-      const map: Record<string, string> = {
-        "&nbsp;": " ",
-        "&amp;": "&",
-        "&lt;": "<",
-        "&gt;": ">",
-        "&quot;": '"',
-        "&#39;": "'",
-      };
-      return map[m] || m;
-    });
-  };
+  // Group rooms by room type
+  const roomsByType = useMemo(
+    () =>
+      filteredRooms.reduce((acc, room) => {
+        if (!acc[room.type_id]) {
+          acc[room.type_id] = [];
+        }
+        acc[room.type_id].push(room);
+        return acc;
+      }, {} as Record<number, Room[]>),
+    [filteredRooms]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Search Bar Section */}
       <div
+        className="relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          padding: "2rem 0",
+          background:
+            "linear-gradient(135deg, #0a4f86 0%, #0d6eab 50%, #115e9c 100%)",
+          padding: "2rem 0 3rem 0",
+          boxShadow: "0 4px 20px rgba(10, 79, 134, 0.3)",
         }}
       >
-        <div className="container mx-auto px-4">
+        {/* Decorative overlay */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              'url(\'data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\')',
+          }}
+        />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <RoomSearchBar onSearch={handleSearch} loading={loading} />
         </div>
       </div>
 
-      {/* Results Section */}
-      <div className="container mx-auto px-4 py-8">
+      {/* Results Section - With container */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {searchParams && (
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div
+            className="bg-white p-6 mb-8 relative overflow-hidden"
+            style={{
+              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.08)",
+              border: "1px solid rgba(10, 79, 134, 0.1)",
+            }}
+          >
+            {/* Decorative accent bar */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1"
+              style={{
+                background:
+                  "linear-gradient(90deg, #0a4f86 0%, #0d6eab 50%, #0a4f86 100%)",
+              }}
+            />
+
             <div className="flex flex-wrap gap-4 items-center justify-between">
               <div className="flex flex-wrap gap-4 items-center text-gray-700">
-                <div className="flex items-center gap-2">
-                  <CalendarOutlined className="text-purple-600" />
-                  <span>
+                <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2">
+                  <CalendarOutlined className="text-[#0a4f86] text-lg" />
+                  <span className="font-semibold">
                     {searchParams.check_in} → {searchParams.check_out}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <HomeOutlined className="text-purple-600" />
-                  <span className="font-semibold">{numRooms} phòng</span>
-                </div>
                 {searchParams.promo_code && (
-                  <Tag color="gold" className="font-semibold">
+                  <Tag
+                    color="gold"
+                    className="font-semibold px-3 py-1"
+                    style={{ fontSize: "14px" }}
+                  >
                     🎫 {searchParams.promo_code}
                   </Tag>
                 )}
               </div>
 
-              {/* Filter by Room Type */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">Loại phòng:</span>
+              {/* Filter by Floor */}
+              <div className="flex items-center gap-3">
+                <span className="text-gray-700 font-semibold">
+                  Lọc theo tầng:
+                </span>
                 <Select
-                  placeholder="Tất cả"
+                  placeholder="Tất cả tầng"
                   allowClear
-                  style={{ width: 200 }}
-                  value={typeFilter}
-                  onChange={(value) => setTypeFilter(value || null)}
+                  style={{ width: 200, borderRadius: 0 }}
+                  value={floorFilter}
+                  onChange={(value) => setFloorFilter(value || null)}
+                  size="large"
                 >
-                  {Array.isArray(roomTypes) &&
-                    roomTypes.map((type) => (
-                      <Select.Option key={type.id} value={type.id}>
-                        {type.name}
+                  {Array.isArray(floors) &&
+                    floors.map((floor) => (
+                      <Select.Option key={floor.id} value={floor.id}>
+                        {floor.name}
                       </Select.Option>
                     ))}
                 </Select>
@@ -308,237 +426,66 @@ const RoomSearchResults = () => {
             <Spin size="large" />
             <p className="mt-4 text-gray-600">Đang tìm kiếm phòng...</p>
           </div>
-        ) : filteredRooms.length === 0 ? (
+        ) : Object.keys(roomsByType).length === 0 ? (
           <Empty
-            description={
-              typeFilter
-                ? "Không có phòng nào thuộc loại này"
-                : "Không tìm thấy phòng trống"
-            }
+            description="Không tìm thấy phòng trống"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            {typeFilter ? (
-              <Button type="default" onClick={() => setTypeFilter(null)}>
-                Xóa bộ lọc
-              </Button>
-            ) : (
-              <Button type="primary" onClick={() => navigate("/")}>
-                Quay về trang chủ
-              </Button>
-            )}
+            <Button type="primary" onClick={() => navigate("/")}>
+              Quay về trang chủ
+            </Button>
           </Empty>
         ) : (
           <Row gutter={24}>
-            {/* Left Column: Room Cards */}
+            {/* Left Column: Room Type Cards with Collapse */}
             <Col xs={24} lg={16}>
               <div className="space-y-6">
-                {filteredRooms.map((room) => (
-                  <Card
-                    key={room.id}
-                    hoverable
-                    className={`shadow-md ${
-                      selectedRoom?.id === room.id
-                        ? "border-2 border-yellow-400"
-                        : ""
-                    }`}
-                    style={{ borderRadius: "12px" }}
-                  >
-                    <Row gutter={16}>
-                      {/* Room Image */}
-                      <Col xs={24} md={8}>
-                        <img
-                          alt={room.name}
-                          src={room.thumbnail}
-                          className="w-full h-48 object-cover rounded-lg"
-                        />
-                      </Col>
+                {Object.entries(roomsByType).map(([typeId, roomsInType]) => {
+                  const roomType = roomTypes.find(
+                    (rt) => rt.id === Number(typeId)
+                  );
 
-                      {/* Room Info */}
-                      <Col xs={24} md={16}>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                {room.name}
-                              </h3>
-                              <div className="flex flex-wrap items-center gap-2 mb-3">
-                                <Tag color="blue">
-                                  🛏️ Sức chứa: {room.capacity} người
-                                </Tag>
-                                {room.max_adults && (
-                                  <Tag color="cyan">
-                                    👨 Người lớn: {room.max_adults}
-                                  </Tag>
-                                )}
-                                {room.max_children && (
-                                  <Tag color="orange">
-                                    👶 Trẻ em: {room.max_children}
-                                  </Tag>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-3xl font-bold text-red-600">
-                                {formatPrice(room.price)}
-                              </div>
-                              <div className="text-sm text-gray-500">/ đêm</div>
-                            </div>
-                          </div>
-
-                          <p className="text-gray-600 text-sm line-clamp-2">
-                            {stripHtml(room.short_desc)}
-                          </p>
-
-                          {/* Guest Selector Collapse */}
-                          {selectedRoom?.id === room.id && (
-                            <Collapse
-                              defaultActiveKey={["0"]}
-                              className="mt-4"
-                              style={{ background: "#fafafa" }}
-                            >
-                              {Array.from({ length: numRooms }).map(
-                                (_, index) => {
-                                  const currentAdults =
-                                    roomsConfig[index]?.num_adults || 1;
-                                  const currentChildren =
-                                    roomsConfig[index]?.num_children || 0;
-                                  const remainingForChildren =
-                                    room.capacity - currentAdults;
-                                  const remainingForAdults =
-                                    room.capacity - currentChildren;
-
-                                  return (
-                                    <Panel
-                                      header={`Chọn số người phòng ${
-                                        index + 1
-                                      }`}
-                                      key={index}
-                                      className="font-semibold"
-                                    >
-                                      <Row gutter={16}>
-                                        <Col span={12}>
-                                          <div className="mb-2 text-gray-700">
-                                            👨 Người lớn (≥{CHILD_AGE_LIMIT}{" "}
-                                            tuổi)
-                                          </div>
-                                          <InputNumber
-                                            min={1}
-                                            max={Math.min(
-                                              room.max_adults || room.capacity,
-                                              remainingForAdults
-                                            )}
-                                            value={currentAdults}
-                                            onChange={(value) =>
-                                              handleGuestChange(
-                                                index,
-                                                "num_adults",
-                                                value
-                                              )
-                                            }
-                                            className="w-full"
-                                            size="large"
-                                          />
-                                        </Col>
-                                        <Col span={12}>
-                                          <div className="mb-2 text-gray-700">
-                                            👶 Trẻ em (&lt;{CHILD_AGE_LIMIT}{" "}
-                                            tuổi)
-                                          </div>
-                                          <InputNumber
-                                            min={0}
-                                            max={Math.min(
-                                              room.max_children ||
-                                                room.capacity,
-                                              remainingForChildren
-                                            )}
-                                            value={currentChildren}
-                                            onChange={(value) =>
-                                              handleGuestChange(
-                                                index,
-                                                "num_children",
-                                                value
-                                              )
-                                            }
-                                            className="w-full"
-                                            size="large"
-                                          />
-                                        </Col>
-                                      </Row>
-                                    </Panel>
-                                  );
-                                }
-                              )}
-                            </Collapse>
-                          )}
-
-                          <div className="flex gap-3 mt-4">
-                            <Button
-                              type={
-                                selectedRoom?.id === room.id
-                                  ? "primary"
-                                  : "default"
-                              }
-                              size="large"
-                              icon={
-                                selectedRoom?.id === room.id ? (
-                                  <CheckCircleOutlined />
-                                ) : null
-                              }
-                              onClick={() => {
-                                if (selectedRoom?.id === room.id) {
-                                  setSelectedRoom(null);
-                                } else {
-                                  setSelectedRoom(room);
-                                }
-                              }}
-                              style={
-                                selectedRoom?.id === room.id
-                                  ? {
-                                      background: "#10b981",
-                                      borderColor: "#10b981",
-                                    }
-                                  : {}
-                              }
-                            >
-                              {selectedRoom?.id === room.id
-                                ? "Đã chọn"
-                                : "Chọn phòng"}
-                            </Button>
-                            <Link to={`/rooms/${room.id}`}>
-                              <Button size="large">Xem chi tiết →</Button>
-                            </Link>
-                          </div>
-                        </div>
-                      </Col>
-                    </Row>
-                  </Card>
-                ))}
+                  return (
+                    <RoomTypeCard
+                      key={typeId}
+                      roomType={roomType}
+                      roomsInType={roomsInType}
+                      numRooms={numRooms}
+                      selectedRoomIds={selectedRoomIds}
+                      roomsConfig={roomsConfig}
+                      onSelectRoomType={handleSelectRoomType}
+                      onRoomSelect={handleRoomSelect}
+                      onGuestChange={handleGuestChange}
+                    />
+                  );
+                })}
               </div>
             </Col>
 
             {/* Right Column: Booking Sidebar */}
             <Col xs={24} lg={8}>
-              {searchParams && (
-                <BookingSidebar
-                  checkIn={searchParams.check_in}
-                  checkOut={searchParams.check_out}
-                  rooms={
-                    selectedRoom
-                      ? roomsConfig.map((config, index) => ({
-                          id: selectedRoom.id,
-                          name: selectedRoom.name,
-                          type_name: `Phòng ${index + 1}`,
-                          price: selectedRoom.price,
-                          num_adults: config.num_adults,
-                          num_children: config.num_children,
-                        }))
-                      : []
-                  }
-                  promoCode={searchParams.promo_code}
-                  onCheckout={handleBooking}
-                  loading={loading}
-                />
-              )}
+              <div className="sticky top-0">
+                {searchParams && (
+                  <BookingSidebar
+                    checkIn={searchParams.check_in}
+                    checkOut={searchParams.check_out}
+                    rooms={roomsConfig.map((config) => {
+                      const room = rooms.find((r) => r.id === config.room_id);
+                      return {
+                        id: room?.id || 0,
+                        name: room?.name || "",
+                        type_name: "",
+                        price: room?.price || 0,
+                        num_adults: config.num_adults,
+                        num_children: config.num_children,
+                      };
+                    })}
+                    promoCode={searchParams.promo_code}
+                    onCheckout={handleBooking}
+                    loading={loading}
+                  />
+                )}
+              </div>
             </Col>
           </Row>
         )}
