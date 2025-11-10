@@ -120,7 +120,7 @@ const RoomDetail = () => {
   const st = statusMeta[status] ?? {
     bg: "bg-gray-100",
     text: "text-gray-700",
-    label: String(obj.status ?? "—"),
+    label: String(room.status ?? "—"),
   };
   // helper: strip tags for short description
   const stripTags = (html?: string) => {
