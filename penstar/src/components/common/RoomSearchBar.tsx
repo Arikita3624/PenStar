@@ -49,7 +49,12 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
 
   return (
     <div className={containerClass}>
-      <div className="bg-white rounded-lg shadow-2xl p-4">
+      <div
+        className="bg-white p-6"
+        style={{
+          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+        }}
+      >
         <div className="flex flex-wrap gap-3 items-center">
           {/* Dates */}
           <div className="flex-1 min-w-[250px]">
@@ -62,6 +67,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               placeholder={["Check-in", "Check-out"]}
               suffixIcon={<CalendarOutlined />}
               className="w-full border-0 bg-gray-50"
+              style={{ borderRadius: 0 }}
               disabledDate={(current) => {
                 return current && current < dayjs().startOf("day");
               }}
@@ -76,7 +82,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
           </div>
 
           {/* Số phòng */}
-          <div className="w-[150px]">
+          <div className="flex-1 min-w-[150px]">
             <div className="text-xs font-semibold text-gray-700 mb-1">
               Số phòng
             </div>
@@ -86,6 +92,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               onChange={setNumRooms}
               className="w-full"
               suffixIcon={<HomeOutlined />}
+              style={{ borderRadius: 0 }}
               options={Array.from({ length: 10 }, (_, i) => ({
                 label: `${i + 1} Phòng`,
                 value: i + 1,
@@ -96,15 +103,16 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
           {/* Mã khuyến mãi */}
           <div className="flex-1 min-w-[180px]">
             <div className="text-xs font-semibold text-gray-700 mb-1">
-              Mã khuyến mãi/Voucher
+              Mã khuyến mãi
             </div>
             <Input
               size="large"
-              placeholder="Nhập mã khuyến mãi/mã Vouc..."
+              placeholder="Nhập mã khuyến mãi"
               prefix={<GiftOutlined className="text-orange-500" />}
               value={promoCode}
               onChange={(e) => setPromoCode(e.target.value)}
               className="border-0 bg-gray-50"
+              style={{ borderRadius: 0 }}
             />
           </div>
 
@@ -120,6 +128,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               style={{
                 background: "#fbbf24",
                 borderColor: "#fbbf24",
+                borderRadius: 0,
               }}
             >
               TÌM KIẾM

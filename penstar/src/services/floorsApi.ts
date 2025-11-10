@@ -1,6 +1,7 @@
 import { instance } from "./api";
+import type { Floors } from "@/types/floors";
 
-export const getFloors = async () => {
+export const getFloors = async (): Promise<Floors[]> => {
   try {
     const response = await instance.get("/floors");
     console.log("📦 Response from /floors API:", response.data);
@@ -11,7 +12,7 @@ export const getFloors = async () => {
   }
 };
 
-export const getFloorById = async (id: string) => {
+export const getFloorById = async (id: string): Promise<Floors | null> => {
   try {
     const response = await instance.get(`/floors/${id}`);
     return response.data?.data ?? null;
@@ -20,10 +21,11 @@ export const getFloorById = async (id: string) => {
     throw error;
   }
 };
+
 export const createFloor = async (floorData: {
   name: string;
   description: string;
-}) => {
+}): Promise<Floors | null> => {
   try {
     const response = await instance.post("/floors", floorData);
     return response.data?.data ?? null;
@@ -36,7 +38,7 @@ export const createFloor = async (floorData: {
 export const updateFloor = async (
   id: number | string,
   floorData: { name: string; description: string }
-) => {
+): Promise<Floors | null> => {
   try {
     const response = await instance.put(`/floors/${id}`, floorData);
     return response.data?.data ?? null;
@@ -46,7 +48,7 @@ export const updateFloor = async (
   }
 };
 
-export const deleteFloor = async (id: number | string) => {
+export const deleteFloor = async (id: number | string): Promise<null> => {
   try {
     const response = await instance.delete(`/floors/${id}`);
     return response.data ?? null;

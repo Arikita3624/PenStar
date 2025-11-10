@@ -4,7 +4,7 @@ import RequireRole from "@/components/common/RequireRole";
 import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
-import RoomType from "@/components/pages/admin/roomtypes/RoomType";
+import RoomTypesPage from "@/components/pages/admin/roomtypes/RoomType";
 import RoomTypeAdd from "@/components/pages/admin/roomtypes/RoomTypeAdd";
 import RoomTypeEdit from "@/components/pages/admin/roomtypes/RoomTypeEdit";
 import FloorList from "@/components/pages/admin/floors/FloorList";
@@ -23,6 +23,7 @@ import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
 import MultiRoomBookingCreate from "@/components/pages/clients/bookings/MultiRoomBookingCreate";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
+import ChangeRoomPage from "@/components/pages/clients/bookings/ChangeRoomPage";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
@@ -84,6 +85,14 @@ const AppRouter = () => {
           />
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
           <Route
+            path="bookings/:id/change-room"
+            element={
+              <RequireRole role="customer">
+                <ChangeRoomPage />
+              </RequireRole>
+            }
+          />
+          <Route
             path="bookings/payment-method"
             element={<PaymentMethodSelect />}
           />
@@ -105,12 +114,13 @@ const AppRouter = () => {
           {/* Bookings management - Staff+ */}
           <Route path="bookings" element={<BookingsList />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
+          <Route path="bookings/:id/change-room" element={<ChangeRoomPage />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
           <Route path="rooms" element={<Rooms />} />
           <Route path="rooms/add" element={<RoomAdd />} />
           <Route path="rooms/:id/edit" element={<RoomEdit />} />
-          <Route path="roomtypes" element={<RoomType />} />
+          <Route path="roomtypes" element={<RoomTypesPage />} />
           <Route path="roomtypes/new" element={<RoomTypeAdd />} />
           <Route path="roomtypes/:id/edit" element={<RoomTypeEdit />} />
           <Route path="floors" element={<FloorList />} />

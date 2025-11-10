@@ -32,6 +32,7 @@ import { getRooms } from "@/services/roomsApi";
 import { getServices } from "@/services/servicesApi";
 import { getStayStatuses } from "@/services/stayStatusApi";
 import { createBooking } from "@/services/bookingsApi";
+import { createPayment } from "@/services/paymentApi";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
 import type { StayStatus } from "@/types/stayStatus";
@@ -106,17 +107,11 @@ const StaffBookingCreate: React.FC = () => {
       if (paymentMethodValue === "vnpay") {
         // Redirect sang VNPay
         try {
-          const { instance } = await import("@/services/api");
-          const { data: paymentData } = await instance.get(
-            "/payment/create_payment",
-            {
-              params: {
-                amount: data.total_price,
-                language: "vn",
-                returnUrl: `${window.location.origin}/payment-result`,
-              },
-            }
-          );
+          const paymentData = await createPayment({
+            amount: data.total_price,
+            language: "vn",
+            returnUrl: `${window.location.origin}/payment-result`,
+          });
 
           if (paymentData.paymentUrl) {
             localStorage.setItem("bookingId", bookingId.toString());
@@ -428,13 +423,6 @@ const StaffBookingCreate: React.FC = () => {
           room_price: item.room_price,
           num_adults: item.num_adults || 1,
           num_children: item.num_children || 0,
-          guests: [
-            {
-              guest_name: customerInfo.customer_name,
-              guest_type: "adult" as const,
-              is_primary: true,
-            },
-          ],
         })),
         services:
           serviceItems.length > 0

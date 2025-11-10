@@ -9,6 +9,7 @@ import {
   updateGuestBooking,
   confirmCheckout,
   cancelBooking,
+  changeRoomInBooking,
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
 import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
@@ -19,14 +20,12 @@ router.get("/", requireAuth, requireRole("staff"), getBookings);
 // register specific routes before parameterized routes
 router.get("/mine", requireAuth, getMyBookings);
 router.get("/:id", getBookingById);
-// POST /bookings - Can be called with or without auth
-// - With auth (customer/staff): normal booking
-// - Without auth: walk-in booking (staff creates for customer)
-router.post("/", optionalAuth, validateBookingCreate, createBooking);
+// POST /bookings - Require auth: customer or staff can create booking
+router.post("/", requireAuth, validateBookingCreate, createBooking);
 // Cancel booking - both user and admin can use this endpoint
 router.post("/:id/cancel", requireAuth, cancelBooking);
-// Guest update booking payment info (no auth required)
-router.patch("/:id", optionalAuth, updateGuestBooking);
+// Guest update booking payment info (auth required)
+router.patch("/:id", requireAuth, updateGuestBooking);
 // Client can update their own booking (check-in, check-out)
 router.patch("/:id/my-status", requireAuth, updateMyBookingStatus);
 // Admin updates booking status
@@ -42,5 +41,7 @@ router.post(
   requireRole("staff"),
   confirmCheckout
 );
+// Change room in booking - both customer and staff can use
+router.patch("/:id/change-room", requireAuth, changeRoomInBooking);
 
 export default router;

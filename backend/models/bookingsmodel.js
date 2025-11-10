@@ -48,6 +48,7 @@ export const createBooking = async (data) => {
       booking_method,
       stay_status_id,
       user_id,
+      notes,
     } = data;
 
     // Validate required fields
@@ -114,8 +115,8 @@ export const createBooking = async (data) => {
       }
     }
 
-    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, created_at, is_refunded)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), FALSE) RETURNING *`;
+    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, notes, created_at, is_refunded)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), FALSE) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
       total_price,
@@ -124,6 +125,7 @@ export const createBooking = async (data) => {
       booking_method,
       stay_status_id,
       user_id,
+      notes || null, // Ghi chú từ khách hàng (optional)
     ]);
     const booking = bookingRes.rows[0];
 
@@ -147,7 +149,6 @@ export const createBooking = async (data) => {
           room_price,
           num_adults,
           num_children,
-          guests,
         } = item;
         const itemResult = await client.query(insertItemText, [
           booking.id,
@@ -160,20 +161,6 @@ export const createBooking = async (data) => {
         ]);
 
         const booking_item_id = itemResult.rows[0].id;
-
-        // Insert guests for this booking_item
-        if (Array.isArray(guests) && guests.length > 0) {
-          const insertGuestText = `INSERT INTO booking_guests (booking_item_id, guest_name, guest_type, age, is_primary) VALUES ($1, $2, $3, $4, $5)`;
-          for (const guest of guests) {
-            await client.query(insertGuestText, [
-              booking_item_id,
-              guest.guest_name,
-              guest.guest_type,
-              guest.age || null,
-              guest.is_primary || false,
-            ]);
-          }
-        }
 
         // Update room status to 'pending' when booking is created (client creates → stay_status_id=6 pending)
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
@@ -212,23 +199,9 @@ export const createBooking = async (data) => {
 
         const booking_item_id = itemResult.rows[0].id;
 
-        // Insert guests for this room
-        if (Array.isArray(room.guests)) {
-          const insertGuestText = `INSERT INTO booking_guests (booking_item_id, guest_name, guest_type, age, is_primary) VALUES ($1, $2, $3, $4, $5)`;
-          for (const guest of room.guests) {
-            await client.query(insertGuestText, [
-              booking_item_id,
-              guest.guest_name,
-              guest.guest_type,
-              guest.age || null,
-              guest.is_primary || false,
-            ]);
-          }
-        }
-
         // Insert services for this room
         if (Array.isArray(room.service_ids) && room.service_ids.length > 0) {
-          const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4)`;
+          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5)`;
           for (const service_id of room.service_ids) {
             // Get service price
             const serviceResult = await client.query(
@@ -239,6 +212,7 @@ export const createBooking = async (data) => {
 
             await client.query(insertServiceText, [
               booking.id,
+              booking_item_id, // Link service to specific room
               service_id,
               1, // quantity default to 1
               service_price,
@@ -520,6 +494,129 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const changeRoomInBooking = async (data) => {
+  const { booking_id, booking_item_id, new_room_id, changed_by, reason } = data;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Get booking info
+    const bookingRes = await client.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [booking_id]
+    );
+    if (!bookingRes.rows[0]) {
+      throw new Error("Booking not found");
+    }
+    const booking = bookingRes.rows[0];
+
+    // 2. Check change_count limit
+    if (booking.change_count >= 1) {
+      throw new Error("Bạn chỉ được đổi phòng 1 lần duy nhất");
+    }
+
+    // 3. Check booking status (only allow for reserved/pending)
+    if (![1, 6].includes(booking.stay_status_id)) {
+      throw new Error(
+        "Chỉ có thể đổi phòng khi booking ở trạng thái Đã xác nhận hoặc Chờ xác nhận"
+      );
+    }
+
+    // 4. Get booking_item info
+    const itemRes = await client.query(
+      "SELECT * FROM booking_items WHERE id = $1 AND booking_id = $2",
+      [booking_item_id, booking_id]
+    );
+    if (!itemRes.rows[0]) {
+      throw new Error("Booking item not found");
+    }
+    const bookingItem = itemRes.rows[0];
+    const old_room_id = bookingItem.room_id;
+
+    // 5. Get new room info
+    const newRoomRes = await client.query("SELECT * FROM rooms WHERE id = $1", [
+      new_room_id,
+    ]);
+    if (!newRoomRes.rows[0]) {
+      throw new Error("New room not found");
+    }
+    const newRoom = newRoomRes.rows[0];
+
+    // 6. Check if new room is available
+    if (newRoom.status !== "available") {
+      throw new Error("Phòng mới không khả dụng");
+    }
+
+    // 7. Calculate price difference
+    const checkIn = new Date(bookingItem.check_in);
+    const checkOut = new Date(bookingItem.check_out);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const new_price = newRoom.price * nights;
+    const price_difference = new_price - bookingItem.room_price;
+
+    // 8. Update booking_item
+    await client.query(
+      "UPDATE booking_items SET room_id = $1, room_price = $2 WHERE id = $3",
+      [new_room_id, new_price, booking_item_id]
+    );
+
+    // 9. Update total price in booking
+    await client.query(
+      "UPDATE bookings SET total_price = total_price + $1 WHERE id = $2",
+      [price_difference, booking_id]
+    );
+
+    // 10. Insert change log
+    const logRes = await client.query(
+      `INSERT INTO booking_change_logs 
+       (booking_id, booking_item_id, changed_by, old_room_id, new_room_id, price_difference, reason) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        booking_id,
+        booking_item_id,
+        changed_by,
+        old_room_id,
+        new_room_id,
+        price_difference,
+        reason,
+      ]
+    );
+
+    // 11. Increment change_count
+    await client.query(
+      "UPDATE bookings SET change_count = change_count + 1 WHERE id = $1",
+      [booking_id]
+    );
+
+    // 12. Update room status
+    await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
+      "available",
+      old_room_id,
+    ]);
+    await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
+      "pending",
+      new_room_id,
+    ]);
+
+    await client.query("COMMIT");
+
+    return {
+      success: true,
+      old_room_id,
+      new_room_id,
+      price_difference,
+      new_total_price: booking.total_price + price_difference,
+      log: logRes.rows[0],
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }

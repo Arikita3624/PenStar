@@ -4,9 +4,12 @@ import { Outlet } from "react-router-dom";
 
 const LayoutClient = () => {
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       <AppHeader />
-      <Outlet />
+      {/* Main content with max-width container */}
+      <main className="flex-1">
+        <Outlet />
+      </main>
       <AppFooter />
     </div>
   );

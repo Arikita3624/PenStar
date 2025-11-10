@@ -1,34 +1,72 @@
 import pool from "../db.js";
 
 export const getRoomTypes = async () => {
-  const resuit = await pool.query("SELECT * FROM room_types");
-  return resuit.rows;
+  const result = await pool.query(`
+    SELECT 
+      rt.*,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
+    FROM room_types rt
+  `);
+  // Parse JSON fields for each row
+  return result.rows.map((row) => {
+    if (row.images) row.images = JSON.parse(row.images);
+    if (row.amenities) row.amenities = JSON.parse(row.amenities);
+    return row;
+  });
 };
 
 export const createRoomType = async (data) => {
-  const { name, description } = data;
-  const resuit = await pool.query(
-    "INSERT INTO room_types (name, description) VALUES ($1, $2) RETURNING *",
-    [name, description]
+  const { name, description, thumbnail, images, amenities } = data;
+  const result = await pool.query(
+    "INSERT INTO room_types (name, description, thumbnail, images, amenities) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    [
+      name,
+      description,
+      thumbnail || null,
+      images ? JSON.stringify(images) : null,
+      amenities ? JSON.stringify(amenities) : null,
+    ]
   );
-  console.log(resuit);
-  return resuit.rows[0];
+  console.log(result);
+  return result.rows[0];
 };
 
 export const getRoomTypeById = async (id) => {
-  const resuit = await pool.query("SELECT * FROM room_types WHERE id = $1", [
-    id,
-  ]);
-  return resuit.rows[0];
+  const result = await pool.query(
+    `SELECT 
+      rt.*,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
+    FROM room_types rt 
+    WHERE rt.id = $1`,
+    [id]
+  );
+  const row = result.rows[0];
+  if (row) {
+    // Parse JSON fields
+    if (row.images) row.images = JSON.parse(row.images);
+    if (row.amenities) row.amenities = JSON.parse(row.amenities);
+  }
+  return row;
 };
 
 export const updateRoomType = async (id, data) => {
-  const { name, description } = data;
-  const resuit = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2 WHERE id = $3 RETURNING *",
-    [name, description, id]
+  const { name, description, amenities } = data;
+  const result = await pool.query(
+    "UPDATE room_types SET name = $1, description = $2, amenities = $3 WHERE id = $4 RETURNING *",
+    [name, description, amenities ? JSON.stringify(amenities) : null, id]
   );
-  return resuit.rows[0];
+
+  // Get thumbnail from room_type_images
+  const withThumbnail = await pool.query(
+    `SELECT 
+      rt.*,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
+    FROM room_types rt 
+    WHERE rt.id = $1`,
+    [id]
+  );
+
+  return withThumbnail.rows[0];
 };
 
 export const deleteRoomType = async (id) => {

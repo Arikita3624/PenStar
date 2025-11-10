@@ -78,59 +78,118 @@ const PaymentResult: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", marginTop: 100 }}>
-        <Spin size="large" tip="Đang xử lý kết quả thanh toán..." />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Spin size="large" tip="Đang xử lý kết quả thanh toán..." />
+        </div>
       </div>
     );
   }
 
   return (
-    <Card
-      style={{ maxWidth: 600, margin: "50px auto" }}
-      title="Kết quả thanh toán"
-    >
-      {paymentStatus?.success ? (
-        <Result
-          status="success"
-          title="Thanh toán thành công!"
-          subTitle={`
-            Mã giao dịch: ${paymentStatus?.transactionNo || "N/A"}
-            Số tiền: ${paymentStatus?.amount.toLocaleString("vi-VN")} VNĐ
-          `}
-          extra={[
-            <Button
-              type="primary"
-              key="booking"
-              onClick={handleGoToBookingSuccess}
-              loading={updating}
+    <div className="bg-gray-50 py-6">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header - Compact */}
+        <div
+          className="relative py-3 mb-3 rounded-xl overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+          }}
+        >
+          <div className="text-center relative z-10">
+            <h1
+              className="text-xl font-bold text-white mb-1"
+              style={{ textShadow: "0 2px 10px rgba(0,0,0,0.2)" }}
             >
-              {updating ? "Đang cập nhật..." : "Xem chi tiết đơn đặt phòng"}
-            </Button>,
-            <Button onClick={() => navigate("/")}>Về trang chủ</Button>,
-          ]}
-        />
-      ) : (
-        <Result
-          status="error"
-          title="Thanh toán thất bại"
-          subTitle={`
-            Mã lỗi: ${paymentStatus?.responseCode || "Unknown"}
-            Vui lòng thử lại hoặc liên hệ hỗ trợ.
-          `}
-          extra={[
-            <Button
-              type="primary"
-              danger
-              key="retry"
-              onClick={() => navigate(-1)}
-            >
-              Quay lại
-            </Button>,
-            <Button onClick={() => navigate("/")}>Về trang chủ</Button>,
-          ]}
-        />
-      )}
-    </Card>
+              Kết quả thanh toán
+            </h1>
+          </div>
+        </div>
+
+        <Card
+          className="rounded-xl overflow-hidden border-0"
+          style={{
+            boxShadow: "0 2px 12px rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          {paymentStatus?.success ? (
+            <Result
+              status="success"
+              title={
+                <span className="text-lg font-bold">
+                  Thanh toán thành công!
+                </span>
+              }
+              subTitle={
+                <div className="space-y-1 mt-2">
+                  <p className="text-sm">
+                    <strong>Mã giao dịch:</strong>{" "}
+                    {paymentStatus?.transactionNo || "N/A"}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Số tiền:</strong>{" "}
+                    <span className="text-red-600 font-bold text-base">
+                      {paymentStatus?.amount.toLocaleString("vi-VN")} VNĐ
+                    </span>
+                  </p>
+                </div>
+              }
+              extra={[
+                <Button
+                  type="primary"
+                  key="booking"
+                  onClick={handleGoToBookingSuccess}
+                  loading={updating}
+                  size="middle"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    borderColor: "transparent",
+                  }}
+                >
+                  {updating ? "Đang cập nhật..." : "Xem chi tiết đơn đặt phòng"}
+                </Button>,
+                <Button onClick={() => navigate("/")} size="middle">
+                  Về trang chủ
+                </Button>,
+              ]}
+            />
+          ) : (
+            <Result
+              status="error"
+              title={
+                <span className="text-lg font-bold">Thanh toán thất bại</span>
+              }
+              subTitle={
+                <div className="space-y-1 mt-2">
+                  <p className="text-sm">
+                    <strong>Mã lỗi:</strong>{" "}
+                    {paymentStatus?.responseCode || "Unknown"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Vui lòng thử lại hoặc liên hệ hỗ trợ.
+                  </p>
+                </div>
+              }
+              extra={[
+                <Button
+                  type="primary"
+                  danger
+                  key="retry"
+                  onClick={() => navigate(-1)}
+                  size="middle"
+                >
+                  Quay lại
+                </Button>,
+                <Button onClick={() => navigate("/")} size="middle">
+                  Về trang chủ
+                </Button>,
+              ]}
+            />
+          )}
+        </Card>
+      </div>
+    </div>
   );
 };
 
