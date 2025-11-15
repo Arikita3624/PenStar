@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
+import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, Result, Button, Spin } from "antd";
+import axios from "axios";
 
 const PaymentResult: React.FC = () => {
   const location = useLocation();
@@ -25,8 +26,14 @@ const PaymentResult: React.FC = () => {
       orderId,
       success: responseCode === "00",
     };
-
+    const email = localStorage.getItem("customerEmail");
+    const name = localStorage.getItem("customerName");
     setPaymentStatus(status);
+    axios.post("http://localhost:5000/api/payment/success", {
+      orderId,
+      email,
+      name,
+    });
     setLoading(false);
   }, [location.search]);
 
@@ -85,6 +92,31 @@ const PaymentResult: React.FC = () => {
       </div>
     );
   }
+  // useEffect(() => {
+  //   if (!paymentStatus?.success) return; // kiểm tra điều kiện bên trong
+
+  //   const sendEmail = async () => {
+  //     try {
+  //       const email = localStorage.getItem("customerEmail");
+  //       const name = localStorage.getItem("customerName");
+  //       const orderId = localStorage.getItem("orderId");
+
+  //       console.log("Gửi email cho:", email, name, orderId);
+
+  //       const res = await axios.post("http://localhost:5000/api/payment/success", {
+  //         orderId,
+  //         email,
+  //         name,
+  //       });
+
+  //       console.log("Server response:", res.data);
+  //     } catch (error) {
+  //       console.error("Có lỗi xảy ra khi gửi email xác nhận:", error);
+  //     }
+  //   };
+
+  //   sendEmail();
+  // }, [paymentStatus?.success]);
 
   return (
     <div className="bg-gray-50 py-6">
