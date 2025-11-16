@@ -26,13 +26,13 @@ const PaymentResult: React.FC = () => {
       orderId,
       success: responseCode === "00",
     };
-    const email = localStorage.getItem("customerEmail");
-    const name = localStorage.getItem("customerName");
+    const value = JSON.parse(localStorage.getItem("customerInfo") || "{}");
+    console.log("value", value);
     setPaymentStatus(status);
     axios.post("http://localhost:5000/api/payment/success", {
       orderId,
-      email,
-      name,
+      email: value.customer_email,
+      name: value.customer_name,
     });
     setLoading(false);
   }, [location.search]);

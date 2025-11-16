@@ -1,5 +1,4 @@
-// import sendMail from "../utils/sendMail";
-
+import  send  from "../utils/send.js";
 export const paymentSuccess = async (req, res) => {
   try {
     const { orderId, email, name } = req.body;
@@ -17,13 +16,13 @@ export const paymentSuccess = async (req, res) => {
       <p>Hotel Booking Team</p>
     `;
 
-    // const mailSent = await sendMail(email, "Xác nhận thanh toán thành công", htmlContent);
+    const mailSent = await send(email, "Xác nhận thanh toán thành công", htmlContent);
 
-    // if (mailSent) {
-    //   res.json({ success: true, message: "Thanh toán thành công, email xác nhận đã gửi." });
-    // } else {
-    //   res.status(500).json({ success: false, message: "Thanh toán thành công nhưng gửi email thất bại." });
-    // }
+    if (mailSent) {
+      res.json({ success: true, message: "Thanh toán thành công, email xác nhận đã gửi." });
+    } else {
+      res.status(500).json({ success: false, message: "Thanh toán thành công nhưng gửi email thất bại." });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Lỗi server." });

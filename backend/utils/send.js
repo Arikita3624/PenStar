@@ -1,20 +1,20 @@
 import nodemailer from "nodemailer";
 
-const sendMail = async (to, subject, html) => {
+const send = async (to, subject, html) => {
+
   try {
     const host = process.env.SMTP_HOST || "smtp.example.com";
     const port = Number(process.env.SMTP_PORT) || 587;
-    const user = process.env.SMTP_USER || "user@example.com";
-    const pass = process.env.SMTP_PASS || "password";
-    const from = process.env.FROM_EMAIL || user;
+    const user = process.env.EMAIL_USER || "user@example.com";
+    const pass = process.env.EMAIL_PASS || "password";
+    const from = process.env.EMAIL_USER || user;
 
+    console.log("Connecting to SMTP:", { host, port, user });
     const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
+      service: 'gmail',
       auth: { user, pass },
     });
-
+    console.log("to", to);
     const info = await transporter.sendMail({
       from,
       to,
@@ -30,4 +30,4 @@ const sendMail = async (to, subject, html) => {
   }
 };
 
-export default sendMail;
+export default send;
