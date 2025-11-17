@@ -6,6 +6,7 @@ import {
   deleteRoom as modelDeleteRoom,
   existsRoomWithName,
   searchAvailableRooms as modelSearchAvailableRooms,
+  analyzeRoomAvailability as modelAnalyzeRoomAvailability,
   hasActiveBookings,
 } from "../models/roomsmodel.js";
 
@@ -265,5 +266,28 @@ export const searchRooms = async (req, res) => {
       message: "🚨 Lỗi tìm kiếm phòng",
       error: error.message,
     });
+  }
+};
+
+// GET /rooms/availability-reason
+export const availabilityReason = async (req, res) => {
+  try {
+    const { check_in, check_out, room_type_id, num_adults, num_children } = req.query;
+    if (!check_in || !check_out || !room_type_id) {
+      return res.status(400).json({ success: false, message: 'check_in, check_out and room_type_id are required' });
+    }
+
+    const result = await modelAnalyzeRoomAvailability({
+      check_in,
+      check_out,
+      room_type_id: Number(room_type_id),
+      num_adults: num_adults ? Number(num_adults) : 1,
+      num_children: num_children ? Number(num_children) : 0,
+    });
+
+    res.json({ success: true, message: '✅ Availability analysis', data: result });
+  } catch (error) {
+    console.error('roomscontroller.availabilityReason error:', error);
+    res.status(500).json({ success: false, message: 'Internal error', error: error.message });
   }
 };

@@ -4,6 +4,7 @@ import {
   createBookingService as modelCreateBookingService,
   deleteBookingService as modelDeleteBookingService,
 } from "../models/booking_servicesmodel.js";
+import { getBookingById as modelGetBookingById } from "../models/bookingsmodel.js";
 
 export const getBookingServices = async (req, res) => {
   try {
@@ -79,6 +80,39 @@ export const createBookingService = async (req, res) => {
         message: "🚨 Internal server error",
         error: error.message,
       });
+  }
+};
+
+// Customer requests a service for their booking (during their stay)
+export const createBookingServiceRequest = async (req, res) => {
+  try {
+    const payload = req.body; // { booking_id, service_id, quantity, total_service_price }
+    const user = req.user;
+    if (!user) return res.status(401).json({ success: false, message: "Not authenticated" });
+
+    // Verify booking exists and belongs to this user (unless staff/admin)
+    const booking = await modelGetBookingById(payload.booking_id);
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    const userRole = (user.role || user.role_name || "").toString().toLowerCase();
+    const isStaff = ["staff", "manager", "admin"].includes(userRole);
+    if (!isStaff && booking.user_id !== user.id) {
+      return res.status(403).json({ success: false, message: "Bạn không có quyền yêu cầu dịch vụ cho booking này" });
+    }
+
+    // Only allow service requests when booking is checked-in (2)
+    if (booking.stay_status_id !== 2) {
+      return res.status(400).json({ success: false, message: "Chỉ có thể yêu cầu dịch vụ khi đã check-in" });
+    }
+
+    const item = await modelCreateBookingService(payload);
+    res.status(201).json({ success: true, message: "✅ Yêu cầu dịch vụ đã được gửi", data: item });
+  } catch (error) {
+    console.error("booking_services.createBookingServiceRequest error:", error);
+    if (error && error.code === "23503") {
+      return res.status(400).json({ success: false, message: "Foreign key constraint failed", error: error.message });
+    }
+    res.status(500).json({ success: false, message: "🚨 Internal server error", error: error.message });
   }
 };
 

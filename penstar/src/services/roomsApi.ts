@@ -86,3 +86,15 @@ export const searchAvailableRooms = async (
     throw error;
   }
 };
+
+export const getAvailabilityReason = async (
+  params: RoomSearchParams
+) => {
+  try {
+    const response = await instance.get(`/rooms/availability-reason`, { params });
+    return response.data?.data ?? null;
+  } catch (error) {
+    console.error("Error fetching availability reason:", error);
+    throw error;
+  }
+};

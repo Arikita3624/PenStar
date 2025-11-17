@@ -41,7 +41,7 @@ interface RoomBookingData {
 const MultiRoomBookingCreate = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [form] = Form.useForm();
+  const [form] = Form.useForm(); 
   const [currentStep, setCurrentStep] = useState(0);
 
   const selectedRoomIds: number[] = location.state?.selectedRoomIds || [];
@@ -169,6 +169,7 @@ const MultiRoomBookingCreate = () => {
   const handleNext = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(currentStep + 1);
+      localStorage.setItem("customerInfo", JSON.stringify(customerInfo));
     }
   };
 

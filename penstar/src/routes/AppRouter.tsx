@@ -35,6 +35,7 @@ import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import StaffBookingCreate from "@/components/pages/clients/bookings/StaffBookingCreate";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
+import PaymentSuccess from "@/components/pages/PaymentSuccess";
 
 const AppRouter = () => {
   return (
@@ -148,6 +149,7 @@ const AppRouter = () => {
             }
           />
         </Route>
+         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/403" element={<Forbidden />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

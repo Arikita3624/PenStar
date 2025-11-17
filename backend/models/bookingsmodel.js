@@ -278,10 +278,21 @@ export const updateBookingStatus = async (id, fields) => {
       keys.push(`${k} = $${idx++}`);
       vals.push(fields[k]);
     }
-    if (!keys.length) return null;
-    const q = `UPDATE bookings SET ${keys.join(
-      ", "
-    )} WHERE id = $${idx} RETURNING *`;
+
+    // If updating stay_status_id -> checked_in (2), automatically set checkin_at = NOW()
+    const statusId = Number(fields.stay_status_id);
+    const extraRaw = [];
+    if (statusId === 2) {
+      // Only add automated checkin_at when caller didn't explicitly provide it
+      if (!Object.prototype.hasOwnProperty.call(fields, "checkin_at")) {
+        extraRaw.push("checkin_at = NOW()");
+      }
+    }
+
+    if (keys.length === 0 && extraRaw.length === 0) return null;
+
+    const allKeys = keys.concat(extraRaw);
+    const q = `UPDATE bookings SET ${allKeys.join(", ")} WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await client.query(q, vals);
     const updated = res.rows[0];
@@ -621,3 +632,105 @@ export const changeRoomInBooking = async (data) => {
     client.release();
   }
 };
+
+export const createChangeRequest = async (data) => {
+  const {
+    booking_id,
+    booking_item_id,
+    requested_room_id = null,
+    requested_room_type_id = null,
+    reason = null,
+    requested_by = null,
+  } = data;
+
+  const client = await pool.connect();
+  try {
+    const res = await client.query(
+      `INSERT INTO booking_change_requests (booking_id, booking_item_id, requested_room_id, requested_room_type_id, reason, requested_by, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
+      [
+        booking_id,
+        booking_item_id,
+        requested_room_id,
+        requested_room_type_id,
+        reason,
+        requested_by,
+      ]
+    );
+    return res.rows[0];
+  } catch (err) {
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const getChangeRequestsByBooking = async (booking_id) => {
+  const res = await pool.query(
+    `SELECT cr.*, u.email as requested_by_email, u.id as requested_by_id
+     FROM booking_change_requests cr
+     LEFT JOIN users u ON u.id = cr.requested_by
+     WHERE cr.booking_id = $1 ORDER BY cr.created_at DESC`,
+    [booking_id]
+  );
+  return res.rows;
+};
+
+export const getChangeRequestById = async (id) => {
+  const res = await pool.query("SELECT * FROM booking_change_requests WHERE id = $1", [id]);
+  return res.rows[0];
+};
+
+export const updateChangeRequestStatus = async (id, fields) => {
+  const keys = [];
+  const vals = [];
+  let idx = 1;
+  for (const k of Object.keys(fields)) {
+    keys.push(`${k} = $${idx++}`);
+    vals.push(fields[k]);
+  }
+  if (!keys.length) return null;
+  const q = `UPDATE booking_change_requests SET ${keys.join(", ")} WHERE id = $${idx} RETURNING *`;
+  vals.push(id);
+  const res = await pool.query(q, vals);
+  return res.rows[0];
+};
+
+export const approveChangeRequest = async (id, processed_by) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Get request
+    const reqRes = await client.query("SELECT * FROM booking_change_requests WHERE id = $1 FOR UPDATE", [id]);
+    if (!reqRes.rows[0]) throw new Error("Change request not found");
+    const req = reqRes.rows[0];
+
+    if (req.status !== "pending") {
+      throw new Error("Change request is not pending");
+    }
+
+    // Perform the actual room change using existing changeRoomInBooking logic
+    const changeResult = await changeRoomInBooking({
+      booking_id: req.booking_id,
+      booking_item_id: req.booking_item_id,
+      new_room_id: req.requested_room_id,
+      changed_by: processed_by,
+      reason: req.reason,
+    });
+
+    // Update request status
+    await client.query(
+      "UPDATE booking_change_requests SET status = $1, processed_by = $2, processed_at = NOW() WHERE id = $3",
+      ["approved", processed_by, id]
+    );
+
+    await client.query("COMMIT");
+    return { success: true, changeResult };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+

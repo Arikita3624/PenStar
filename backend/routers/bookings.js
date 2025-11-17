@@ -10,9 +10,14 @@ import {
   confirmCheckout,
   cancelBooking,
   changeRoomInBooking,
+  checkIn,
+  createChangeRequest,
+  getChangeRequests,
+  approveChangeRequest,
+  rejectChangeRequest,
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
-import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
+import { validateBookingCreate, validateCheckIn } from "../middlewares/bookingvalidate.js";
 
 const router = express.Router();
 
@@ -41,7 +46,22 @@ router.post(
   requireRole("staff"),
   confirmCheckout
 );
+// Staff check-in: update guest info (id card, name, phone) + set stay_status to checked_in
+router.post(
+  "/:id/checkin",
+  requireAuth,
+  requireRole("staff"),
+  validateCheckIn,
+  checkIn
+);
 // Change room in booking - both customer and staff can use
 router.patch("/:id/change-room", requireAuth, changeRoomInBooking);
+// Customer -> create change request
+router.post("/:id/request-change", requireAuth, createChangeRequest);
+// Staff -> list requests for a booking
+router.get("/:id/change-requests", requireAuth, requireRole("staff"), getChangeRequests);
+// Staff -> approve/reject specific request
+router.post("/change-requests/:reqId/approve", requireAuth, requireRole("staff"), approveChangeRequest);
+router.post("/change-requests/:reqId/reject", requireAuth, requireRole("staff"), rejectChangeRequest);
 
 export default router;

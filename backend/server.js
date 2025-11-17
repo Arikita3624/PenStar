@@ -15,6 +15,7 @@ import bookingItemsRouter from "./routers/booking_items.js";
 import bookingServicesRouter from "./routers/booking_services.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import paymentRouter from "./routers/payment.js";
+import sendEmail from "./routers/sendEmail.js"
 dotenv.config();
 const app = express();
 
@@ -33,7 +34,9 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/booking-items", bookingItemsRouter);
 app.use("/api/booking-services", bookingServicesRouter);
 app.use("/api/stay-status", stayStatusRouter);
+// app.use("/api/payment", paymentSuccess);
 app.use("/api/payment", paymentRouter);
+app.use("/api/payment", sendEmail);
 
 import path from "path";
 // serve uploaded files from /uploads
@@ -48,7 +51,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+app.use(cors());
+app.use(express.json());
+
+app.listen(process.env.PORT || 5000, () => {
+  console.log(`✅ Server chạy trên cổng ${process.env.PORT || 5000}`);
 });

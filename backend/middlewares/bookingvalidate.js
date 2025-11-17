@@ -104,3 +104,20 @@ export const validateBookingCreate = (req, res, next) => {
   req.body = value;
   next();
 };
+
+// Validate check-in payload: require at least one of id_card or guest_name
+export const validateCheckIn = (req, res, next) => {
+  const { id_card, guest_name, guest_phone } = req.body || {};
+  if (!id_card && !guest_name && !guest_phone) {
+    return res.status(400).json({
+      success: false,
+      message: "Vui lòng cung cấp ít nhất một trường thông tin khách (id_card hoặc guest_name hoặc guest_phone)",
+    });
+  }
+
+  if (id_card && typeof id_card !== "string") {
+    return res.status(400).json({ success: false, message: "id_card phải là chuỗi" });
+  }
+
+  next();
+};
