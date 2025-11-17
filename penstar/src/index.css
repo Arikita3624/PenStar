@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Quill editor full-size helper */
+.quill-editor-full {
+  width: 100%;
+}
+.quill-editor-full .ql-container {
+  min-height: 220px; /* default taller height */
+}
+.quill-editor-full .ql-editor {
+  min-height: 180px;
+}
+
+/* hero background helper */
+.hero-bg {
+  background-image: url("/hero-hotel.jpg");
+  background-size: cover;
+  background-position: center;
+}
+/* brand button with hover to override AntD defaults when needed */
+.ps-btn-brand {
+  background-color: #0a66a3 !important;
+  border-color: #0a66a3 !important;
+  color: #ffffff !important;
+}
+.ps-btn-brand:hover,
+.ps-btn-brand:focus {
+  background-color: #084f7a !important;
+  border-color: #084f7a !important;
+  color: #ffffff !important;
+}

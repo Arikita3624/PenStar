@@ -1,0 +1,76 @@
+{
+  "branches": [
+    {
+      "id": 1,
+      "name": "PenStar Hanoi",
+      "city": "Hanoi",
+      "address": "123 Trang Tien, Hoan Kiem"
+    },
+    {
+      "id": 2,
+      "name": "PenStar Da Nang",
+      "city": "Da Nang",
+      "address": "456 Vo Nguyen Giap, Son Tra"
+    },
+    {
+      "id": 3,
+      "name": "PenStar Ho Chi Minh City",
+      "city": "Ho Chi Minh City",
+      "address": "789 Nguyen Hue, District 1"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "6z7h",
+      "image": "https://picsum.photos/300/300",
+      "number": "101",
+      "branchId": 1,
+      "status": "Available",
+      "price": 250
+    },
+    {
+      "id": "5y6x",
+      "image": "https://picsum.photos/300/300",
+      "number": "102",
+      "branchId": 1,
+      "status": "Occupied",
+      "price": 180
+    },
+    {
+      "id": "2a3b",
+      "image": "https://picsum.photos/300/300",
+      "number": "201",
+      "branchId": 2,
+      "status": "Available",
+      "price": 500,
+      "created_at": "2024-06-20T10:00:00Z",
+      "updated_at": "2024-06-20T10:00:00Z"
+    },
+    {
+      "id": "4c5d",
+      "image": "https://picsum.photos/300/300",
+      "number": "202",
+      "branchId": 2,
+      "status": "Under Maintenance",
+      "price": 700,
+      "created_at": "2024-06-20T10:00:00Z",
+      "updated_at": "2024-06-20T10:00:00Z"
+    },
+    {
+      "image": "https://picsum.photos/300/300",
+      "number": "301 updated 1",
+      "price": 450,
+      "branchId": 3,
+      "status": "Cleaning",
+      "id": "7e8f"
+    },
+    {
+      "image": "https://picsum.photos/300/300",
+      "number": "502 updated 1",
+      "price": 20000001,
+      "branchId": 1,
+      "status": "Active",
+      "id": "0321"
+    }
+  ]
+}
