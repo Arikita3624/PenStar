@@ -21,6 +21,7 @@
     "framer-motion": "^12.23.24",
     "json-server": "^1.0.0-beta.3",
     "jwt-decode": "^4.0.0",
+    "nodemailer": "^7.0.10",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-quill-new": "^3.6.0",

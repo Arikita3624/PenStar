@@ -10,12 +10,16 @@ import {
   Space,
   message,
   Modal,
+  Select,
+  InputNumber,
 } from "antd";
 import {
   updateMyBooking,
   cancelBooking,
   getBookingById,
 } from "@/services/bookingsApi";
+import { getServices } from "@/services/servicesApi";
+import { requestService } from "@/services/bookingsApi";
 import type { Booking } from "@/types/bookings";
 import dayjs from "dayjs";
 
@@ -35,6 +39,11 @@ const BookingSuccess: React.FC = () => {
   const [booking, setBooking] = React.useState<Booking | null>(initial);
   const [loading, setLoading] = React.useState(false);
   const [updating, setUpdating] = React.useState(false);
+  const [serviceModalVisible, setServiceModalVisible] = React.useState(false);
+  const [availableServices, setAvailableServices] = React.useState<any[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = React.useState<number | null>(null);
+  const [serviceQty, setServiceQty] = React.useState<number>(1);
+  const [serviceSubmitting, setServiceSubmitting] = React.useState(false);
 
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
@@ -130,6 +139,37 @@ const BookingSuccess: React.FC = () => {
         }
       },
     });
+  };
+
+  const openServiceModal = async () => {
+    try {
+      setServiceModalVisible(true);
+      const data = await getServices();
+      setAvailableServices(data || []);
+      if (data && data.length) setSelectedServiceId(data[0].id);
+    } catch (err) {
+      message.error("Không thể tải danh sách dịch vụ");
+    }
+  };
+
+  const handleSubmitService = async () => {
+    if (!booking?.id || !selectedServiceId) return;
+    setServiceSubmitting(true);
+    try {
+      // Find service price
+      const svc = availableServices.find((s) => s.id === selectedServiceId);
+      const price = svc ? Number(svc.price || 0) : 0;
+      const total_service_price = price * serviceQty;
+      await requestService({ booking_id: booking.id, service_id: selectedServiceId, quantity: serviceQty, total_service_price });
+      message.success("Yêu cầu dịch vụ đã gửi");
+      setServiceModalVisible(false);
+      fetchBooking();
+    } catch (err) {
+      console.error(err);
+      message.error("Lỗi khi gửi yêu cầu dịch vụ");
+    } finally {
+      setServiceSubmitting(false);
+    }
   };
 
   const getStatusDisplay = (statusId?: number, statusName?: string) => {
@@ -540,13 +580,13 @@ const BookingSuccess: React.FC = () => {
                                 new Date(item.check_in).getTime()) /
                                 (1000 * 60 * 60 * 24)
                             );
-                            return {
+                              return {
                               bookingItemId: item.id,
                               currentRoom: {
                                 id: item.room_id,
-                                name: `Phòng ${item.room_id}`,
+                                name: item.room_name || `Phòng ${item.room_id}`,
                                 price: item.room_price / nights,
-                                type_id: item.room_id,
+                                type_id: item.type_id || item.room_id,
                               },
                               checkIn: item.check_in,
                               checkOut: item.check_out,
@@ -559,6 +599,11 @@ const BookingSuccess: React.FC = () => {
                     }}
                   >
                     Đổi phòng
+                  </Button>
+                )}
+                {statusId === 2 && (
+                  <Button size="middle" onClick={openServiceModal}>
+                    Yêu cầu dịch vụ
                   </Button>
                 )}
                 {canCancel && (
@@ -579,6 +624,35 @@ const BookingSuccess: React.FC = () => {
           </div>
         </Card>
       </div>
+      <Modal
+        title="Yêu cầu dịch vụ"
+        visible={serviceModalVisible}
+        onCancel={() => setServiceModalVisible(false)}
+        onOk={handleSubmitService}
+        confirmLoading={serviceSubmitting}
+        okText="Gửi yêu cầu"
+      >
+        <div className="space-y-3">
+          <div>
+            <div className="text-sm mb-1">Chọn dịch vụ</div>
+            <Select
+              style={{ width: "100%" }}
+              value={selectedServiceId ?? undefined}
+              onChange={(v) => setSelectedServiceId(Number(v))}
+            >
+              {availableServices.map((s) => (
+                <Select.Option key={s.id} value={s.id}>
+                  {s.name} — {fmtPrice(s.price)} VND
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <div className="text-sm mb-1">Số lượng</div>
+            <InputNumber min={1} value={serviceQty} onChange={(v) => setServiceQty(Number(v || 1))} />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

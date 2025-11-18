@@ -4,6 +4,7 @@ import {
   updateBookingStatus,
   confirmCheckout,
   cancelBooking,
+  checkIn,
 } from "@/services/bookingsApi";
 import { getRoomID } from "@/services/roomsApi";
 import { getServiceById } from "@/services/servicesApi";
@@ -43,6 +44,7 @@ import {
   DollarOutlined,
   TagOutlined,
 } from "@ant-design/icons";
+import { Form, Input } from "antd";
 
 const { Title, Text } = Typography;
 
@@ -67,6 +69,13 @@ const BookingDetail = () => {
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
+  const [checkInModalVisible, setCheckInModalVisible] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(false);
+  const [checkInValues, setCheckInValues] = useState({
+    id_card: "",
+    guest_name: "",
+    guest_phone: "",
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -310,6 +319,26 @@ const BookingDetail = () => {
     });
   };
 
+  const handleDoCheckIn = async () => {
+    if (!booking || !booking.id) return;
+    // At least one field should be provided; front-end validator ensured that
+    const payload = { ...checkInValues };
+    setCheckInLoading(true);
+    try {
+      await checkIn(booking.id, payload);
+      message.success("Check-in thành công");
+      setCheckInModalVisible(false);
+      // Refresh booking data
+      await refetch();
+    } catch (err) {
+      console.error("Lỗi check-in:", err);
+      const error = err as any;
+      message.error(error?.response?.data?.message || "Không thể check-in");
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div style={{ textAlign: "center", padding: "50px" }}>
@@ -460,6 +489,19 @@ const BookingDetail = () => {
                 đêm
               </Text>
             </Col>
+            {/* Actual check-in timestamp (set when staff checks in) */}
+            {booking.checkin_at && (
+              <Col span={8}>
+                <Text type="secondary">Thời gian nhận phòng (thực tế)</Text>
+                <br />
+                <Space>
+                  <ClockCircleOutlined />
+                  <Text strong>
+                    {new Date(booking.checkin_at).toLocaleString("vi-VN")}
+                  </Text>
+                </Space>
+              </Col>
+            )}
           </Row>
         </Card>
 
@@ -930,6 +972,17 @@ const BookingDetail = () => {
                 </Button>
               )}
 
+              {/* Check-in button: show when booking is reserved (1) and payment paid */}
+              {booking.stay_status_id === 1 && booking.payment_status === "paid" && (
+                <Button
+                  type="primary"
+                  onClick={() => setCheckInModalVisible(true)}
+                  loading={updating}
+                >
+                  Check-in
+                </Button>
+              )}
+
             {/* Chỉ hiện nút Duyệt khi đang chờ xác nhận (stay_status_id === 6 = pending) */}
             {booking.stay_status_id === 6 && (
               <Button
@@ -966,6 +1019,53 @@ const BookingDetail = () => {
           </Space>
         </div>
       </div>
+      {/* Check-in Modal */}
+      <Modal
+        title={`Check-in — Booking #${booking.id}`}
+        open={checkInModalVisible}
+        onCancel={() => setCheckInModalVisible(false)}
+        onOk={handleDoCheckIn}
+        okText="Xác nhận"
+        cancelText="Hủy"
+        confirmLoading={checkInLoading}
+      >
+        <Form layout="vertical">
+          <Form.Item label="Căn cước / CMND">
+            <Input
+              value={checkInValues.id_card}
+              onChange={(e) =>
+                setCheckInValues((s) => ({ ...s, id_card: e.target.value }))
+              }
+              placeholder="Số căn cước/CMND"
+            />
+          </Form.Item>
+          <Form.Item label="Họ tên khách">
+            <Input
+              value={checkInValues.guest_name}
+              onChange={(e) =>
+                setCheckInValues((s) => ({ ...s, guest_name: e.target.value }))
+              }
+              placeholder="Họ tên"
+            />
+          </Form.Item>
+          <Form.Item label="Số điện thoại">
+            <Input
+              value={checkInValues.guest_phone}
+              onChange={(e) =>
+                setCheckInValues((s) => ({ ...s, guest_phone: e.target.value }))
+              }
+              placeholder="Số điện thoại"
+            />
+          </Form.Item>
+          <Form.Item>
+            <Form.Item noStyle>
+              <Text type="secondary">
+                Vui lòng nhập ít nhất một trường thông tin để lưu hồ sơ khách.
+              </Text>
+            </Form.Item>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

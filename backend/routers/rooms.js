@@ -6,6 +6,7 @@ import {
   updateRoom,
   deleteRoom,
   searchRooms,
+  availabilityReason,
 } from "../controllers/roomscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 import {
@@ -18,6 +19,8 @@ const roomsRouter = express.Router();
 
 // Public: tìm kiếm phòng trống
 roomsRouter.get("/search", searchRooms);
+// Availability reason helper
+roomsRouter.get("/availability-reason", availabilityReason);
 
 // Public: list rooms for client pages
 roomsRouter.get("/", getRooms);

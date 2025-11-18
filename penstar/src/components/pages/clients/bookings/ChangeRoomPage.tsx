@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { searchAvailableRooms } from "@/services/roomsApi";
 import { changeRoom } from "@/services/bookingsApi";
+import { requestChangeRoom } from "@/services/bookingsApi";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import type { LocationState } from "@/types/changeRoom";
 
@@ -127,25 +128,90 @@ const ChangeRoomPage: React.FC = () => {
                       cancelText: "Hủy",
                       onOk: async () => {
                         try {
-                          await changeRoom(Number(bookingId), {
+                          const resp = await changeRoom(Number(bookingId), {
                             booking_item_id: roomItem.bookingItemId,
                             new_room_id: newRoomId,
                           });
-                          message.success("Đổi phòng thành công!");
-                          queryClient.invalidateQueries({
-                            queryKey: ["booking", bookingId],
-                          });
-                          queryClient.invalidateQueries({
-                            queryKey: ["bookings"],
-                          });
-                          navigate(`/bookings/success/${bookingId}`);
-                        } catch {
+
+                          // resp: { success, message, data, requires_payment?, price_difference? }
+                          if (resp && resp.requires_payment) {
+                            // Show modal to pay the difference
+                            Modal.confirm({
+                              title: "Yêu cầu thanh toán chênh lệch",
+                              content: (
+                                <div>
+                                  <p>
+                                    Phải thanh toán thêm: <strong>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(resp.price_difference || 0)}</strong>
+                                  </p>
+                                  <p className="text-sm text-gray-500">Vui lòng thanh toán khoản chênh lệch để hoàn tất duyệt đổi phòng.</p>
+                                </div>
+                              ),
+                              okText: "Thanh toán",
+                              cancelText: "Đóng",
+                              onOk: async () => {
+                                try {
+                                  const paymentModule = await import('@/services/paymentApi');
+                                  const createPayment = paymentModule.createPayment;
+                                  const result = await createPayment({ amount: resp.price_difference });
+                                  const paymentUrl = result.paymentUrl;
+                                  if (paymentUrl) {
+                                    window.open(paymentUrl, '_blank');
+                                  } else {
+                                    message.error('Không tạo được đường dẫn thanh toán');
+                                  }
+                                } catch (err) {
+                                  console.error('Payment error:', err);
+                                  message.error('Lỗi tạo thanh toán');
+                                }
+                              },
+                            });
+                          } else {
+                            message.success("Đổi phòng thành công!");
+                            queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+                            queryClient.invalidateQueries({ queryKey: ["bookings"] });
+                            navigate(`/bookings/success/${bookingId}`);
+                          }
+                        } catch (err) {
+                          console.error(err);
                           message.error("Đổi phòng thất bại");
                         }
                       },
                     });
                   }}
                 />
+                {/* Request change button (send a request to staff) */}
+                <div style={{ marginTop: 12 }}>
+                  <Button
+                    onClick={() => {
+                      Modal.confirm({
+                        title: "Gửi yêu cầu đổi phòng",
+                        content: (
+                          <div>
+                            <p>Bạn muốn gửi yêu cầu đổi phòng này tới lễ tân?</p>
+                            <p className="text-sm text-gray-500">Lễ tân sẽ xét và liên hệ bạn.</p>
+                          </div>
+                        ),
+                        okText: "Gửi yêu cầu",
+                        cancelText: "Hủy",
+                        onOk: async () => {
+                          try {
+                            await requestChangeRoom(Number(bookingId), {
+                              booking_item_id: roomItem.bookingItemId,
+                              requested_room_id: selectedRoomIdForItem || null,
+                              reason: "Khách yêu cầu đổi phòng (từ UI)",
+                            });
+                            message.success("Yêu cầu đã được gửi. Lễ tân sẽ liên hệ.");
+                          } catch (err) {
+                            console.error(err);
+                            message.error("Không thể gửi yêu cầu đổi phòng");
+                          }
+                        },
+                      });
+                    }}
+                  >
+                    Gửi yêu cầu đổi phòng
+                  </Button>
+                </div>
               </Panel>
             );
           })}
@@ -187,6 +253,28 @@ const RoomChangeSection: React.FC<{
         num_children: roomItem.numChildren,
         room_type_id: roomItem.currentRoom.type_id,
       }),
+  });
+
+  // If no rooms returned, fetch reason why
+  const { data: reasonData, isFetching: reasonLoading } = useQuery({
+    queryKey: [
+      "availabilityReason",
+      roomItem.checkIn,
+      roomItem.checkOut,
+      roomItem.currentRoom.type_id,
+    ],
+    enabled: !!roomItem.checkIn && !!roomItem.checkOut && !!roomItem.currentRoom.type_id && (roomsResponse?.data || []).length === 0,
+    queryFn: () =>
+      (async () => {
+        const resp = await (await import("@/services/roomsApi")).getAvailabilityReason({
+          check_in: roomItem.checkIn,
+          check_out: roomItem.checkOut,
+          room_type_id: roomItem.currentRoom.type_id,
+          num_adults: roomItem.numAdults,
+          num_children: roomItem.numChildren,
+        });
+        return resp;
+      })(),
   });
 
   const availableRooms = roomsResponse?.data || [];
@@ -308,9 +396,41 @@ const RoomChangeSection: React.FC<{
             </div>
           ) : otherRooms.length === 0 ? (
             <div className="text-center py-20">
-              <Text type="secondary" className="text-lg">
-                Không có phòng cùng loại khả dụng khác
-              </Text>
+              {reasonLoading ? (
+                <Spin tip="Đang kiểm tra lý do..." />
+              ) : (
+                <div>
+                  {reasonData ? (
+                    <div>
+                      {reasonData.total === 0 && (
+                        <Text type="secondary" className="text-lg">
+                          Không có phòng cùng loại trong khách sạn.
+                        </Text>
+                      )}
+                      {reasonData.total > 0 && reasonData.available_count === 0 && reasonData.blocked_by_conflict_count > 0 && (
+                        <Text type="secondary" className="text-lg">
+                          Không có phòng trống cho khoảng thời gian này. Các phòng cùng loại đang được đặt trong khoảng ngày bạn yêu cầu.
+                        </Text>
+                      )}
+                      {reasonData.total > 0 && reasonData.available_count === 0 && reasonData.blocked_by_status_count > 0 && (
+                        <Text type="secondary" className="text-lg">
+                          Có phòng cùng loại nhưng hiện không ở trạng thái "Available" (ví dụ: đang occupied, pending hoặc maintenance).
+                        </Text>
+                      )}
+                      {reasonData.total > 0 && reasonData.available_count === 0 && reasonData.blocked_by_conflict_count === 0 && reasonData.blocked_by_status_count === 0 && (
+                        <Text type="secondary" className="text-lg">
+                          Không có phòng phù hợp với yêu cầu (sức chứa / ngày). Vui lòng thử ngày khác hoặc liên hệ lễ tân.
+                        </Text>
+                      )}
+                      <div className="mt-3 text-sm text-gray-500">
+                        Tổng phòng cùng loại: {reasonData.total}. Phòng trống: {reasonData.available_count}.
+                      </div>
+                    </div>
+                  ) : (
+                    <Text type="secondary" className="text-lg">Không có phòng cùng loại khả dụng khác</Text>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <Radio.Group

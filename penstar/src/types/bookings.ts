@@ -21,6 +21,7 @@ export type Booking = {
   customer_name: string;
   email?: string;
   phone?: string;
+  id_card?: string;
   notes?: string;
   total_price: number;
   payment_status: string;
@@ -52,6 +53,7 @@ export type BookingShort = {
 export type BookingDetails = Booking & {
   check_in?: string;
   check_out?: string;
+  checkin_at?: string; // actual timestamp when staff checked in
   total_room_price?: number;
   total_service_price?: number;
   total_amount?: number;

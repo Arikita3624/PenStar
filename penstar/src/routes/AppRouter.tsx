@@ -155,6 +155,7 @@ const AppRouter = () => {
             }
           />
         </Route>
+         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/403" element={<Forbidden />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

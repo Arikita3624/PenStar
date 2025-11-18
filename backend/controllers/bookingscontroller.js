@@ -10,6 +10,12 @@ import {
   autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
 import pool from "../db.js";
+import {
+  createChangeRequest as modelCreateChangeRequest,
+  getChangeRequestsByBooking as modelGetChangeRequestsByBooking,
+  approveChangeRequest as modelApproveChangeRequest,
+  updateChangeRequestStatus as modelUpdateChangeRequestStatus,
+} from "../models/bookingsmodel.js";
 
 export const getBookings = async (req, res) => {
   try {
@@ -39,9 +45,12 @@ export const getBookingById = async (req, res) => {
         .json({ success: false, message: "Booking not found" });
     }
 
-    // fetch items and services
+    // fetch items and services (include room.type_id so frontend can find same-type rooms)
     const itemsRes = await pool.query(
-      "SELECT * FROM booking_items WHERE booking_id = $1",
+      `SELECT bi.*, r.type_id, r.name as room_name
+       FROM booking_items bi
+       LEFT JOIN rooms r ON bi.room_id = r.id
+       WHERE bi.booking_id = $1`,
       [id]
     );
     const servicesRes = await pool.query(
@@ -155,9 +164,12 @@ export const createBooking = async (req, res) => {
 
     const booking = await modelCreateBooking(payload);
 
-    // fetch created items and services
+    // fetch created items and services (include room.type_id)
     const itemsRes = await pool.query(
-      "SELECT * FROM booking_items WHERE booking_id = $1",
+      `SELECT bi.*, r.type_id, r.name as room_name
+       FROM booking_items bi
+       LEFT JOIN rooms r ON bi.room_id = r.id
+       WHERE bi.booking_id = $1`,
       [booking.id]
     );
     const servicesRes = await pool.query(
@@ -433,6 +445,48 @@ export const updateMyBookingStatus = async (req, res) => {
   }
 };
 
+// Staff-side check-in: update guest info (e.g., id card, customer name, phone) and set stay_status to checked_in
+export const checkIn = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { id_card, guest_name, guest_phone } = req.body;
+
+    // fetch booking
+    const booking = await modelGetBookingById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    // Build fields to update. stay_status_id=2 => checked_in
+    const fields = { stay_status_id: 2 };
+    if (guest_name) fields.customer_name = guest_name;
+    if (guest_phone) fields.phone = guest_phone;
+    if (id_card) fields.id_card = id_card;
+
+    // Try to update booking (model will also update room statuses)
+    const updated = await modelUpdateBookingStatus(id, fields);
+
+    res.json({
+      success: true,
+      message: "Check-in thành công và thông tin khách đã được cập nhật",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("checkIn error:", err);
+    // If column does not exist in DB, give a helpful message
+    if (err && err.message && err.message.includes("column") && err.message.includes("does not exist")) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cột dữ liệu không tồn tại trong bảng bookings. Vui lòng thêm cột (ví dụ: id_card) hoặc gửi các trường hiện có.",
+        error: err.message,
+      });
+    }
+
+    res.status(500).json({ success: false, message: err.message || "Internal error", error: err.message });
+  }
+};
+
 export const confirmCheckout = async (req, res) => {
   try {
     const { id } = req.params;
@@ -538,10 +592,21 @@ export const changeRoomInBooking = async (req, res) => {
       reason: reason || null,
     });
 
+    // After change, if price difference > 0 and booking is not paid and actor is a customer,
+    // indicate that additional payment is required to finalize/approve the change.
+    const booking = await modelGetBookingById(Number(id));
+    const userRole = (req.user && (req.user.role || req.user.role_name || "")).toString().toLowerCase();
+    const isStaff = ["staff", "manager", "admin"].includes(userRole);
+
+    const priceDiff = Number(result.price_difference || 0);
+    const requiresPayment = priceDiff > 0 && booking && booking.payment_status !== "paid" && !isStaff;
+
     res.json({
       success: true,
       message: "✅ Đổi phòng thành công",
       data: result,
+      requires_payment: requiresPayment,
+      price_difference: priceDiff,
     });
   } catch (error) {
     console.error("changeRoomInBooking error:", error);
@@ -550,5 +615,71 @@ export const changeRoomInBooking = async (req, res) => {
       message: error.message || "Không thể đổi phòng",
       error: error.message,
     });
+  }
+};
+
+// Create a change request (customer or staff can create)
+export const createChangeRequest = async (req, res) => {
+  try {
+    const { id } = req.params; // booking id
+    const { booking_item_id, requested_room_id, requested_room_type_id, reason } = req.body;
+    const requested_by = req.user?.id || null;
+
+    if (!booking_item_id) {
+      return res.status(400).json({ success: false, message: "booking_item_id is required" });
+    }
+
+    const result = await modelCreateChangeRequest({
+      booking_id: Number(id),
+      booking_item_id: Number(booking_item_id),
+      requested_room_id: requested_room_id ? Number(requested_room_id) : null,
+      requested_room_type_id: requested_room_type_id ? Number(requested_room_type_id) : null,
+      reason: reason || null,
+      requested_by,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("createChangeRequest error:", err);
+    res.status(400).json({ success: false, message: err.message || "Cannot create change request" });
+  }
+};
+
+export const getChangeRequests = async (req, res) => {
+  try {
+    const { id } = req.params; // booking id
+    const data = await modelGetChangeRequestsByBooking(Number(id));
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("getChangeRequests error:", err);
+    res.status(500).json({ success: false, message: "Internal error" });
+  }
+};
+
+export const approveChangeRequest = async (req, res) => {
+  try {
+    const { reqId } = req.params;
+    const processed_by = req.user?.id;
+    if (!processed_by) return res.status(401).json({ success: false });
+
+    const result = await modelApproveChangeRequest(Number(reqId), processed_by);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("approveChangeRequest error:", err);
+    res.status(400).json({ success: false, message: err.message || "Cannot approve" });
+  }
+};
+
+export const rejectChangeRequest = async (req, res) => {
+  try {
+    const { reqId } = req.params;
+    const processed_by = req.user?.id;
+    if (!processed_by) return res.status(401).json({ success: false });
+
+    const updated = await modelUpdateChangeRequestStatus(Number(reqId), { status: "rejected", processed_by, processed_at: new Date() });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("rejectChangeRequest error:", err);
+    res.status(400).json({ success: false, message: err.message || "Cannot reject" });
   }
 };

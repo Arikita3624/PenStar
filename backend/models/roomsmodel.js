@@ -221,3 +221,68 @@ export const searchAvailableRooms = async ({
 
   return result.rows;
 };
+
+// Analyze availability reasons for a given room type and date range
+export const analyzeRoomAvailability = async ({
+  check_in,
+  check_out,
+  room_type_id = null,
+  num_adults = 1,
+  num_children = 0,
+}) => {
+  // total rooms of this type
+  const totalRes = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM rooms WHERE type_id = $1`,
+    [room_type_id]
+  );
+  const total = totalRes.rows[0]?.total || 0;
+
+  // rooms with status = 'available' and no booking conflict
+  const availableRes = await pool.query(
+    `SELECT r.* FROM rooms r
+     WHERE r.type_id = $1 AND r.status = 'available'
+       AND NOT EXISTS (
+         SELECT 1 FROM booking_items bi
+         JOIN bookings b ON bi.booking_id = b.id
+         WHERE bi.room_id = r.id
+           AND b.stay_status_id IN (1,2,3)
+           AND NOT (bi.check_out <= $2 OR bi.check_in >= $3)
+       )
+     ORDER BY r.floor_id, r.name LIMIT 10`,
+    [room_type_id, check_in, check_out]
+  );
+  const available = availableRes.rows || [];
+
+  // rooms of this type but status != 'available'
+  const blockedStatusRes = await pool.query(
+    `SELECT r.* FROM rooms r WHERE r.type_id = $1 AND r.status <> 'available' ORDER BY r.floor_id, r.name LIMIT 10`,
+    [room_type_id]
+  );
+  const blocked_by_status = blockedStatusRes.rows || [];
+
+  // rooms that are available by status but blocked due to booking conflict
+  const blockedConflictRes = await pool.query(
+    `SELECT r.* FROM rooms r
+     WHERE r.type_id = $1 AND r.status = 'available'
+       AND EXISTS (
+         SELECT 1 FROM booking_items bi
+         JOIN bookings b ON bi.booking_id = b.id
+         WHERE bi.room_id = r.id
+           AND b.stay_status_id IN (1,2,3)
+           AND NOT (bi.check_out <= $2 OR bi.check_in >= $3)
+       )
+     ORDER BY r.floor_id, r.name LIMIT 10`,
+    [room_type_id, check_in, check_out]
+  );
+  const blocked_by_conflict = blockedConflictRes.rows || [];
+
+  return {
+    total: Number(total),
+    available_count: available.length,
+    available_sample: available,
+    blocked_by_status_count: blocked_by_status.length,
+    blocked_by_status_sample: blocked_by_status,
+    blocked_by_conflict_count: blocked_by_conflict.length,
+    blocked_by_conflict_sample: blocked_by_conflict,
+  };
+};
