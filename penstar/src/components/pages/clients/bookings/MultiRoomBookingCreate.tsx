@@ -110,7 +110,7 @@ const MultiRoomBookingCreate = () => {
   useEffect(() => {
     if (user) {
       const data = {
-        customer_name: user.full_name || user.name || "",
+        customer_name: user.full_name || "",
         customer_email: user.email || "",
         customer_phone: user.phone || "",
       };
@@ -129,7 +129,9 @@ const MultiRoomBookingCreate = () => {
           form.setFieldsValue(data);
           setCustomerInfo(data);
         }
-      } catch {}
+      } catch {
+        throw new Error("Failed to parse user data from localStorage");
+      }
     }
   }, [user, form]);
 
