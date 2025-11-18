@@ -33,6 +33,71 @@ export const getBookingsByUser = async (userId) => {
   return resuit.rows;
 };
 
+/**
+ * Auto-assign available rooms based on room type, quantity, dates, and capacity
+ * @param {number} roomTypeId - ID of the room type
+ * @param {number} quantity - Number of rooms needed
+ * @param {string} checkIn - Check-in date
+ * @param {string} checkOut - Check-out date
+ * @param {number} numAdults - Number of adults
+ * @param {number} numChildren - Number of children
+ * @returns {Promise<Array>} Array of assigned room objects
+ */
+export const autoAssignRooms = async (
+  roomTypeId,
+  quantity,
+  checkIn,
+  checkOut,
+  numAdults,
+  numChildren
+) => {
+  const client = await pool.connect();
+  try {
+    // Đồng bộ với frontend: 2 trẻ em = 1 người lớn
+    const totalGuests = numAdults + Math.ceil(numChildren / 2);
+
+    // Find available rooms of the specified type and capacity
+    // Exclude rooms that have overlapping bookings
+    const query = `
+      SELECT DISTINCT r.*
+      FROM rooms r
+      JOIN room_types rt ON r.type_id = rt.id
+      WHERE r.type_id = $1
+        AND r.status = 'available'
+        AND rt.capacity >= $2
+        AND NOT EXISTS (
+          SELECT 1 FROM booking_items bi
+          JOIN bookings b ON bi.booking_id = b.id
+          WHERE bi.room_id = r.id
+            AND b.stay_status_id IN (1, 2, 6)
+            AND NOT (bi.check_out <= $3 OR bi.check_in >= $4)
+        )
+      ORDER BY r.name ASC
+      LIMIT $5
+    `;
+
+    // roomTypeId: loại phòng, totalGuests: tổng số khách/phòng, checkIn/checkOut: ngày, quantity: số phòng cần
+    const result = await client.query(query, [
+      roomTypeId,
+      totalGuests,
+      checkIn,
+      checkOut,
+      quantity,
+    ]);
+
+    // Nếu số phòng khả dụng < số phòng cần, báo lỗi rõ ràng
+    if (result.rows.length < quantity) {
+      throw new Error(
+        `Không đủ phòng trống! Cần ${quantity} phòng nhưng chỉ có ${result.rows.length} phòng khả dụng cho loại phòng này trong khoảng thời gian đã chọn.`
+      );
+    }
+
+    return result.rows;
+  } finally {
+    client.release();
+  }
+};
+
 export const createBooking = async (data) => {
   // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_price}], services: [{service_id, quantity, total_service_price}] }
   const client = await pool.connect();
@@ -140,13 +205,13 @@ export const createBooking = async (data) => {
 
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
       for (const item of data.items) {
         const {
           room_id,
           check_in,
           check_out,
-          room_price,
+          room_type_price,
           num_adults,
           num_children,
         } = item;
@@ -155,7 +220,7 @@ export const createBooking = async (data) => {
           room_id,
           check_in,
           check_out,
-          room_price,
+          room_type_price,
           num_adults || 1,
           num_children || 0,
         ]);

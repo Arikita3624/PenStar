@@ -48,7 +48,7 @@ paymentRouter.get("/create_payment", (req, res) => {
     vnp_TxnRef: orderId,
     vnp_OrderInfo: orderInfo,
     vnp_OrderType: "billpayment",
-    vnp_Amount: amountNum * 100,
+    vnp_Amount: amountNum,
     vnp_ReturnUrl: returnUrl,
     vnp_IpAddr: ipAddr,
     vnp_CreateDate: createDate,

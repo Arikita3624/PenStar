@@ -27,6 +27,13 @@ export const getRoomTypeById = async (
 export const createRoomType = async (roomTypeData: {
   name: string;
   description: string;
+  thumbnail?: string;
+  amenities?: string[];
+  capacity?: number;
+  max_adults?: number;
+  max_children?: number;
+  base_occupancy?: number;
+  price?: number;
 }): Promise<RoomType | null> => {
   try {
     const response = await instance.post("/roomtypes", roomTypeData);
@@ -43,6 +50,11 @@ export const updateRoomType = async (
     name: string;
     description: string;
     amenities?: string[];
+    capacity?: number;
+    max_adults?: number;
+    max_children?: number;
+    base_occupancy?: number;
+    price?: number;
   }
 ) => {
   try {

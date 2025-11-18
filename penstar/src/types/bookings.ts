@@ -91,3 +91,59 @@ export type ChangeRoomResponse = {
     changed_at: string;
   };
 };
+
+// For multi-room booking form
+export type RoomBookingData = {
+  room_id: number;
+  num_adults: number;
+  num_children: number;
+  children_ages?: number[];
+  special_requests?: string;
+  service_ids: number[];
+};
+
+// Auto-assign booking payload
+export type AutoAssignBookingPayload = {
+  customer_name: string;
+  customer_email?: string;
+  customer_phone?: string;
+  promo_code?: string;
+  notes?: string;
+  total_price: number;
+  payment_status: string;
+  booking_method: string;
+  stay_status_id: number;
+  rooms_config: Array<{
+    room_type_id: number;
+    quantity: number;
+    check_in: string;
+    check_out: string;
+    room_type_price: number;
+    num_adults: number;
+    num_children: number;
+  }>;
+  services?: Array<{
+    service_id: number;
+    quantity: number;
+    total_service_price: number;
+  }>;
+};
+
+// Multi-room booking payload with specific room IDs
+export type MultiRoomBookingPayload = {
+  customer_name: string;
+  customer_email?: string;
+  customer_phone?: string;
+  promo_code?: string;
+  notes?: string;
+  total_price: number;
+  payment_status: string;
+  booking_method: string;
+  stay_status_id: number;
+  items: BookingItem[];
+  services?: Array<{
+    service_id: number;
+    quantity: number;
+    total_service_price: number;
+  }>;
+};

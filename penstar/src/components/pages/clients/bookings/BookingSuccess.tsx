@@ -408,21 +408,46 @@ const BookingSuccess: React.FC = () => {
               </Descriptions.Item>
             </Descriptions>
             <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">Phòng đã đặt</h3>
-              <List
-                size="small"
-                dataSource={booking?.items ?? []}
-                renderItem={(it) => (
-                  <List.Item>
-                    <div className="text-sm">
-                      <div className="font-semibold">Phòng #{it.room_id}</div>
-                      <div>Check in: {it.check_in}</div>
-                      <div>Check out: {it.check_out}</div>
-                      <div>Giá: {fmtPrice(it.room_price)} VND</div>
-                    </div>
-                  </List.Item>
-                )}
-              />
+              <h3 className="mb-1.5 font-semibold text-sm">
+                Thông tin đặt phòng
+              </h3>
+              <Card size="small" className="bg-blue-50 border-blue-200">
+                <Space direction="vertical" className="w-full">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Số phòng:</span>
+                    <span className="font-semibold">
+                      {booking?.items?.length || 0} phòng
+                    </span>
+                  </div>
+                  {booking?.items?.[0] && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Số người lớn:</span>
+                        <span className="font-semibold">
+                          {booking.items[0].num_adults || 1} người
+                        </span>
+                      </div>
+                      {(booking.items[0].num_children || 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Số trẻ em:</span>
+                          <span className="font-semibold">
+                            {booking.items[0].num_children} trẻ
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="pt-2 border-t border-blue-200">
+                    <p className="text-xs text-blue-800 flex items-start gap-2">
+                      <span>📧</span>
+                      <span>
+                        <strong>Thông tin phòng cụ thể</strong> (số phòng, tầng)
+                        đã được gửi qua email của bạn
+                      </span>
+                    </p>
+                  </div>
+                </Space>
+              </Card>
             </div>
             <div className="mt-3">
               <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>

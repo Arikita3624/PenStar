@@ -1,30 +1,68 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import React, { useState, useMemo } from "react";
-import { Badge, Button, Collapse, Row, Col, Tag } from "antd";
-import { DownOutlined } from "@ant-design/icons";
+import {
+  Badge,
+  Button,
+  Collapse,
+  Row,
+  Col,
+  Tag,
+  InputNumber,
+  Space,
+  Typography,
+  Alert,
+} from "antd";
+import {
+  DownOutlined,
+  UserOutlined,
+  TeamOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import type { RoomTypeCardProps } from "@/types/roomBooking";
-import RoomCard from "./RoomCard";
 
 const { Panel } = Collapse;
+const { Text } = Typography;
 
 const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
-  ({
-    roomType,
-    roomsInType,
-    numRooms,
-    selectedRoomIds,
-    roomsConfig,
-    onSelectRoomType,
-    onRoomSelect,
-    onGuestChange,
-  }) => {
-    const thumbnail = roomType?.thumbnail || "/placeholder-room.jpg";
+  ({ roomType, roomsInType, numRooms, onSelectRoomType }) => {
+    if (!roomType) return null;
+
+    const thumbnail = roomType.thumbnail || "/placeholder-room.jpg";
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // Chỉ render rooms khi panel được mở
-    const roomsToRender = useMemo(() => {
-      if (!isExpanded) return [];
-      return roomsInType;
-    }, [isExpanded, roomsInType]);
+    // Khởi tạo mảng độc lập cho từng phòng
+    const initialAdults = Array(numRooms).fill(1);
+    const initialChildren = Array(numRooms).fill(0);
+    const initialChildrenAges = Array.from(
+      { length: numRooms },
+      () => [] as number[]
+    );
+
+    const [numAdultsList, setNumAdultsList] = useState<number[]>(initialAdults);
+    const [numChildrenList, setNumChildrenList] =
+      useState<number[]>(initialChildren);
+    const [childrenAgesList, setChildrenAgesList] =
+      useState<number[][]>(initialChildrenAges);
+
+    const maxAdults = roomType.max_adults ?? 10;
+    const maxChildren = roomType.max_children ?? 10;
+
+    const totalGuests = useMemo(() => {
+      return (
+        numAdultsList.reduce((sum, n) => sum + n, 0) +
+        numChildrenList.reduce((sum, n) => sum + n, 0)
+      );
+    }, [numAdultsList, numChildrenList]);
+
+    const suitableRooms = useMemo(() => {
+      return roomsInType.filter((room) => room.status === "available");
+    }, [roomsInType]);
+
+    const hasEnoughRooms = suitableRooms.length >= numRooms;
+    const isDisabled = !hasEnoughRooms;
+
+    // Vô hiệu hóa input nếu không đủ phòng
+    const inputDisabled = isDisabled;
 
     return (
       <div
@@ -33,6 +71,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           border: "1px solid rgba(10, 79, 134, 0.1)",
           background: "linear-gradient(to bottom, #ffffff 0%, #fafbfc 100%)",
           borderRadius: 0,
+          opacity: isDisabled ? 0.75 : 1,
+          pointerEvents: isDisabled && !isExpanded ? "none" : "auto",
         }}
       >
         <Collapse
@@ -50,35 +90,35 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           className="bg-transparent border-none"
           style={{ borderRadius: 0 }}
           onChange={(keys) => setIsExpanded(keys.length > 0)}
+          // Luôn cho phép mở, dù không đủ phòng
         >
           <Panel
             header={
               <div className="p-4">
                 <Row gutter={16} align="top">
                   <Col xs={24} md={6}>
-                    {thumbnail && (
-                      <div style={{ overflow: "hidden" }}>
-                        <img
-                          src={
-                            thumbnail.startsWith("http")
-                              ? thumbnail
-                              : `http://localhost:5000${thumbnail}`
-                          }
-                          alt={roomType?.name || "Room"}
-                          style={{
-                            width: "100%",
-                            height: "180px",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src =
-                              "https://via.placeholder.com/400x200?text=No+Image";
-                          }}
-                        />
-                      </div>
-                    )}
+                    <div style={{ overflow: "hidden" }}>
+                      <img
+                        src={
+                          thumbnail.startsWith("http")
+                            ? thumbnail
+                            : `http://localhost:5000${thumbnail}`
+                        }
+                        alt={roomType.name || "Room"}
+                        style={{
+                          width: "100%",
+                          height: "180px",
+                          objectFit: "cover",
+                          display: "block",
+                          filter: isDisabled ? "grayscale(80%)" : "none",
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src =
+                            "https://via.placeholder.com/400x200?text=No+Image";
+                        }}
+                      />
+                    </div>
                   </Col>
                   <Col xs={24} md={18}>
                     <div>
@@ -92,22 +132,55 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           backgroundClip: "text",
                         }}
                       >
-                        {roomType?.name || "Loại phòng"}
+                        {roomType.name || "Loại phòng"}
                       </h3>
-                      <Badge
-                        count={`${roomsInType.length} phòng trống`}
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-                          fontSize: "13px",
-                          padding: "4px 12px",
-                          height: "auto",
-                          borderRadius: 0,
-                          boxShadow: "0 2px 8px rgba(10, 79, 134, 0.25)",
-                        }}
-                      />
 
-                      {roomType?.description && (
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <Badge
+                          count={`${suitableRooms.length} phòng trống`}
+                          style={{
+                            background: isDisabled
+                              ? "#ff4d4f"
+                              : "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                            fontSize: "13px",
+                            padding: "4px 12px",
+                            height: "auto",
+                            borderRadius: 0,
+                            boxShadow: "0 2px 8px rgba(10, 79, 134, 0.25)",
+                          }}
+                        />
+                        {roomType.capacity != null && (
+                          <Badge
+                            count={
+                              <span>
+                                <TeamOutlined /> Sức chứa: {roomType.capacity}{" "}
+                                người
+                              </span>
+                            }
+                            style={{
+                              background: "#faad14",
+                              fontSize: "12px",
+                              padding: "4px 12px",
+                              height: "auto",
+                              borderRadius: 0,
+                            }}
+                          />
+                        )}
+                        {isExpanded && totalGuests > 0 && (
+                          <Badge
+                            count={`${suitableRooms.length} phòng phù hợp`}
+                            style={{
+                              background: isDisabled ? "#ff4d4f" : "#52c41a",
+                              fontSize: "12px",
+                              padding: "4px 12px",
+                              height: "auto",
+                              borderRadius: 0,
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {roomType.description && (
                         <div
                           className="mt-3 text-gray-600 text-sm line-clamp-2"
                           dangerouslySetInnerHTML={{
@@ -116,7 +189,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         />
                       )}
 
-                      {roomType?.amenities && roomType.amenities.length > 0 && (
+                      {roomType.amenities && roomType.amenities.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {roomType.amenities
                             .slice(0, 4)
@@ -150,45 +223,19 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         </div>
                       )}
 
-                      <div className="mt-4 flex justify-end">
-                        {roomsInType.length < numRooms ? (
-                          <div
-                            className="px-4 py-2 text-center"
-                            style={{
-                              background: "#f5f5f5",
-                              border: "1px solid #d9d9d9",
-                            }}
+                      {/* Hiển thị cảnh báo ngay trong header nếu không đủ */}
+                      {!hasEnoughRooms && (
+                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                          <Text
+                            type="danger"
+                            className="text-sm flex items-center gap-2"
                           >
-                            <div className="text-red-500 font-semibold text-sm">
-                              Đã hết phòng
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              Chỉ còn {roomsInType.length} phòng
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            type="primary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectRoomType(roomsInType);
-                            }}
-                            style={{
-                              background:
-                                "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-                              borderColor: "transparent",
-                              borderRadius: 0,
-                              fontWeight: "600",
-                              height: "36px",
-                              fontSize: "14px",
-                              padding: "0 20px",
-                              boxShadow: "0 2px 8px rgba(10, 79, 134, 0.3)",
-                            }}
-                          >
-                            Chọn {numRooms} phòng
-                          </Button>
-                        )}
-                      </div>
+                            <InfoCircleOutlined />
+                            <strong>Không đủ phòng:</strong> Cần {numRooms}{" "}
+                            phòng, nhưng chỉ còn {suitableRooms.length}.
+                          </Text>
+                        </div>
+                      )}
                     </div>
                   </Col>
                 </Row>
@@ -198,29 +245,158 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
             className="border-none"
             style={{ borderRadius: 0 }}
           >
-            <div className="space-y-3 mt-4 ml-8">
-              <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                <span className="w-0.5 h-4 bg-gradient-to-b from-[#0a4f86] to-[#0d6eab]"></span>
-                Phòng trống ({roomsInType.length})
-              </h4>
-              {isExpanded &&
-                roomsToRender.map((room) => {
-                  const isSelected = selectedRoomIds.includes(room.id);
-                  const config = roomsConfig.find((c) => c.room_id === room.id);
+            {/* Nội dung mở rộng */}
+            <div className="p-6 bg-white" style={{ borderRadius: 0 }}>
+              <div className="max-w-2xl">
+                {/* Cảnh báo lớn ở đầu phần mở rộng */}
+                {!hasEnoughRooms && (
+                  <Alert
+                    message="Không thể đặt loại phòng này"
+                    description={
+                      <span>
+                        Bạn cần <strong>{numRooms} phòng</strong>, nhưng hiện
+                        chỉ còn{" "}
+                        <strong>{suitableRooms.length} phòng trống</strong>. Vui
+                        lòng chọn loại phòng khác hoặc giảm số lượng phòng.
+                      </span>
+                    }
+                    type="error"
+                    showIcon
+                    className="mb-6"
+                  />
+                )}
 
-                  return (
-                    <RoomCard
-                      key={room.id}
-                      room={room}
-                      isSelected={isSelected}
-                      config={config}
-                      selectedRoomIds={selectedRoomIds}
-                      numRooms={numRooms}
-                      onRoomSelect={onRoomSelect}
-                      onGuestChange={onGuestChange}
-                    />
-                  );
-                })}
+                <h4 className="text-lg font-semibold mb-2">
+                  Thông tin người ở ({numRooms} phòng)
+                </h4>
+                <Space direction="vertical" size="large" className="w-full">
+                  {Array.from({ length: numRooms }).map((_, roomIdx) => (
+                    <div
+                      key={roomIdx}
+                      className="border p-3 rounded mb-2 bg-gray-50"
+                      style={{
+                        opacity: inputDisabled ? 0.6 : 1,
+                        pointerEvents: inputDisabled ? "none" : "auto",
+                      }}
+                    >
+                      <div className="font-semibold mb-2">
+                        Phòng {roomIdx + 1}
+                      </div>
+                      <Row gutter={16} align="middle">
+                        <Col xs={24} md={12}>
+                          <label className="block mb-2 text-sm font-medium text-gray-700">
+                            <UserOutlined className="mr-2" />
+                            Số người lớn *
+                          </label>
+                          <InputNumber
+                            min={1}
+                            max={maxAdults}
+                            value={numAdultsList[roomIdx]}
+                            disabled={inputDisabled}
+                            onChange={(value) => {
+                              const newList = [...numAdultsList];
+                              newList[roomIdx] = value ?? 1;
+                              setNumAdultsList(newList);
+                            }}
+                            className="w-full"
+                            size="large"
+                            placeholder="Nhập số người lớn"
+                          />
+                          <Text type="secondary" className="text-xs mt-1 block">
+                            Tối đa {maxAdults} người lớn
+                          </Text>
+                        </Col>
+                        <Col xs={24} md={12}>
+                          <label className="block mb-2 text-sm font-medium text-gray-700">
+                            <TeamOutlined className="mr-2" />
+                            Số trẻ em
+                          </label>
+                          <InputNumber
+                            min={0}
+                            max={maxChildren}
+                            value={numChildrenList[roomIdx]}
+                            disabled={inputDisabled}
+                            onChange={(value) => {
+                              const newCount = value ?? 0;
+                              const newChildrenList = [...numChildrenList];
+                              newChildrenList[roomIdx] = newCount;
+                              setNumChildrenList(newChildrenList);
+
+                              const newAgesList = [...childrenAgesList];
+                              const currentAges = newAgesList[roomIdx] || [];
+
+                              if (newCount > currentAges.length) {
+                                newAgesList[roomIdx] = [
+                                  ...currentAges,
+                                  ...Array(newCount - currentAges.length).fill(
+                                    0
+                                  ),
+                                ];
+                              } else {
+                                newAgesList[roomIdx] = currentAges.slice(
+                                  0,
+                                  newCount
+                                );
+                              }
+                              setChildrenAgesList(newAgesList);
+                            }}
+                            className="w-full"
+                            size="large"
+                            placeholder="Nhập số trẻ em"
+                          />
+                          <Text type="secondary" className="text-xs mt-1 block">
+                            Tổng: {numAdultsList[roomIdx]} người lớn +{" "}
+                            {numChildrenList[roomIdx]} trẻ em
+                          </Text>
+                        </Col>
+                      </Row>
+                    </div>
+                  ))}
+                </Space>
+
+                {/* Nút xác nhận - bị disable nếu không đủ phòng */}
+                <Button
+                  type="primary"
+                  size="large"
+                  className="w-full mt-4"
+                  style={{
+                    background: isDisabled
+                      ? "#d9d9d9"
+                      : "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    border: "none",
+                    height: "48px",
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    cursor: isDisabled ? "not-allowed" : "pointer",
+                  }}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    const newRoomsConfig = Array.from({ length: numRooms }).map(
+                      (_, idx) => ({
+                        room_id: suitableRooms[idx]?.id || 0,
+                        num_adults: numAdultsList[idx],
+                        num_children: numChildrenList[idx],
+                      })
+                    );
+                    onSelectRoomType(
+                      suitableRooms.slice(0, numRooms),
+                      newRoomsConfig
+                    );
+                  }}
+                >
+                  {isDisabled ? "Không đủ phòng để đặt" : "Xác nhận"}
+                </Button>
+
+                {/* Thông báo bổ sung */}
+                {isDisabled && (
+                  <div className="bg-yellow-50 p-3 rounded border border-yellow-300 mt-3">
+                    <Text type="warning" className="text-xs">
+                      Loại phòng này hiện không đủ số lượng trống. Vui lòng chọn
+                      loại phòng khác.
+                    </Text>
+                  </div>
+                )}
+              </div>
             </div>
           </Panel>
         </Collapse>
@@ -228,7 +404,5 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     );
   }
 );
-
-RoomTypeCard.displayName = "RoomTypeCard";
 
 export default RoomTypeCard;

@@ -38,7 +38,6 @@ export const createRoom = async (data) => {
     name,
     type_id,
     price,
-    capacity,
     short_desc,
     long_desc,
     status,
@@ -46,54 +45,24 @@ export const createRoom = async (data) => {
     floor_id,
   } = data;
   const resuit = await pool.query(
-    `INSERT INTO rooms (name, type_id, price, capacity, short_desc, long_desc, status, thumbnail, floor_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-    [
-      name,
-      type_id,
-      price,
-      capacity,
-      short_desc,
-      long_desc,
-      status,
-      thumbnail,
-      floor_id,
-    ]
+    `INSERT INTO rooms (name, type_id, price, short_desc, long_desc, status, thumbnail, floor_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [name, type_id, price, short_desc, long_desc, status, thumbnail, floor_id]
   );
   console.log(resuit);
   return resuit.rows[0];
 };
 
 export const updateRoom = async (id, data) => {
-  const {
-    name,
-    type_id,
-    price,
-    capacity,
-    short_desc,
-    long_desc,
-    status,
-    thumbnail,
-    floor_id,
-  } = data;
-  const resuit = await pool.query(
-    `UPDATE rooms SET name = $1, type_id = $2, price = $3, capacity = $4, short_desc = $5, long_desc = $6, status = $7, thumbnail = $8, floor_id = $9
-     WHERE id = $10 RETURNING *`,
-    [
-      name,
-      type_id,
-      price,
-      capacity,
-      short_desc,
-      long_desc,
-      status,
-      thumbnail,
-      floor_id,
-      id,
-    ]
+  const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
+    data;
+  const result = await pool.query(
+    `UPDATE rooms SET name = $1, type_id = $2, short_desc = $3, long_desc = $4, status = $5, thumbnail = $6, floor_id = $7
+     WHERE id = $8 RETURNING *`,
+    [name, type_id, short_desc, long_desc, status, thumbnail, floor_id, id]
   );
-  console.log(resuit);
-  return resuit.rows[0];
+  console.log(result);
+  return result.rows[0];
 };
 
 // Check if room has active bookings (đang được book)
@@ -201,11 +170,11 @@ export const searchAvailableRooms = async ({
 
   // Simplified query - chỉ check available và không conflict booking
   let query = `
-    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.base_occupancy
+    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.capacity
     FROM rooms r
     LEFT JOIN room_types rt ON r.type_id = rt.id
     WHERE r.status = 'available'
-      AND r.capacity >= $1
+      AND rt.capacity >= $1
   `;
 
   const params = [totalGuests];

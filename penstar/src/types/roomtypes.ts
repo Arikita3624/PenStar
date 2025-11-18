@@ -2,6 +2,7 @@ export interface RoomType {
   id: number;
   name: string;
   description: string;
+  capacity?: number;
   max_adults?: number;
   max_children?: number;
   base_occupancy?: number;
@@ -10,4 +11,5 @@ export interface RoomType {
   amenities?: string[];
   created_at: string;
   updated_at: string;
+  price?: number;
 }

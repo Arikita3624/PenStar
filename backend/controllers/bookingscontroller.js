@@ -7,6 +7,7 @@ import {
   confirmCheckout as modelConfirmCheckout,
   cancelBooking as modelCancelBooking,
   changeRoomInBooking as modelChangeRoomInBooking,
+  autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
 import pool from "../db.js";
 
@@ -58,10 +59,12 @@ export const getBookingById = async (req, res) => {
     }
 
     // Calculate total prices
-    booking.total_room_price = booking.items.reduce(
-      (sum, item) => sum + Number(item.room_price || 0),
-      0
-    );
+    // Use room_types.price for each item
+    booking.total_room_price = booking.items.reduce((sum, item) => {
+      // Assume item.room_type_id is available, otherwise fetch from DB
+      const roomTypePrice = item.room_type_price || item.room_price || 0;
+      return sum + Number(roomTypePrice);
+    }, 0);
     booking.total_service_price = booking.services.reduce(
       (sum, service) => sum + Number(service.total_service_price || 0),
       0
@@ -98,6 +101,56 @@ export const createBooking = async (req, res) => {
       payload.user_id = Number(req.user.id);
     }
 
+    // Handle auto-assignment if rooms_config is provided
+    if (Array.isArray(payload.rooms_config)) {
+      console.log("Auto-assigning rooms based on rooms_config");
+
+      const assignedItems = [];
+
+      for (const config of payload.rooms_config) {
+        const {
+          room_type_id,
+          quantity,
+          check_in,
+          check_out,
+          num_adults,
+          num_children,
+          room_type_price, // Use price from room_types
+        } = config;
+
+        // Auto-assign rooms
+        const assignedRooms = await modelAutoAssignRooms(
+          room_type_id,
+          quantity,
+          check_in,
+          check_out,
+          num_adults,
+          num_children
+        );
+
+        console.log(
+          `Auto-assigned ${assignedRooms.length} rooms:`,
+          assignedRooms.map((r) => r.name)
+        );
+
+        // Convert assigned rooms to booking items format
+        for (const room of assignedRooms) {
+          assignedItems.push({
+            room_id: room.id,
+            check_in,
+            check_out,
+            room_type_price,
+            num_adults,
+            num_children,
+          });
+        }
+      }
+
+      // Replace rooms_config with assigned items
+      payload.items = assignedItems;
+      delete payload.rooms_config;
+    }
+
     console.log("Final payload:", JSON.stringify(payload, null, 2));
 
     const booking = await modelCreateBooking(payload);
@@ -113,6 +166,9 @@ export const createBooking = async (req, res) => {
     );
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
+
+    // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
+
     res.status(201).json({
       success: true,
       message: "✅ Booking created successfully",
@@ -170,6 +226,14 @@ export const createBooking = async (req, res) => {
 
     // Custom error từ business logic
     if (error.message && error.message.includes("Phòng đã được đặt")) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        error: error.message,
+      });
+    }
+
+    if (error.message && error.message.includes("Không đủ phòng trống")) {
       return res.status(409).json({
         success: false,
         message: error.message,
@@ -278,6 +342,26 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
+      // Gửi email xác nhận nếu đã thanh toán thành công
+      if (payment_status === "paid") {
+        try {
+          const booking = await modelGetBookingById(id);
+          const customerEmail = booking.email;
+          if (customerEmail) {
+            const { sendBookingConfirmationEmail } = await import(
+              "../utils/mailer.js"
+            );
+            await sendBookingConfirmationEmail(customerEmail, id);
+            console.log(
+              `Đã gửi email xác nhận booking #${id} tới ${customerEmail}`
+            );
+          } else {
+            console.warn("Không tìm thấy email khách để gửi xác nhận booking");
+          }
+        } catch (mailErr) {
+          console.error("Lỗi gửi email xác nhận booking:", mailErr);
+        }
+      }
       return res.json({
         success: true,
         message: "Cập nhật trạng thái thanh toán thành công!",

@@ -55,6 +55,7 @@ export const bookingCreateSchema = Joi.object({
   stay_status_id: Joi.number().positive().required(),
   // user_id will be taken from req.user if not provided
   user_id: Joi.number().positive().optional(),
+  // Cho phép items hoặc rooms_config (autoAssign)
   items: Joi.array()
     .items(
       Joi.object({
@@ -62,8 +63,8 @@ export const bookingCreateSchema = Joi.object({
         check_in: Joi.string().isoDate().required(),
         check_out: Joi.string().isoDate().required(),
         room_price: Joi.number().min(0).required(),
-        num_adults: Joi.number().integer().min(1).max(20).optional(), // Số người lớn
-        num_children: Joi.number().integer().min(0).max(20).optional(), // Số trẻ em
+        num_adults: Joi.number().integer().min(1).max(20).optional(),
+        num_children: Joi.number().integer().min(0).max(20).optional(),
         guests: Joi.array()
           .items(
             Joi.object({
@@ -77,7 +78,21 @@ export const bookingCreateSchema = Joi.object({
       })
     )
     .min(1)
-    .required(),
+    .optional(),
+  rooms_config: Joi.array()
+    .items(
+      Joi.object({
+        room_type_id: Joi.number().positive().required(),
+        quantity: Joi.number().integer().min(1).required(),
+        check_in: Joi.string().isoDate().required(),
+        check_out: Joi.string().isoDate().required(),
+        room_type_price: Joi.number().min(0).required(),
+        num_adults: Joi.number().integer().min(1).max(20).optional(),
+        num_children: Joi.number().integer().min(0).max(20).optional(),
+      })
+    )
+    .min(1)
+    .optional(),
   services: Joi.array()
     .items(
       Joi.object({
@@ -91,6 +106,13 @@ export const bookingCreateSchema = Joi.object({
 
 export const validateBookingCreate = (req, res, next) => {
   console.log("📝 Validating booking data:", JSON.stringify(req.body, null, 2));
+  // Custom validation: phải có ít nhất 1 trong 2 trường items hoặc rooms_config
+  const { items, rooms_config } = req.body;
+  if (!Array.isArray(items) && !Array.isArray(rooms_config)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "items hoặc rooms_config is required" });
+  }
   const { value, error } = bookingCreateSchema.validate(req.body, {
     abortEarly: true,
   });

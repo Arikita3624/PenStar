@@ -402,13 +402,7 @@ const BookingDetail = () => {
             <Col span={12}>
               <Text type="secondary">Phương thức đặt phòng</Text>
               <br />
-              <Tag
-                color={booking.booking_method === "online" ? "blue" : "green"}
-              >
-                {booking.booking_method === "online"
-                  ? "📱 Online"
-                  : "🏨 Trực tiếp"}
-              </Tag>
+              <Tag color="blue">📱 Online</Tag>
             </Col>
           </Row>
         </Card>
@@ -765,34 +759,7 @@ const BookingDetail = () => {
                     ? booking.payment_method.toUpperCase()
                     : "—"}
                 </Tag>
-              ) : booking.booking_method === "offline" &&
-                booking.stay_status_id === 1 &&
-                booking.payment_status !== "paid" ? (
-                // Cho phép sửa khi: offline booking, đã duyệt, chưa thanh toán
-                <Select
-                  value={booking.payment_method || undefined}
-                  placeholder="Chọn phương thức"
-                  style={{ width: 220 }}
-                  onChange={handleUpdatePaymentMethod}
-                  disabled={updating}
-                  allowClear
-                  options={[
-                    {
-                      label: "💵 Tiền mặt",
-                      value: "cash",
-                    },
-                    {
-                      label: " Ví MoMo",
-                      value: "momo",
-                    },
-                    {
-                      label: "💰 VNPAY",
-                      value: "vnpay",
-                    },
-                  ]}
-                />
               ) : (
-                // Tất cả các trường hợp khác - chỉ xem
                 <Tag
                   color={
                     booking.payment_method === "cash"
@@ -812,14 +779,7 @@ const BookingDetail = () => {
             </Row>
 
             {/* Payment Method Helper Text */}
-            {booking.booking_method === "offline" &&
-              booking.stay_status_id === 1 &&
-              booking.payment_status !== "paid" && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  💡 Chọn phương thức thanh toán trực tiếp tại quầy lễ tân (tiền
-                  mặt, thẻ, chuyển khoản, v.v.)
-                </Text>
-              )}
+            {/* Đã xóa helper cho offline booking */}
             {booking.booking_method === "online" && (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 🌐 Booking online - Phương thức thanh toán được tự động ghi nhận
@@ -835,61 +795,19 @@ const BookingDetail = () => {
                 <Tag color="red" style={{ fontSize: 14 }}>
                   FAILED
                 </Tag>
-              ) : booking.stay_status_id === 1 &&
-                booking.payment_status !== "paid" ? (
-                // Chỉ cho phép sửa khi: đã duyệt (stay_status_id === 1) VÀ chưa thanh toán
-                <Select
-                  value={booking.payment_status}
-                  style={{ width: 200 }}
-                  onChange={handleUpdatePayment}
-                  disabled={updating}
-                  options={
-                    booking.booking_method === "online"
-                      ? [
-                          // Online booking - chỉ unpaid/paid/failed
-                          {
-                            label: "Unpaid (Chưa thanh toán)",
-                            value: "unpaid",
-                          },
-                          {
-                            label: "Paid (Đã thanh toán - Online)",
-                            value: "paid",
-                          },
-                          { label: "Failed (Thất bại)", value: "failed" },
-                        ]
-                      : [
-                          // Offline booking - có thêm pending (chờ thanh toán COD)
-                          {
-                            label: "Unpaid (Chưa thanh toán)",
-                            value: "unpaid",
-                          },
-                          {
-                            label: "Pending (Chờ thanh toán COD)",
-                            value: "pending",
-                          },
-                          {
-                            label: "Paid (Đã thanh toán - Tiền mặt)",
-                            value: "paid",
-                          },
-                          { label: "Failed (Thất bại)", value: "failed" },
-                        ]
-                  }
-                />
               ) : (
-                // Tất cả các trường hợp khác - chỉ xem, không sửa
                 <Tag
                   color={
                     booking.payment_status === "paid"
                       ? "green"
-                      : booking.payment_status === "unpaid"
-                      ? "orange"
-                      : booking.payment_status === "pending"
-                      ? "gold"
-                      : "red"
+                      : booking.payment_status === "failed"
+                      ? "red"
+                      : "default"
                   }
-                  style={{ fontSize: 14 }}
                 >
-                  {booking.payment_status?.toUpperCase() || "N/A"}
+                  {booking.payment_status
+                    ? booking.payment_status.toUpperCase()
+                    : "—"}
                 </Tag>
               )}
             </Row>

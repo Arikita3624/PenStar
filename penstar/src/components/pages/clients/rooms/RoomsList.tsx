@@ -211,7 +211,7 @@ const RoomsList = () => {
                   setPage(1);
                 }}
               >
-                🔄 Đặt lại
+                Đặt lại
               </Button>
             </div>
           </div>
@@ -300,39 +300,19 @@ const RoomsList = () => {
                       {/* Giá + CTA */}
                       <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                         <div className="text-xl font-bold text-red-600">
-                          {new Intl.NumberFormat("vi-VN", {
-                            style: "currency",
-                            currency: "VND",
-                          }).format(Number(room.price) || 0)}
+                          {(() => {
+                            const type = types.find(
+                              (t: any) => t.id === room.type_id
+                            );
+                            return new Intl.NumberFormat("vi-VN", {
+                              style: "currency",
+                              currency: "VND",
+                            }).format(Number(type?.price) || 0);
+                          })()}
                           <div className="text-xs text-gray-500 font-normal">
                             / đêm
                           </div>
                         </div>
-                        {room.status === "available" ? (
-                          <Link to={`/booking/staff-create?room_id=${room.id}`}>
-                            <Button
-                              type="primary"
-                              size="large"
-                              style={{
-                                background:
-                                  "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-                                borderColor: "transparent",
-                                fontWeight: "600",
-                              }}
-                            >
-                              Đặt ngay
-                            </Button>
-                          </Link>
-                        ) : (
-                          <Button
-                            type="default"
-                            size="large"
-                            disabled
-                            title="Phòng không khả dụng"
-                          >
-                            Không khả dụng
-                          </Button>
-                        )}
                       </div>
                     </Card>
                   </Col>

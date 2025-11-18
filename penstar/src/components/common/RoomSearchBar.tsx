@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import useAuth from "@/hooks/useAuth";
 import { DatePicker, Select, Input, Button, message } from "antd";
 import {
   SearchOutlined,
@@ -15,18 +17,28 @@ interface RoomSearchBarProps {
   onSearch: (params: RoomSearchParams) => void;
   loading?: boolean;
   variant?: "floating" | "inline"; // floating cho HomePage, inline cho Results
+  requireAuthForSearch?: boolean; // if true, redirect to signin when not authenticated
 }
 
 const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   onSearch,
   loading,
   variant = "inline",
+  requireAuthForSearch = true,
 }) => {
+  const auth = useAuth();
+  const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs, Dayjs] | null>(null);
   const [numRooms, setNumRooms] = useState(1);
   const [promoCode, setPromoCode] = useState("");
 
   const handleSearch = () => {
+    // If required, check authentication and redirect to signin
+    if (requireAuthForSearch && auth?.initialized && !auth?.token) {
+      message.error("Vui lòng đăng nhập để tìm kiếm và đặt phòng");
+      navigate("/signin");
+      return;
+    }
     if (!dates || dates.length !== 2) {
       message.warning("Vui lòng chọn ngày check-in và check-out");
       return;

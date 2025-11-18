@@ -3,8 +3,16 @@ import pool from "../db.js";
 export const getRoomTypes = async () => {
   const result = await pool.query(`
     SELECT 
-      rt.*,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
+      rt.id,
+      rt.name,
+      rt.description,
+      rt.created_at,
+      rt.max_adults,
+      rt.max_children,
+      rt.amenities,
+      rt.capacity,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
+      rt.price
     FROM room_types rt
   `);
   // Parse JSON fields for each row
@@ -16,15 +24,29 @@ export const getRoomTypes = async () => {
 };
 
 export const createRoomType = async (data) => {
-  const { name, description, thumbnail, images, amenities } = data;
+  const {
+    name,
+    description,
+    thumbnail,
+    images,
+    amenities,
+    capacity,
+    max_adults,
+    max_children,
+    price,
+  } = data;
   const result = await pool.query(
-    "INSERT INTO room_types (name, description, thumbnail, images, amenities) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    "INSERT INTO room_types (name, description, thumbnail, images, amenities, capacity, max_adults, max_children, price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
     [
       name,
       description,
       thumbnail || null,
       images ? JSON.stringify(images) : null,
       amenities ? JSON.stringify(amenities) : null,
+      capacity,
+      max_adults,
+      max_children,
+      price,
     ]
   );
   console.log(result);
@@ -34,8 +56,16 @@ export const createRoomType = async (data) => {
 export const getRoomTypeById = async (id) => {
   const result = await pool.query(
     `SELECT 
-      rt.*,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
+      rt.id,
+      rt.name,
+      rt.description,
+      rt.created_at,
+      rt.max_adults,
+      rt.max_children,
+      rt.amenities,
+      rt.capacity,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
+      rt.price
     FROM room_types rt 
     WHERE rt.id = $1`,
     [id]
@@ -50,10 +80,27 @@ export const getRoomTypeById = async (id) => {
 };
 
 export const updateRoomType = async (id, data) => {
-  const { name, description, amenities } = data;
+  const {
+    name,
+    description,
+    amenities,
+    capacity,
+    max_adults,
+    max_children,
+    price,
+  } = data;
   const result = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2, amenities = $3 WHERE id = $4 RETURNING *",
-    [name, description, amenities ? JSON.stringify(amenities) : null, id]
+    "UPDATE room_types SET name = $1, description = $2, amenities = $3, capacity = $4, max_adults = $5, max_children = $6, price = $7 WHERE id = $8 RETURNING *",
+    [
+      name,
+      description,
+      amenities ? JSON.stringify(amenities) : null,
+      capacity,
+      max_adults,
+      max_children,
+      price,
+      id,
+    ]
   );
 
   // Get thumbnail from room_type_images

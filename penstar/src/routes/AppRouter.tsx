@@ -32,7 +32,6 @@ import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
 import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
-import StaffBookingCreate from "@/components/pages/clients/bookings/StaffBookingCreate";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 
@@ -48,7 +47,6 @@ const AppRouter = () => {
           <Route path="rooms/:id" element={<RoomDetail />} />
 
           {/* Staff booking - Walk-in customers (staff creates for guest) */}
-          <Route path="booking/staff-create" element={<StaffBookingCreate />} />
 
           {/* Customer bookings - REQUIRE authentication */}
           <Route

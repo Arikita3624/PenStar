@@ -22,9 +22,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role?: string;
       };
       const decoded = jwtDecode<Decoded>(token as string);
+      // Fallback lấy full_name và phone từ localStorage nếu token không chứa
+      let full_name = decoded.full_name ? String(decoded.full_name) : undefined;
+      let phone = decoded.phone ? String(decoded.phone) : undefined;
+      if (!full_name || !phone) {
+        try {
+          const userRaw = localStorage.getItem("penstar_user");
+          if (userRaw) {
+            const userObj = JSON.parse(userRaw);
+            if (!full_name && userObj.full_name) full_name = userObj.full_name;
+            if (!phone && userObj.phone) phone = userObj.phone;
+          }
+        } catch {}
+      }
       setUser({
         id: Number(decoded.id) || 0,
         email: String(decoded.email || ""),
+        full_name,
+        phone,
         role_id: decoded.role_id ? Number(decoded.role_id) : undefined,
         role: decoded.role ? String(decoded.role) : undefined,
       });

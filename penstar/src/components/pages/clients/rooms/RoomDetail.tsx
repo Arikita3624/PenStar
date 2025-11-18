@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -7,22 +8,25 @@ import { getFloorById } from "@/services/floorsApi";
 import { getImagesByRoom } from "@/services/roomImagesApi";
 import type { Room } from "@/types/room";
 import type { RoomImage } from "@/types/roomImage";
+import type { RoomType } from "@/types/roomtypes"; // Đảm bảo có type này
+import type { Floors } from "@/types/floors";
+// Đảm bảo có type này
 
 const RoomDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const { data: room, isLoading } = useQuery<Room | null>({
     queryKey: ["rooms", id],
     queryFn: () => getRoomID(id ?? ""),
     enabled: Boolean(id),
   });
 
-  const { data: roomType } = useQuery({
+  const { data: roomType } = useQuery<RoomType | null>({
     queryKey: ["room_type", room?.type_id],
     queryFn: () => getRoomTypeById(String(room?.type_id ?? "")),
     enabled: Boolean(room?.type_id),
   });
 
-  const { data: floor } = useQuery({
+  const { data: floor } = useQuery<Floors | null>({
     queryKey: ["floor", room?.floor_id],
     queryFn: () => getFloorById(String(room?.floor_id ?? "")),
     enabled: Boolean(room?.floor_id),
@@ -34,14 +38,14 @@ const RoomDetail = () => {
     queryFn: () => getImagesByRoom(Number(room?.id)),
     enabled: Boolean(room?.id),
   });
-  // slider state (declare hooks unconditionally)
+
+  // Slider state
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   useEffect(() => {
-    // reset to first slide if room's thumbnail or images change
     setCurrentSlide(0);
   }, [room?.thumbnail, images.length]);
 
-  if (isLoading)
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-20">
         <div className="text-center">
@@ -50,7 +54,9 @@ const RoomDetail = () => {
         </div>
       </div>
     );
-  if (!room)
+  }
+
+  if (!room) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-20">
         <div className="text-center">
@@ -76,13 +82,14 @@ const RoomDetail = () => {
         </div>
       </div>
     );
+  }
 
-  // Use room properties directly with proper typing
-  const img = String(room.thumbnail ?? "/room-default.jpg");
-  const title = String(room.name ?? `Phòng ${room.id}`);
-  const desc = room.long_desc ? String(room.long_desc) : "";
+  // Safe access with fallbacks
+  const img = room.thumbnail ?? "/room-default.jpg";
+  const title = room.name ?? `Phòng ${room.id}`;
+  const desc = room.long_desc ?? "";
   const price = Number(room.price ?? 0);
-  const status = String(room.status ?? "").toLowerCase();
+  const status = (room.status ?? "").toLowerCase();
 
   const statusMeta: Record<
     string,
@@ -105,11 +112,7 @@ const RoomDetail = () => {
       text: "text-purple-700",
       label: "Đang dọn",
     },
-    maintenance: {
-      bg: "bg-blue-100",
-      text: "text-blue-700",
-      label: "Bảo trì",
-    },
+    maintenance: { bg: "bg-blue-100", text: "text-blue-700", label: "Bảo trì" },
     unavailable: {
       bg: "bg-gray-100",
       text: "text-gray-700",
@@ -120,44 +123,41 @@ const RoomDetail = () => {
   const st = statusMeta[status] ?? {
     bg: "bg-gray-100",
     text: "text-gray-700",
-    label: String(room.status ?? "—"),
+    label: room.status ?? "—",
   };
-  // helper: strip tags for short description
+
+  // Helper: strip HTML tags
   const stripTags = (html?: string) => {
     if (!html) return "";
-    return String(html)
+    return html
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;/g, " ")
       .trim();
   };
 
-  // Basic sanitizer: remove script/style tags and on* attributes to reduce XSS risk
+  // Basic XSS sanitizer
   const sanitizeHtml = (html?: string) => {
     if (!html) return "";
-    // remove script and style blocks
-    let s = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
-    s = s.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
-    // remove on* attributes like onclick
-    s = s.replace(/on[a-z]+\s*=\s*"[^"]*"/gi, "");
-    s = s.replace(/on[a-z]+\s*=\s*'[^']*'/gi, "");
-    s = s.replace(/on[a-z]+\s*=\s*[^\s>]+/gi, "");
+    // eslint-disable-next-line prefer-const
+    let s = html
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+      .replace(/on[a-z]+\s*=\s*"[^"]*"/gi, "")
+      .replace(/on[a-z]+\s*=\s*'[^']*'/gi, "")
+      .replace(/on[a-z]+\s*=\s*[^\s>]+/gi, "");
     return s;
   };
 
-  // prepare gallery images: exclude thumbnail and dedupe by URL
-  const galleryImages = (() => {
-    const seen = new Set<string>();
-    return images
-      .filter((im) => !im.is_thumbnail && im.image_url !== img)
-      .filter((im) => {
-        if (!im.image_url) return false;
-        if (seen.has(im.image_url)) return false;
-        seen.add(im.image_url);
-        return true;
-      });
-  })();
+  // Prepare gallery images (exclude thumbnail, dedupe)
+  const galleryImages = images
+    .filter((im) => !im.is_thumbnail && im.image_url && im.image_url !== img)
+    .reduce((acc: RoomImage[], im) => {
+      if (!acc.some((x) => x.image_url === im.image_url)) {
+        acc.push(im);
+      }
+      return acc;
+    }, []);
 
-  // build slides: extras only (main thumbnail will be shown above)
   const extras = galleryImages.map((g) => g.image_url);
 
   return (
@@ -182,9 +182,8 @@ const RoomDetail = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            {/* Left: Large thumbnail area and compact extras gallery below (design-like) */}
+            {/* Left: Image Gallery */}
             <div className="relative flex flex-col lg:pr-4">
-              {/* Main image area: make it tall and centered */}
               <div className="h-[400px] lg:h-[500px] w-full bg-gray-100 rounded overflow-hidden relative">
                 <img
                   src={
@@ -196,7 +195,7 @@ const RoomDetail = () => {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Left large overlay Prev arrow */}
+                {/* Prev Button */}
                 <button
                   aria-label="Prev"
                   onClick={() =>
@@ -213,7 +212,7 @@ const RoomDetail = () => {
                   <span className="block -mt-1">‹</span>
                 </button>
 
-                {/* Right large overlay Next arrow */}
+                {/* Next Button */}
                 <button
                   aria-label="Next"
                   onClick={() =>
@@ -240,7 +239,7 @@ const RoomDetail = () => {
                 </div>
               </div>
 
-              {/* Thumbnails row (compact) */}
+              {/* Thumbnail Strip */}
               <div className="mt-2 w-full px-4">
                 {extras.length > 0 ? (
                   <div className="grid grid-cols-4 gap-2 w-full">
@@ -272,9 +271,9 @@ const RoomDetail = () => {
             {/* Right: Details */}
             <div className="p-4 lg:p-6 flex flex-col">
               <div className="flex-1">
-                {/* Title with room type badge */}
+                {/* Title + Room Type */}
                 <div className="mb-3">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex itemsys-center gap-2 mb-2">
                     <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">
                       {title}
                     </h1>
@@ -301,27 +300,24 @@ const RoomDetail = () => {
                   )}
                 </div>
 
-                {/* Short description */}
-                {room.short_desc && String(room.short_desc).trim() ? (
+                {/* Short Description */}
+                {room.short_desc?.trim() ? (
                   <div className="bg-gray-50 rounded-lg p-3 mb-3 border-l-4 border-blue-500">
                     <p className="text-sm text-gray-700 leading-relaxed">
-                      {stripTags(String(room.short_desc))}
+                      {stripTags(room.short_desc)}
                     </p>
                   </div>
-                ) : (
-                  !desc && (
-                    <div className="bg-gray-50 rounded-lg p-3 mb-3 border-l-4 border-blue-500">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải
-                        mái.
-                      </p>
-                    </div>
-                  )
-                )}
+                ) : !desc ? (
+                  <div className="bg-gray-50 rounded-lg p-3 mb-3 border-l-4 border-blue-500">
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Phòng nghỉ tiện nghi, lý tưởng cho kỳ nghỉ dưỡng thoải
+                      mái.
+                    </p>
+                  </div>
+                ) : null}
 
-                {/* Price Section - Enhanced */}
+                {/* Price */}
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 mb-3 shadow-lg relative overflow-hidden">
-                  {/* Decorative circles */}
                   <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                   <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10"></div>
 
@@ -346,15 +342,15 @@ const RoomDetail = () => {
                       {new Intl.NumberFormat("vi-VN", {
                         style: "currency",
                         currency: "VND",
-                      }).format(price)}
+                      }).format(roomType?.price || 0)}
                     </div>
                     <div className="mt-2 text-white/80 text-xs">
-                      💡 Đã bao gồm VAT & phí dịch vụ
+                      Đã bao gồm VAT & phí dịch vụ
                     </div>
                   </div>
                 </div>
 
-                {/* Room Info Grid - Enhanced */}
+                {/* Room Info Grid */}
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200 hover:shadow-md transition">
                     <div className="flex items-center gap-2 mb-1">
@@ -378,17 +374,17 @@ const RoomDetail = () => {
                       </div>
                     </div>
                     <div className="text-xl font-bold text-orange-900">
-                      {room.capacity ?? 2} người
+                      {roomType?.capacity ?? 2} người
                     </div>
-                    {(room.max_adults || room.max_children) && (
+                    {(roomType?.max_adults || roomType?.max_children) && (
                       <div className="text-xs text-orange-600 mt-0.5">
-                        {room.max_adults && (
-                          <span>Tối đa: {room.max_adults} người lớn</span>
+                        {roomType?.max_adults && (
+                          <span>Tối đa: {roomType.max_adults} người lớn</span>
                         )}
-                        {room.max_children && (
+                        {roomType?.max_children && (
                           <span>
-                            {room.max_adults ? ", " : "Tối đa: "}
-                            {room.max_children} trẻ em
+                            {roomType?.max_adults ? ", " : "Tối đa: "}
+                            {roomType.max_children} trẻ em
                           </span>
                         )}
                       </div>
@@ -425,7 +421,7 @@ const RoomDetail = () => {
                   </div>
                 </div>
 
-                {/* Amenities Section */}
+                {/* Amenities */}
                 {roomType?.amenities &&
                   Array.isArray(roomType.amenities) &&
                   roomType.amenities.length > 0 && (
@@ -487,104 +483,116 @@ const RoomDetail = () => {
                     ← Quay lại
                   </button>
                 </Link>
+
                 <Link
-                  to={`/booking/create?room_id=${room.id}`}
+                  to={
+                    status === "available"
+                      ? `/booking/create?room_id=${room.id}`
+                      : "#"
+                  }
                   className="flex-1 min-w-[150px]"
+                  tabIndex={status === "available" ? 0 : -1}
+                  aria-disabled={status !== "available"}
                 >
-                  <button className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-lg">
+                  <button
+                    className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition shadow-lg ${
+                      status === "available"
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
+                    disabled={status !== "available"}
+                  >
                     Đặt phòng ngay
                   </button>
                 </Link>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Long description (rendered as HTML) */}
-        {desc && (
-          <div className="mt-4">
+          {/* Detailed Description */}
+          <div className="mt-6 p-4 lg:p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-2">
               Mô tả chi tiết
             </h3>
             <div
-              className="bg-white rounded-xl p-4 shadow-sm text-sm text-gray-700"
+              className="bg-white rounded-xl p-4 shadow-sm text-sm text-gray-700 prose max-w-none"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(desc) }}
             />
           </div>
-        )}
 
-        {/* Additional Info Section */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-md">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+          {/* Additional Info */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 lg:p-6">
+            <div className="bg-white rounded-lg p-4 shadow-md">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                <svg
+                  className="w-5 h-5 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-bold text-gray-800 mb-1 text-sm">
+                Nhận phòng linh hoạt
+              </h3>
+              <p className="text-xs text-gray-600">
+                Check-in từ 14:00, check-out trước 12:00. Hỗ trợ trả phòng muộn.
+              </p>
             </div>
-            <h3 className="font-bold text-gray-800 mb-1 text-sm">
-              Nhận phòng linh hoạt
-            </h3>
-            <p className="text-xs text-gray-600">
-              Check-in từ 14:00, check-out trước 12:00. Hỗ trợ trả phòng muộn.
-            </p>
-          </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-md">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-3">
-              <svg
-                className="w-5 h-5 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+            <div className="bg-white rounded-lg p-4 shadow-md">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                <svg
+                  className="w-5 h-5 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-bold text-gray-800 mb-1 text-sm">
+                Hủy miễn phí
+              </h3>
+              <p className="text-xs text-gray-600">
+                Hủy miễn phí trước 24h. Hoàn tiền 100% nếu hủy sớm.
+              </p>
             </div>
-            <h3 className="font-bold text-gray-800 mb-1 text-sm">
-              Hủy miễn phí
-            </h3>
-            <p className="text-xs text-gray-600">
-              Hủy miễn phí trước 24h. Hoàn tiền 100% nếu hủy sớm.
-            </p>
-          </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-md">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-              <svg
-                className="w-5 h-5 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
+            <div className="bg-white rounded-lg p-4 shadow-md">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+                <svg
+                  className="w-5 h-5 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-bold text-gray-800 mb-1 text-sm">
+                Hỗ trợ 24/7
+              </h3>
+              <p className="text-xs text-gray-600">
+                Đội ngũ chăm sóc khách hàng sẵn sàng hỗ trợ mọi lúc mọi nơi.
+              </p>
             </div>
-            <h3 className="font-bold text-gray-800 mb-1 text-sm">
-              Hỗ trợ 24/7
-            </h3>
-            <p className="text-xs text-gray-600">
-              Đội ngũ chăm sóc khách hàng sẵn sàng hỗ trợ mọi lúc mọi nơi.
-            </p>
           </div>
         </div>
       </div>
