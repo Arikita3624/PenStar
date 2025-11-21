@@ -99,7 +99,7 @@ export const autoAssignRooms = async (
 };
 
 export const createBooking = async (data) => {
-  // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_price}], services: [{service_id, quantity, total_service_price}] }
+  // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_type_price}], services: [{service_id, quantity, total_service_price}] }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -138,14 +138,25 @@ export const createBooking = async (data) => {
       );
     }
 
-    // Check room availability
+    // Check room availability & validate guest numbers
     if (Array.isArray(data.items)) {
       for (const item of data.items) {
-        const { room_id, check_in, check_out } = item;
+        const {
+          room_id,
+          check_in,
+          check_out,
+          num_adults,
+          num_children,
+          room_type_price,
+        } = item;
+        // Validate room_type_price
+        if (room_type_price === undefined || room_type_price === null) {
+          throw new Error("Thiếu trường room_type_price cho từng phòng!");
+        }
 
         // Check 1: Room must be available (not booked/occupied/unavailable/maintenance)
         const roomCheck = await client.query(
-          `SELECT id, name, status FROM rooms WHERE id = $1`,
+          `SELECT id, name, status, type_id FROM rooms WHERE id = $1`,
           [room_id]
         );
 
@@ -156,11 +167,31 @@ export const createBooking = async (data) => {
         const room = roomCheck.rows[0];
         if (room.status !== "available") {
           throw new Error(
-            `Phòng "${room.name}" hiện đang ở trạng thái "${room.status}" và không thể đặt. Vui lòng chọn phòng khác.`
+            `Phòng \"${room.name}\" hiện đang ở trạng thái \"${room.status}\" và không thể đặt. Vui lòng chọn phòng khác.`
           );
         }
 
-        // Check 2: Room availability in booking time range
+        // Check 2: Validate guest numbers against room type
+        const typeRes = await client.query(
+          `SELECT max_adults, max_children, name FROM room_types WHERE id = $1`,
+          [room.type_id]
+        );
+        if (typeRes.rows.length === 0) {
+          throw new Error(`Loại phòng cho phòng ${room.name} không tồn tại.`);
+        }
+        const type = typeRes.rows[0];
+        if (num_adults > type.max_adults) {
+          throw new Error(
+            `Số người lớn (${num_adults}) vượt quá quy định (${type.max_adults}) cho loại phòng \"${type.name}\". Vui lòng chọn lại.`
+          );
+        }
+        if (num_children > type.max_children) {
+          throw new Error(
+            `Số trẻ em (${num_children}) vượt quá quy định (${type.max_children}) cho loại phòng \"${type.name}\". Vui lòng chọn lại.`
+          );
+        }
+
+        // Check 3: Room availability in booking time range
         const availabilityCheck = await client.query(
           `SELECT bi.id, b.id as booking_id, b.customer_name, bi.check_in, bi.check_out
            FROM booking_items bi
@@ -215,6 +246,7 @@ export const createBooking = async (data) => {
           num_adults,
           num_children,
         } = item;
+        // Không validate hay insert room_price nữa
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
@@ -227,7 +259,6 @@ export const createBooking = async (data) => {
 
         const booking_item_id = itemResult.rows[0].id;
 
-        // Update room status to 'pending' when booking is created (client creates → stay_status_id=6 pending)
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
           "pending",
           room_id,
@@ -237,26 +268,26 @@ export const createBooking = async (data) => {
 
     // insert booking_items with multi-room support if rooms array provided
     if (Array.isArray(data.rooms)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_type_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
 
       for (const room of data.rooms) {
-        const { room_id, num_adults, num_children, special_requests } = room;
+        const {
+          room_id,
+          num_adults,
+          num_children,
+          special_requests,
+          room_type_price,
+        } = room;
         const check_in = data.check_in;
         const check_out = data.check_out;
 
-        // Get room price
-        const roomResult = await client.query(
-          "SELECT price FROM rooms WHERE id = $1",
-          [room_id]
-        );
-        const room_price = roomResult.rows[0]?.price || 0;
-
+        // Chỉ dùng room_type_price
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
           check_in,
           check_out,
-          room_price,
+          room_type_price,
           num_adults || 1,
           num_children || 0,
           special_requests || null,
@@ -623,11 +654,11 @@ export const changeRoomInBooking = async (data) => {
     const checkOut = new Date(bookingItem.check_out);
     const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
     const new_price = newRoom.price * nights;
-    const price_difference = new_price - bookingItem.room_price;
+    const price_difference = new_price - bookingItem.room_type_price;
 
     // 8. Update booking_item
     await client.query(
-      "UPDATE booking_items SET room_id = $1, room_price = $2 WHERE id = $3",
+      "UPDATE booking_items SET room_id = $1, room_type_price = $2 WHERE id = $3",
       [new_room_id, new_price, booking_item_id]
     );
 

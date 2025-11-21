@@ -114,12 +114,11 @@ const PaymentMethodSelect: React.FC = () => {
       return;
     }
     try {
-      // Chuyển đổi số tiền về số nguyên (loại bỏ dấu chấm, ký tự đặc biệt)
+      // Chuyển đổi số tiền về kiểu number, không format, không replace
       let totalPrice = bookingInfo?.total_price;
       if (typeof totalPrice === "string") {
-        totalPrice = totalPrice.replace(/[^\d]/g, "");
+        totalPrice = Number(totalPrice);
       }
-      totalPrice = Number(totalPrice);
       // Kiểm tra số tiền hợp lệ trước khi gọi VNPAY
       if (method === "vnpay") {
         if (isNaN(totalPrice) || totalPrice < 5000 || totalPrice > 1000000000) {

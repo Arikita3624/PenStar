@@ -38,24 +38,21 @@ const RoomSearchResults = () => {
     queryFn: getFloors,
   });
 
-  // State cho multi-room selection
+  // State cho multi-room selection (giữ lại cho RoomTypeCard, nhưng không dùng cho booking payload nữa)
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [numRooms, setNumRooms] = useState(1);
   const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]);
 
-  // State cho confirmed booking (sau khi click Xác nhận)
-  const [confirmedBooking, setConfirmedBooking] = useState<{
-    roomsConfig: any;
-    roomTypeId: number;
-    roomTypeName: string;
-    roomPrice: number;
-    guestInfo: {
-      numAdults: number;
-      numChildren: number;
-      childrenAges: number[];
-    };
-    numRooms: number;
-  } | null>(null);
+  // State cho nhiều loại phòng đã xác nhận
+  const [confirmedBookings, setConfirmedBookings] = useState<
+    Array<{
+      roomTypeId: number;
+      roomTypeName: string;
+      roomPrice: number;
+      roomsConfig: RoomBookingConfig[];
+      numRooms: number;
+    }>
+  >([]);
 
   useEffect(() => {
     if (searchParams) {
@@ -139,32 +136,7 @@ const RoomSearchResults = () => {
     [numRooms, roomsConfig, selectedRoomIds]
   );
 
-  const handleBooking = () => {
-    if (selectedRoomIds.length === 0) {
-      message.warning("Vui lòng chọn ít nhất 1 phòng");
-      return;
-    }
-
-    if (selectedRoomIds.length !== numRooms) {
-      message.warning(`Vui lòng chọn đúng ${numRooms} phòng`);
-      return;
-    }
-
-    if (!searchParams) {
-      message.error("Thiếu thông tin tìm kiếm. Vui lòng tìm kiếm lại!");
-      return;
-    }
-
-    // Truyền toàn bộ roomsConfig (giữ room_id, num_adults, num_children, children_ages)
-    navigate("/booking/multi-create", {
-      state: {
-        selectedRoomIds,
-        searchParams,
-        roomsConfig,
-        numRooms,
-      },
-    });
-  };
+  // Đã chuyển toàn bộ logic booking sang confirmedBookings và sidebar checkout
 
   // Filter rooms by floor
   const filteredRooms = useMemo(
@@ -316,18 +288,27 @@ const RoomSearchResults = () => {
                         setRoomsConfig(newRoomsConfig);
                         setSelectedRoomIds(selectedRooms.map((r) => r.id));
 
-                        // Lưu từng phòng với số người lớn/trẻ em riêng biệt
-                        setConfirmedBooking({
-                          roomTypeId: roomType?.id || 0,
-                          roomTypeName: roomType?.name || "",
-                          roomPrice: roomType?.price || 0,
-                          guestInfo: {
-                            num_adults: undefined, // Không dùng tổng cho từng phòng
-                            num_children: undefined,
-                            childrenAges: [],
-                          },
-                          numRooms,
-                          roomsConfig: newRoomsConfig, // Thêm roomsConfig để truyền từng phòng
+                        // Thêm hoặc cập nhật loại phòng đã xác nhận
+                        setConfirmedBookings((prev) => {
+                          const idx = prev.findIndex(
+                            (b) => b.roomTypeId === (roomType?.id || 0)
+                          );
+                          const newBooking = {
+                            roomTypeId: roomType?.id || 0,
+                            roomTypeName: roomType?.name || "",
+                            roomPrice: roomType?.price || 0,
+                            numRooms,
+                            roomsConfig: newRoomsConfig,
+                          };
+                          if (idx >= 0) {
+                            // Cập nhật loại phòng đã có
+                            const updated = [...prev];
+                            updated[idx] = newBooking;
+                            return updated;
+                          } else {
+                            // Thêm mới loại phòng
+                            return [...prev, newBooking];
+                          }
                         });
                       }}
                       onRoomSelect={handleRoomSelect}
@@ -340,56 +321,63 @@ const RoomSearchResults = () => {
             {/* Right Column: Booking Sidebar - Show after confirmation */}
             <Col xs={24} lg={8}>
               <div className="sticky top-0">
-                {confirmedBooking && searchParams ? (
+                {confirmedBookings.length > 0 && searchParams ? (
                   <BookingSidebar
                     checkIn={searchParams.check_in}
                     checkOut={searchParams.check_out}
-                    rooms={confirmedBooking.roomsConfig.map(
-                      (config: any, index: number) => ({
-                        id: config.room_id || 0,
-                        name: `Phòng ${index + 1} (Tự động chọn)`,
-                        type_name: confirmedBooking.roomTypeName,
-                        price: confirmedBooking.roomPrice,
-                        num_adults: config.num_adults,
-                        num_children: config.num_children,
+                    rooms={confirmedBookings.flatMap((booking) =>
+                      booking.roomsConfig.map((config, idx) => {
+                        const room = rooms.find((r) => r.id === config.room_id);
+                        return {
+                          id: room?.id || 0,
+                          name: room?.name || `Phòng ${idx + 1}`,
+                          type_name: booking.roomTypeName,
+                          price: booking.roomPrice,
+                          num_adults: config.num_adults,
+                          num_children: config.num_children,
+                        };
                       })
                     )}
                     promoCode={searchParams.promo_code}
                     onCheckout={() => {
-                      // Navigate to booking page, truyền đúng roomsConfig
+                      // Gộp toàn bộ roomsConfig của các loại phòng
+                      const allRoomsConfig = confirmedBookings.flatMap(
+                        (booking) =>
+                          booking.roomsConfig.map((cfg) => ({
+                            ...cfg,
+                            room_type_id: booking.roomTypeId,
+                            room_type_name: booking.roomTypeName,
+                            room_type_price: booking.roomPrice,
+                          }))
+                      );
+
+                      // Chuẩn hóa cho backend: tạo mảng items
+                      const items = allRoomsConfig.map((cfg) => ({
+                        room_id: cfg.room_id,
+                        num_adults: cfg.num_adults,
+                        num_children: cfg.num_children,
+                        room_type_id: cfg.room_type_id,
+                        room_type_name: cfg.room_type_name,
+                        room_type_price: cfg.room_type_price,
+                        check_in: searchParams.check_in,
+                        check_out: searchParams.check_out,
+                      }));
+
                       navigate("/booking/multi-create", {
                         state: {
                           searchParams,
-                          roomsConfig: confirmedBooking.roomsConfig,
-                          numRooms: confirmedBooking.numRooms,
-                          autoAssign: true,
-                          roomTypeId: confirmedBooking.roomTypeId,
-                          roomPrice: confirmedBooking.roomPrice,
+                          roomsConfig: allRoomsConfig,
+                          confirmedBookings,
+                          selectedRoomIds: allRoomsConfig.map(
+                            (cfg) => cfg.room_id
+                          ),
+                          items,
                         },
                       });
                     }}
                     loading={loading}
                   />
-                ) : searchParams && selectedRoomIds.length > 0 ? (
-                  <BookingSidebar
-                    checkIn={searchParams.check_in}
-                    checkOut={searchParams.check_out}
-                    rooms={roomsConfig.map((config) => {
-                      const room = rooms.find((r) => r.id === config.room_id);
-                      return {
-                        id: room?.id || 0,
-                        name: room?.name || "",
-                        type_name: "",
-                        price: room?.price || 0,
-                        num_adults: config.num_adults,
-                        num_children: config.num_children,
-                      };
-                    })}
-                    promoCode={searchParams.promo_code}
-                    onCheckout={handleBooking}
-                    loading={loading}
-                  />
-                ) : searchParams ? (
+                ) : (
                   <div
                     className="bg-white p-6 shadow-lg"
                     style={{ borderRadius: 0 }}
@@ -419,7 +407,7 @@ const RoomSearchResults = () => {
                       </p>
                     </div>
                   </div>
-                ) : null}
+                )}
               </div>
             </Col>
           </Row>

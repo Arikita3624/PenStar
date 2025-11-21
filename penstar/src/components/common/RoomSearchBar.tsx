@@ -29,7 +29,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   const auth = useAuth();
   const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs, Dayjs] | null>(null);
-  const [numRooms, setNumRooms] = useState(1);
   const [promoCode, setPromoCode] = useState("");
 
   const handleSearch = () => {
@@ -47,10 +46,8 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
     const searchParams: RoomSearchParams = {
       check_in: dates[0].format("YYYY-MM-DD"),
       check_out: dates[1].format("YYYY-MM-DD"),
-      num_rooms: numRooms,
       promo_code: promoCode || undefined,
     };
-
     onSearch(searchParams);
   };
 
@@ -93,24 +90,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
             />
           </div>
 
-          {/* Số phòng */}
-          <div className="flex-1 min-w-[150px]">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Số phòng
-            </div>
-            <Select
-              size="large"
-              value={numRooms}
-              onChange={setNumRooms}
-              className="w-full"
-              suffixIcon={<HomeOutlined />}
-              style={{ borderRadius: 0 }}
-              options={Array.from({ length: 10 }, (_, i) => ({
-                label: `${i + 1} Phòng`,
-                value: i + 1,
-              }))}
-            />
-          </div>
+          {/* Đã xóa phần chọn số lượng phòng. Số lượng phòng sẽ chọn ở từng loại phòng trong RoomSearchResults. */}
 
           {/* Mã khuyến mãi */}
           <div className="flex-1 min-w-[180px]">

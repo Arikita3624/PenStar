@@ -379,50 +379,12 @@ export const updateMyBookingStatus = async (req, res) => {
       });
     }
 
-    // Nếu gửi stay_status_id thì xử lý như cũ
+    // Không cho phép user cập nhật stay_status_id (check-in/check-out)
     if (stay_status_id !== undefined) {
-      // Only allow check-in (2) and check-out (3)
-      if (![2, 3].includes(stay_status_id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Bạn chỉ có thể check-in hoặc check-out",
-        });
-      }
-
-      // Check-in requires: status = 1 (reserved) AND payment = paid
-      if (stay_status_id === 2) {
-        if (booking.stay_status_id !== 1) {
-          return res.status(400).json({
-            success: false,
-            message: "Chỉ có thể check-in khi booking đã được duyệt",
-          });
-        }
-        if (booking.payment_status !== "paid") {
-          return res.status(400).json({
-            success: false,
-            message: "Vui lòng thanh toán trước khi check-in",
-          });
-        }
-      }
-
-      // Check-out requires: status = 2 (checked_in)
-      if (stay_status_id === 3) {
-        if (booking.stay_status_id !== 2) {
-          return res.status(400).json({
-            success: false,
-            message: "Chỉ có thể check-out khi đã check-in",
-          });
-        }
-      }
-
-      const updated = await modelUpdateBookingStatus(id, { stay_status_id });
-      return res.json({
-        success: true,
+      return res.status(403).json({
+        success: false,
         message:
-          stay_status_id === 2
-            ? "Check-in thành công!"
-            : "Check-out thành công!",
-        data: updated,
+          "Chỉ admin hoặc nhân viên mới được phép check-in/check-out. Vui lòng liên hệ lễ tân hoặc quản trị viên!",
       });
     }
   } catch (err) {

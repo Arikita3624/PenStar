@@ -55,53 +55,9 @@ const BookingSuccess: React.FC = () => {
     }
   }, [id, fetchBooking]);
 
-  const handleCheckIn = async () => {
-    if (!booking?.id) return;
-    const bookingId = booking.id;
-    Modal.confirm({
-      title: "Xác nhận Check-in",
-      content:
-        "Bạn có muốn check-in vào phòng không? Trạng thái phòng sẽ chuyển sang Occupied.",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await updateMyBooking(bookingId, { stay_status_id: 2 }); // 2 = checked_in
-          message.success(
-            "Check-in thành công! Phòng đã chuyển sang trạng thái Occupied"
-          );
-          fetchBooking();
-        } catch {
-          message.error("Lỗi check-in");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
+  // Đã chuyển logic check-in sang phía admin. Người dùng không thể tự check-in.
 
-  const handleCheckOut = async () => {
-    if (!booking?.id) return;
-    const bookingId = booking.id;
-    Modal.confirm({
-      title: "Xác nhận Check-out",
-      content:
-        "Bạn có muốn check-out không? Phòng sẽ chuyển sang trạng thái Cleaning.",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await updateMyBooking(bookingId, { stay_status_id: 3 }); // 3 = checked_out
-          message.success(
-            "Check-out thành công! Phòng sẽ chuyển sang trạng thái Cleaning"
-          );
-          fetchBooking();
-        } catch {
-          message.error("Lỗi check-out");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
+  // chuyển logic check-out sang admin. Người dùng không thể tự check-out.
 
   const handleCancel = async () => {
     if (!booking?.id) return;
@@ -157,10 +113,6 @@ const BookingSuccess: React.FC = () => {
   const statusId = booking?.stay_status_id || 0;
   const paymentStatus = booking?.payment_status || "";
 
-  // Chỉ cho check-in khi: reserved (1) VÀ payment = paid
-  const canCheckIn = statusId === 1 && paymentStatus === "paid";
-  // Chỉ cho check-out khi: checked_in (2)
-  const canCheckOut = statusId === 2;
   // Có thể hủy khi: pending (6) HOẶC reserved (1)
   // Backend sẽ kiểm tra thêm điều kiện 24h
   const canCancel = statusId === 6 || statusId === 1;
@@ -370,14 +322,14 @@ const BookingSuccess: React.FC = () => {
                     paymentStatus === "paid"
                       ? "green"
                       : paymentStatus === "pending"
-                      ? "gold"
-                      : paymentStatus === "failed"
-                      ? "red"
-                      : paymentStatus === "refunded"
-                      ? "purple"
-                      : paymentStatus === "cancelled"
-                      ? "red"
-                      : "default"
+                        ? "gold"
+                        : paymentStatus === "failed"
+                          ? "red"
+                          : paymentStatus === "refunded"
+                            ? "purple"
+                            : paymentStatus === "cancelled"
+                              ? "red"
+                              : "default"
                   }
                 >
                   {paymentStatus?.toUpperCase() || "-"}
@@ -499,32 +451,6 @@ const BookingSuccess: React.FC = () => {
                 Xem booking của tôi
               </Button>
               <Space size="small">
-                {canCheckIn && (
-                  <Button
-                    type="primary"
-                    size="middle"
-                    onClick={handleCheckIn}
-                    loading={updating}
-                  >
-                    Check-in
-                  </Button>
-                )}
-                {!canCheckIn && statusId === 1 && paymentStatus !== "paid" && (
-                  <Button type="primary" size="middle" disabled>
-                    Check-in (Chờ thanh toán)
-                  </Button>
-                )}
-                {canCheckOut && (
-                  <Button
-                    type="primary"
-                    danger
-                    size="middle"
-                    onClick={handleCheckOut}
-                    loading={updating}
-                  >
-                    Check-out
-                  </Button>
-                )}
                 {canChangeRoom && booking?.items?.[0] && (
                   <Button
                     type="default"
