@@ -23,7 +23,6 @@ import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
 import MultiRoomBookingCreate from "@/components/pages/clients/bookings/MultiRoomBookingCreate";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
-import ChangeRoomPage from "@/components/pages/clients/bookings/ChangeRoomPage";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
@@ -83,14 +82,7 @@ const AppRouter = () => {
             }
           />
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
-          <Route
-            path="bookings/:id/change-room"
-            element={
-              <RequireRole role="customer">
-                <ChangeRoomPage />
-              </RequireRole>
-            }
-          />
+
           <Route
             path="bookings/payment-method"
             element={<PaymentMethodSelect />}
@@ -121,7 +113,6 @@ const AppRouter = () => {
             }
           />
           <Route path="bookings/:id" element={<BookingDetail />} />
-          <Route path="bookings/:id/change-room" element={<ChangeRoomPage />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
           <Route path="rooms" element={<Rooms />} />

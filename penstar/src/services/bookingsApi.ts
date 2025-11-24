@@ -3,8 +3,6 @@ import type {
   Booking,
   BookingUpdatePayload,
   BookingShort,
-  ChangeRoomRequest,
-  ChangeRoomResponse,
 } from "@/types/bookings";
 
 export const createBooking = async (bookingData: Booking): Promise<Booking> => {
@@ -52,17 +50,5 @@ export const updateMyBooking = async (
 
 export const confirmCheckout = async (id: number): Promise<Booking> => {
   const { data } = await instance.post(`/bookings/${id}/confirm-checkout`);
-  return data.data;
-};
-
-// Change room in booking
-export const changeRoom = async (
-  bookingId: number,
-  payload: ChangeRoomRequest
-): Promise<ChangeRoomResponse> => {
-  const { data } = await instance.patch(
-    `/bookings/${bookingId}/change-room`,
-    payload
-  );
   return data.data;
 };

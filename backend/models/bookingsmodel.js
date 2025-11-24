@@ -104,6 +104,33 @@ export const createBooking = async (data) => {
   try {
     await client.query("BEGIN");
 
+    // === AUTO ASSIGN ROOMS ===
+    if (Array.isArray(data.rooms_config)) {
+      let bookingItems = [];
+      for (const cfg of data.rooms_config) {
+        const assignedRooms = await autoAssignRooms(
+          cfg.room_type_id,
+          cfg.quantity,
+          cfg.check_in,
+          cfg.check_out,
+          cfg.num_adults,
+          cfg.num_children
+        );
+        for (let i = 0; i < cfg.quantity; i++) {
+          bookingItems.push({
+            room_id: assignedRooms[i].id,
+            room_type_id: cfg.room_type_id,
+            check_in: cfg.check_in,
+            check_out: cfg.check_out,
+            room_type_price: cfg.room_type_price,
+            num_adults: cfg.num_adults,
+            num_children: cfg.num_children,
+          });
+        }
+      }
+      data.items = bookingItems;
+    }
+
     console.log("Creating booking with data:", JSON.stringify(data, null, 2));
 
     const {
@@ -236,10 +263,11 @@ export const createBooking = async (data) => {
 
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
       for (const item of data.items) {
         const {
           room_id,
+          room_type_id,
           check_in,
           check_out,
           room_type_price,
@@ -250,6 +278,7 @@ export const createBooking = async (data) => {
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
+          room_type_id,
           check_in,
           check_out,
           room_type_price,
@@ -268,11 +297,12 @@ export const createBooking = async (data) => {
 
     // insert booking_items with multi-room support if rooms array provided
     if (Array.isArray(data.rooms)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_type_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`;
 
       for (const room of data.rooms) {
         const {
           room_id,
+          room_type_id,
           num_adults,
           num_children,
           special_requests,
@@ -285,6 +315,7 @@ export const createBooking = async (data) => {
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
+          room_type_id,
           check_in,
           check_out,
           room_type_price,
@@ -439,8 +470,11 @@ export const confirmCheckout = async (id) => {
       "SELECT stay_status_id FROM bookings WHERE id = $1",
       [id]
     );
-    if (!checkBooking.rows[0] || checkBooking.rows[0].stay_status_id !== 3) {
-      throw new Error("Booking không ở trạng thái checked_out");
+    if (
+      !checkBooking.rows[0] ||
+      ![2, 3].includes(checkBooking.rows[0].stay_status_id)
+    ) {
+      throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
     }
 
     // Get rooms from this booking
@@ -450,12 +484,19 @@ export const confirmCheckout = async (id) => {
     );
 
     // Update all rooms to "cleaning" status
+
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         "cleaning",
         item.room_id,
       ]);
     }
+
+    // Update booking stay_status_id to checked_out (3)
+    await client.query(
+      "UPDATE bookings SET stay_status_id = $1 WHERE id = $2",
+      [3, id]
+    );
 
     await client.query("COMMIT");
 

@@ -68,7 +68,6 @@ const RoomEdit = () => {
             name: data.name,
             type_id: data.type_id,
             floor_id: data.floor_id,
-            price: data.price,
             short_desc: data.short_desc,
             long_desc: data.long_desc,
             status: data.status,
@@ -328,15 +327,15 @@ const RoomEdit = () => {
                           },
                         ]
                       : existingThumbUrl
-                      ? [
-                          {
-                            uid: "existing",
-                            name: "current",
-                            status: "done",
-                            url: existingThumbUrl,
-                          },
-                        ]
-                      : []
+                        ? [
+                            {
+                              uid: "existing",
+                              name: "current",
+                              status: "done",
+                              url: existingThumbUrl,
+                            },
+                          ]
+                        : []
                   }
                   beforeUpload={(file) => {
                     const f = file as RcFile & { lastModified?: number };

@@ -8,7 +8,6 @@ export interface RoomType {
   base_occupancy?: number;
   thumbnail?: string;
   images?: string[];
-  amenities?: string[];
   created_at: string;
   updated_at: string;
   price?: number;

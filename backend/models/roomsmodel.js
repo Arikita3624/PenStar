@@ -34,20 +34,12 @@ export const getRoomID = async (id) => {
 };
 
 export const createRoom = async (data) => {
-  const {
-    name,
-    type_id,
-    price,
-    short_desc,
-    long_desc,
-    status,
-    thumbnail,
-    floor_id,
-  } = data;
+  const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
+    data;
   const resuit = await pool.query(
-    `INSERT INTO rooms (name, type_id, price, short_desc, long_desc, status, thumbnail, floor_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [name, type_id, price, short_desc, long_desc, status, thumbnail, floor_id]
+    `INSERT INTO rooms (name, type_id, short_desc, long_desc, status, thumbnail, floor_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [name, type_id, short_desc, long_desc, status, thumbnail, floor_id]
   );
   console.log(resuit);
   return resuit.rows[0];

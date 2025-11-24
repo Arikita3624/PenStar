@@ -3,9 +3,9 @@ import Joi from "joi";
 export const bookingItemSchema = Joi.object({
   booking_id: Joi.number().positive().required(),
   room_id: Joi.number().positive().required(),
+  room_type_id: Joi.number().positive().required(),
   check_in: Joi.string().isoDate().required(),
   check_out: Joi.string().isoDate().required(),
-  room_type_price: Joi.number().min(0).required(),
 });
 
 export const bookingServiceSchema = Joi.object({
@@ -62,7 +62,6 @@ export const bookingCreateSchema = Joi.object({
         room_id: Joi.number().positive().required(),
         check_in: Joi.string().isoDate().required(),
         check_out: Joi.string().isoDate().required(),
-        room_type_price: Joi.number().min(0).required(),
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),
         guests: Joi.array()

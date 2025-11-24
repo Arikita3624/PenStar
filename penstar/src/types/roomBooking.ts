@@ -4,10 +4,11 @@ import type { RoomType } from "./roomtypes";
 // Types for room booking configuration
 export interface RoomBookingConfig {
   room_id: number;
+  room_type_id: number;
   num_adults: number;
   num_children: number;
   special_requests?: string;
-  service_ids?: number[];
+  price: number;
 }
 
 // Props for RoomTypeCard component

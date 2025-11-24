@@ -39,7 +39,7 @@ export const getBookingById = async (req, res) => {
         .json({ success: false, message: "Booking not found" });
     }
 
-    // fetch items and services
+    // fetch items and services only
     const itemsRes = await pool.query(
       "SELECT * FROM booking_items WHERE booking_id = $1",
       [id]
@@ -142,6 +142,7 @@ export const createBooking = async (req, res) => {
             room_type_price,
             num_adults,
             num_children,
+            room_type_id,
           });
         }
       }

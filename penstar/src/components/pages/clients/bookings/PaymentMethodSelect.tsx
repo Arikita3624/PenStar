@@ -262,22 +262,27 @@ const PaymentMethodSelect: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              type="primary"
-              onClick={handleConfirm}
-              disabled={!bookingInfo}
-              size="large"
-              block
-              style={{
-                background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-                borderColor: "transparent",
-                height: "44px",
-                fontSize: "15px",
-                fontWeight: "600",
-              }}
-            >
-              Xác nhận và thanh toán
-            </Button>
+            <div className="flex justify-between">
+              <Button onClick={() => navigate(-1)} style={{ minWidth: 120 }}>
+                Quay lại
+              </Button>
+              <Button
+                type="primary"
+                onClick={handleConfirm}
+                disabled={!bookingInfo}
+                size="large"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                  borderColor: "transparent",
+                  height: "44px",
+                  fontSize: "15px",
+                  fontWeight: "600",
+                }}
+              >
+                Xác nhận và thanh toán
+              </Button>
+            </div>
           </Space>
         </Card>
       </div>

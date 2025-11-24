@@ -11,11 +11,7 @@ import {
   message,
   Modal,
 } from "antd";
-import {
-  updateMyBooking,
-  cancelBooking,
-  getBookingById,
-} from "@/services/bookingsApi";
+import { cancelBooking, getBookingById } from "@/services/bookingsApi";
 import type { Booking } from "@/types/bookings";
 import dayjs from "dayjs";
 
@@ -116,9 +112,14 @@ const BookingSuccess: React.FC = () => {
   // Có thể hủy khi: pending (6) HOẶC reserved (1)
   // Backend sẽ kiểm tra thêm điều kiện 24h
   const canCancel = statusId === 6 || statusId === 1;
-  // Có thể đổi phòng khi: pending (6) HOẶC reserved (1), VÀ chưa đổi quá 1 lần
-  const canChangeRoom =
-    (statusId === 6 || statusId === 1) && (booking?.change_count || 0) < 1;
+
+  // Tính tổng số người lớn và trẻ em từ tất cả các phòng
+  const totalAdults = Array.isArray(booking?.items)
+    ? booking!.items.reduce((sum, item) => sum + (item.num_adults || 0), 0)
+    : 0;
+  const totalChildren = Array.isArray(booking?.items)
+    ? booking!.items.reduce((sum, item) => sum + (item.num_children || 0), 0)
+    : 0;
 
   return (
     <div className="bg-gray-50 py-6">
@@ -270,9 +271,6 @@ const BookingSuccess: React.FC = () => {
                     <div className="font-bold text-base text-gray-700 mb-0.5">
                       Đã check-out
                     </div>
-                    <div className="text-gray-700 text-sm">
-                      Cảm ơn bạn đã checkout! Chờ admin xác nhận để hoàn tất.
-                    </div>
                   </div>
                 </div>
               </div>
@@ -371,23 +369,15 @@ const BookingSuccess: React.FC = () => {
                       {booking?.items?.length || 0} phòng
                     </span>
                   </div>
-                  {booking?.items?.[0] && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Số người lớn:</span>
-                        <span className="font-semibold">
-                          {booking.items[0].num_adults || 1} người
-                        </span>
-                      </div>
-                      {(booking.items[0].num_children || 0) > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Số trẻ em:</span>
-                          <span className="font-semibold">
-                            {booking.items[0].num_children} trẻ
-                          </span>
-                        </div>
-                      )}
-                    </>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Số người lớn:</span>
+                    <span className="font-semibold">{totalAdults}</span>
+                  </div>
+                  {totalChildren > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Số trẻ em:</span>
+                      <span className="font-semibold">{totalChildren} trẻ</span>
+                    </div>
                   )}
                   <div className="pt-2 border-t border-blue-200">
                     <p className="text-xs text-blue-800 flex items-start gap-2">
@@ -451,42 +441,6 @@ const BookingSuccess: React.FC = () => {
                 Xem booking của tôi
               </Button>
               <Space size="small">
-                {canChangeRoom && booking?.items?.[0] && (
-                  <Button
-                    type="default"
-                    size="middle"
-                    onClick={() => {
-                      // Chuyển tất cả phòng sang trang đổi phòng
-                      navigate(`/bookings/${booking.id}/change-room`, {
-                        state: {
-                          bookingId: booking.id,
-                          items: booking.items.map((item) => {
-                            const nights = Math.ceil(
-                              (new Date(item.check_out).getTime() -
-                                new Date(item.check_in).getTime()) /
-                                (1000 * 60 * 60 * 24)
-                            );
-                            return {
-                              bookingItemId: item.id,
-                              currentRoom: {
-                                id: item.room_id,
-                                name: `Phòng ${item.room_id}`,
-                                price: item.room_price / nights,
-                                type_id: item.room_id,
-                              },
-                              checkIn: item.check_in,
-                              checkOut: item.check_out,
-                              numAdults: item.num_adults || 1,
-                              numChildren: item.num_children || 0,
-                            };
-                          }),
-                        },
-                      });
-                    }}
-                  >
-                    Đổi phòng
-                  </Button>
-                )}
                 {canCancel && (
                   <Button
                     danger

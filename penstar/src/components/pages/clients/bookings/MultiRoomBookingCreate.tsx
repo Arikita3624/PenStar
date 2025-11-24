@@ -17,14 +17,10 @@ import {
   MailOutlined,
   HomeOutlined,
 } from "@ant-design/icons";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getRoomID } from "@/services/roomsApi";
-import { getServices } from "@/services/servicesApi";
+import { useMutation } from "@tanstack/react-query";
 import { createBooking } from "@/services/bookingsApi";
 import useAuth from "@/hooks/useAuth";
 import type { RoomSearchParams } from "@/types/room";
-import type { Room } from "@/types/room";
-import type { Services } from "@/types/services";
 import type { RoomBookingConfig } from "@/types/roomBooking";
 import type { RoomBookingData } from "@/types/bookings";
 
@@ -47,8 +43,13 @@ const MultiRoomBookingCreate = () => {
     () => location.state?.selectedRoomIds || [],
     [location.state]
   );
-  const autoAssign = location.state?.autoAssign || false;
-  const roomTypeId = location.state?.roomTypeId;
+  const autoAssign = location.state?.autoAssign || true;
+  console.log("[MultiRoomBookingCreate] location.state:", location.state);
+  const roomTypeId =
+    location.state?.roomTypeId ??
+    (Array.isArray(location.state?.roomsConfig)
+      ? location.state.roomsConfig[0]?.room_type_id
+      : undefined);
   const roomPrice = location.state?.roomPrice || 0;
   const searchParams: RoomSearchParams = location.state?.searchParams || {};
   const roomsConfig: RoomBookingConfig[] = useMemo(
@@ -66,21 +67,6 @@ const MultiRoomBookingCreate = () => {
   });
   const [notes, setNotes] = useState("");
 
-  // Fetch rooms & services
-  const { data: fetchedRooms = [] } = useQuery<Room[]>({
-    queryKey: ["multiRoomDetails", selectedRoomIds],
-    queryFn: async () => {
-      const promises = selectedRoomIds.map((id) => getRoomID(id));
-      return Promise.all(promises);
-    },
-    enabled: selectedRoomIds.length > 0 && !autoAssign,
-  });
-
-  const { data: services = [] } = useQuery<Services[]>({
-    queryKey: ["services"],
-    queryFn: getServices,
-  });
-
   // Mutation
   const createBookingMutation = useMutation({
     mutationFn: createBooking,
@@ -92,7 +78,16 @@ const MultiRoomBookingCreate = () => {
       });
     },
     onError: (err: any) => {
-      message.error(err.response?.data?.message || "Đặt phòng thất bại");
+      // Log chi tiết lỗi backend trả về
+      if (err?.response?.data) {
+        console.error("Booking error:", err.response.data);
+        message.error(
+          err.response.data.message || JSON.stringify(err.response.data)
+        );
+      } else {
+        console.error("Booking error:", err);
+        message.error("Đặt phòng thất bại");
+      }
     },
   });
 
@@ -132,10 +127,13 @@ const MultiRoomBookingCreate = () => {
       setRoomsData(
         roomsConfig.map((cfg) => ({
           room_id: 0,
+          room_type_id: cfg.room_type_id,
           num_adults: cfg.num_adults ?? 1,
           num_children: cfg.num_children ?? 0,
-          special_requests: cfg.special_requests || "",
-          service_ids: Array.isArray(cfg.service_ids) ? cfg.service_ids : [],
+          special_requests: "",
+          price: cfg.price,
+          check_in: searchParams.check_in,
+          check_out: searchParams.check_out,
         }))
       );
       return;
@@ -155,7 +153,10 @@ const MultiRoomBookingCreate = () => {
           num_adults: cfg.num_adults ?? 1,
           num_children: cfg.num_children ?? 0,
           special_requests: "",
-          service_ids: Array.isArray(cfg.service_ids) ? cfg.service_ids : [],
+          room_type_id: cfg.room_type_id,
+          price: cfg.price,
+          check_in: searchParams.check_in,
+          check_out: searchParams.check_out,
         };
       })
     );
@@ -184,30 +185,14 @@ const MultiRoomBookingCreate = () => {
     return 0;
   }, [autoAssign, roomPrice, numRooms, nights, location.state]);
 
-  const totalServicePrice = useMemo(() => {
-    // Bỏ tính dịch vụ, luôn trả về 0
-    return 0;
-  }, [roomsData, services]);
-
-  const totalPrice = totalRoomPrice + totalServicePrice;
   // Bỏ dịch vụ, chỉ lấy tổng tiền phòng
-  const totalPriceNoService = totalRoomPrice;
+  const totalPrice = totalRoomPrice;
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(price);
-
-  const handleRoomDataChange = (
-    index: number,
-    field: keyof RoomBookingData,
-    value: any
-  ) => {
-    setRoomsData((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
-    );
-  };
 
   const validateStep = () => {
     if (currentStep === 0) {
@@ -225,79 +210,61 @@ const MultiRoomBookingCreate = () => {
   const handlePrev = () => setCurrentStep((s) => s - 1);
 
   const handleSubmit = () => {
+    console.log("[MultiRoomBookingCreate] Submit button clicked", {
+      currentStep,
+      autoAssign,
+      roomTypeId,
+      roomsData,
+      customerInfo,
+      totalPrice,
+      searchParams,
+    });
     if (!validateStep()) return;
 
     const checkin = searchParams.check_in!;
     const checkout = searchParams.check_out!;
 
-    if (autoAssign && roomTypeId) {
-      const grouped: Record<string, AutoAssignRoomConfig> = {};
-      roomsData.forEach((room) => {
-        const key = `${room.num_adults}-${room.num_children}`;
-        if (!grouped[key]) {
-          grouped[key] = {
-            room_type_id: roomTypeId,
-            quantity: 0,
-            check_in: checkin,
-            check_out: checkout,
-            room_type_price: Number(roomPrice) * nights,
-            num_adults: room.num_adults,
-            num_children: room.num_children,
+    if (autoAssign && roomsConfig.length > 0) {
+      // Lấy danh sách loại phòng từ API
+      import("@/services/roomTypeApi").then(({ getRoomTypes }) => {
+        getRoomTypes().then((roomTypes) => {
+          const grouped: Record<string, AutoAssignRoomConfig> = {};
+          roomsData.forEach((room) => {
+            const roomType = roomTypes.find(
+              (rt) => rt.id === room.room_type_id
+            );
+            const price = roomType ? roomType.price : 0;
+            const key = `${room.room_type_id}-${room.num_adults}-${room.num_children}`;
+            if (!grouped[key]) {
+              grouped[key] = {
+                room_type_id: room.room_type_id,
+                quantity: 0,
+                check_in: checkin,
+                check_out: checkout,
+                room_type_price: price * nights,
+                num_adults: room.num_adults,
+                num_children: room.num_children,
+              };
+            }
+            grouped[key].quantity += 1;
+          });
+          const payload = {
+            customer_name: customerInfo.customer_name,
+            customer_email: customerInfo.customer_email,
+            customer_phone: customerInfo.customer_phone,
+            promo_code: searchParams.promo_code || undefined,
+            notes: notes || undefined,
+            total_price: totalPrice,
+            payment_status: "unpaid",
+            booking_method: "online",
+            stay_status_id: 1,
+            rooms_config: Object.values(grouped),
           };
-        }
-        grouped[key].quantity += 1;
+          console.log("[MultiRoomBookingCreate] Payload gửi lên:", payload);
+          createBookingMutation.mutate(payload as any);
+        });
       });
-
-      const payload = {
-        customer_name: customerInfo.customer_name,
-        customer_email: customerInfo.customer_email,
-        customer_phone: customerInfo.customer_phone,
-        promo_code: searchParams.promo_code || undefined,
-        notes: notes || undefined,
-        total_price: totalPriceNoService,
-        payment_status: "unpaid",
-        booking_method: "online",
-        stay_status_id: 1,
-        rooms_config: Object.values(grouped),
-      };
-
-      createBookingMutation.mutate(payload as any);
-      return;
     }
-
-    // Old mode
-    // Chỉ truyền room_type_price, không truyền room_price nữa
-    const items = roomsData.map((d, i) => {
-      let roomTypePrice = 0;
-      if (Array.isArray(location.state?.items) && location.state.items[i]) {
-        roomTypePrice = Number(location.state.items[i].room_type_price || 0);
-      } else {
-        roomTypePrice = Number(roomPrice || 0);
-      }
-      return {
-        room_id: d.room_id,
-        check_in: checkin,
-        check_out: checkout,
-        room_type_price: roomTypePrice * nights,
-        num_adults: d.num_adults,
-        num_children: d.num_children,
-      };
-    });
-
-    const payload = {
-      customer_name: customerInfo.customer_name,
-      customer_email: customerInfo.customer_email,
-      customer_phone: customerInfo.customer_phone,
-      promo_code: searchParams.promo_code || undefined,
-      notes: notes || undefined,
-      total_price: totalPriceNoService,
-      payment_status: "unpaid",
-      booking_method: "online",
-      stay_status_id: 1,
-      items,
-    };
-
-    createBookingMutation.mutate(payload as any);
   };
 
   return (
@@ -380,10 +347,10 @@ const MultiRoomBookingCreate = () => {
           {currentStep === 1 && (
             <Collapse accordion>
               {Array.isArray(location.state?.items) &&
-                location.state.items.map((item, idx) => {
+                location.state.items.map((item: any, idx: number) => {
                   const roomName = item.room_type_name
-                    ? `${item.room_type_name} - Phòng ${item.room_id}`
-                    : `Phòng ${item.room_id}`;
+                    ? `${item.room_type_name} - Phòng ${idx + 1}`
+                    : `Phòng ${idx + 1}`;
                   return (
                     <Panel
                       header={
@@ -457,12 +424,6 @@ const MultiRoomBookingCreate = () => {
                     <span>Tiền phòng ({nights} đêm)</span>
                     <strong>{formatPrice(totalRoomPrice)}</strong>
                   </div>
-                  {totalServicePrice > 0 && (
-                    <div className="flex justify-between">
-                      <span>Dịch vụ bổ sung</span>
-                      <strong>{formatPrice(totalServicePrice)}</strong>
-                    </div>
-                  )}
                   <div className="flex justify-between pt-4 border-t-2 border-gray-300">
                     <span className="text-2xl font-bold">TỔNG CỘNG</span>
                     <span className="text-2xl font-bold text-red-600">
@@ -475,9 +436,7 @@ const MultiRoomBookingCreate = () => {
           )}
 
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <Button onClick={handlePrev} disabled={currentStep === 0}>
-              Quay lại
-            </Button>
+            <Button onClick={handlePrev}>Quay lại</Button>
             {currentStep < 2 ? (
               <Button type="primary" onClick={handleNext}>
                 Tiếp theo

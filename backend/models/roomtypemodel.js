@@ -9,7 +9,7 @@ export const getRoomTypes = async () => {
       rt.created_at,
       rt.max_adults,
       rt.max_children,
-      rt.amenities,
+      
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price
@@ -18,7 +18,6 @@ export const getRoomTypes = async () => {
   // Parse JSON fields for each row
   return result.rows.map((row) => {
     if (row.images) row.images = JSON.parse(row.images);
-    if (row.amenities) row.amenities = JSON.parse(row.amenities);
     return row;
   });
 };
@@ -29,20 +28,18 @@ export const createRoomType = async (data) => {
     description,
     thumbnail,
     images,
-    amenities,
     capacity,
     max_adults,
     max_children,
     price,
   } = data;
   const result = await pool.query(
-    "INSERT INTO room_types (name, description, thumbnail, images, amenities, capacity, max_adults, max_children, price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
     [
       name,
       description,
       thumbnail || null,
       images ? JSON.stringify(images) : null,
-      amenities ? JSON.stringify(amenities) : null,
       capacity,
       max_adults,
       max_children,
@@ -62,7 +59,6 @@ export const getRoomTypeById = async (id) => {
       rt.created_at,
       rt.max_adults,
       rt.max_children,
-      rt.amenities,
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price
@@ -74,33 +70,15 @@ export const getRoomTypeById = async (id) => {
   if (row) {
     // Parse JSON fields
     if (row.images) row.images = JSON.parse(row.images);
-    if (row.amenities) row.amenities = JSON.parse(row.amenities);
   }
   return row;
 };
 
 export const updateRoomType = async (id, data) => {
-  const {
-    name,
-    description,
-    amenities,
-    capacity,
-    max_adults,
-    max_children,
-    price,
-  } = data;
+  const { name, description, capacity, max_adults, max_children, price } = data;
   const result = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2, amenities = $3, capacity = $4, max_adults = $5, max_children = $6, price = $7 WHERE id = $8 RETURNING *",
-    [
-      name,
-      description,
-      amenities ? JSON.stringify(amenities) : null,
-      capacity,
-      max_adults,
-      max_children,
-      price,
-      id,
-    ]
+    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6 WHERE id = $7 RETURNING *",
+    [name, description, capacity, max_adults, max_children, price, id]
   );
 
   // Get thumbnail from room_type_images
