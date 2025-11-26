@@ -33,7 +33,6 @@ import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
-import BookingCreate from "@/components/pages/admin/bookings/BookingCreate";
 
 const AppRouter = () => {
   return (
@@ -104,14 +103,6 @@ const AppRouter = () => {
 
           {/* Bookings management - Staff+ */}
           <Route path="bookings" element={<BookingsList />} />
-          <Route
-            path="bookings/create"
-            element={
-              <RequireRole role="staff">
-                <BookingCreate />
-              </RequireRole>
-            }
-          />
           <Route path="bookings/:id" element={<BookingDetail />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}

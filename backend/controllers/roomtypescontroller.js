@@ -34,6 +34,7 @@ export const createRoomType = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Room type name already exists" });
     }
+    // Accept devices_id as array of device IDs
     const newRoomType = await modelCreateRoomType(req.body);
     res.status(201).json({
       success: true,
@@ -79,6 +80,7 @@ export const updateRoomType = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Room type name already exists" });
     }
+    // Accept devices_id as array of device IDs
     const updated = await modelUpdateRoomType(id, req.body);
     if (!updated)
       return res
