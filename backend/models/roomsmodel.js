@@ -148,6 +148,7 @@ export const searchAvailableRooms = async ({
   floor_id = null,
   num_adults = 1,
   num_children = 0,
+  status = null,
 }) => {
   console.log("🔍 Search params:", {
     check_in,
@@ -160,18 +161,24 @@ export const searchAvailableRooms = async ({
 
   const totalGuests = num_adults + num_children;
 
-  // Simplified query - chỉ check available và không conflict booking
+  // Cho phép truyền vào trạng thái phòng cần kiểm tra (mặc định là 'available')
+  const statusList = Array.isArray(status)
+    ? status
+    : status
+    ? [status]
+    : ["available"];
+
   let query = `
     SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.capacity
     FROM rooms r
     LEFT JOIN room_types rt ON r.type_id = rt.id
-    WHERE r.status = 'available'
-      AND rt.capacity >= $1
+    WHERE r.status = ANY($1)
+      AND rt.capacity >= $2
   `;
 
-  const params = [totalGuests];
+  const params = [statusList, totalGuests];
   console.log("📦 Initial params:", params);
-  let paramIndex = 2;
+  let paramIndex = 3;
 
   // Filter theo loại phòng nếu có
   if (room_type_id) {
@@ -202,7 +209,6 @@ export const searchAvailableRooms = async ({
   params.push(check_in, check_out);
 
   // Sắp xếp theo tầng (floor_id) và tên phòng (name) tăng dần
-  // Điều này đảm bảo: Tầng 2 trước, trong cùng tầng thì P301 < P302 < P303...
   query += ` ORDER BY r.floor_id ASC, r.name ASC`;
 
   console.log("📝 Final query:", query);

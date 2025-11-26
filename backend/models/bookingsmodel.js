@@ -326,26 +326,7 @@ export const createBooking = async (data) => {
 
         const booking_item_id = itemResult.rows[0].id;
 
-        // Insert services for this room
-        if (Array.isArray(room.service_ids) && room.service_ids.length > 0) {
-          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5)`;
-          for (const service_id of room.service_ids) {
-            // Get service price
-            const serviceResult = await client.query(
-              "SELECT price FROM services WHERE id = $1",
-              [service_id]
-            );
-            const service_price = serviceResult.rows[0]?.price || 0;
-
-            await client.query(insertServiceText, [
-              booking.id,
-              booking_item_id, // Link service to specific room
-              service_id,
-              1, // quantity default to 1
-              service_price,
-            ]);
-          }
-        }
+        // ...existing code...
 
         // Update room status to 'pending'
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
@@ -355,19 +336,7 @@ export const createBooking = async (data) => {
       }
     }
 
-    // insert booking_services if provided
-    if (Array.isArray(data.services)) {
-      const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4) RETURNING *`;
-      for (const s of data.services) {
-        const { service_id, quantity, total_service_price } = s;
-        await client.query(insertServiceText, [
-          booking.id,
-          service_id,
-          quantity,
-          total_service_price,
-        ]);
-      }
-    }
+    // ...existing code...
 
     await client.query("COMMIT");
     return bookingWithStatus;

@@ -15,6 +15,7 @@ import bookingItemsRouter from "./routers/booking_items.js";
 import bookingServicesRouter from "./routers/booking_services.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import paymentRouter from "./routers/payment.js";
+import devicesRouter from "./routers/devices.js";
 dotenv.config();
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/booking-items", bookingItemsRouter);
 app.use("/api/booking-services", bookingServicesRouter);
 app.use("/api/stay-status", stayStatusRouter);
 app.use("/api/payment", paymentRouter);
+app.use("/api/devices", devicesRouter);
 
 import path from "path";
 // serve uploaded files from /uploads

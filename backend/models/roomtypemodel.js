@@ -9,17 +9,49 @@ export const getRoomTypes = async () => {
       rt.created_at,
       rt.max_adults,
       rt.max_children,
-      
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
-      rt.price
+      rt.price,
+      rt.devices_id,
+      d.id as device_id,
+      d.name as device_name,
+      d.type as device_type,
+      d.fee as device_fee,
+      d.description as device_description
     FROM room_types rt
+    LEFT JOIN LATERAL (
+      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
+    ) d ON TRUE
   `);
-  // Parse JSON fields for each row
-  return result.rows.map((row) => {
-    if (row.images) row.images = JSON.parse(row.images);
-    return row;
-  });
+  // Group devices for each room type
+  const roomTypes = {};
+  for (const row of result.rows) {
+    if (!roomTypes[row.id]) {
+      roomTypes[row.id] = {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        created_at: row.created_at,
+        max_adults: row.max_adults,
+        max_children: row.max_children,
+        capacity: row.capacity,
+        thumbnail: row.thumbnail,
+        price: row.price,
+        devices_id: row.devices_id,
+        devices: [],
+      };
+    }
+    if (row.device_id) {
+      roomTypes[row.id].devices.push({
+        id: row.device_id,
+        name: row.device_name,
+        type: row.device_type,
+        fee: row.device_fee,
+        description: row.device_description,
+      });
+    }
+  }
+  return Object.values(roomTypes);
 };
 
 export const createRoomType = async (data) => {
@@ -32,9 +64,10 @@ export const createRoomType = async (data) => {
     max_adults,
     max_children,
     price,
+    devices_id,
   } = data;
   const result = await pool.query(
-    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price, devices_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
     [
       name,
       description,
@@ -44,9 +77,9 @@ export const createRoomType = async (data) => {
       max_adults,
       max_children,
       price,
+      devices_id || [],
     ]
   );
-  console.log(result);
   return result.rows[0];
 };
 
@@ -61,8 +94,17 @@ export const getRoomTypeById = async (id) => {
       rt.max_children,
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
-      rt.price
-    FROM room_types rt 
+      rt.price,
+      rt.devices_id,
+      d.id as device_id,
+      d.name as device_name,
+      d.type as device_type,
+      d.fee as device_fee,
+      d.description as device_description
+    FROM room_types rt
+    LEFT JOIN LATERAL (
+      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
+    ) d ON TRUE
     WHERE rt.id = $1`,
     [id]
   );
@@ -70,28 +112,90 @@ export const getRoomTypeById = async (id) => {
   if (row) {
     // Parse JSON fields
     if (row.images) row.images = JSON.parse(row.images);
+    // Collect all devices
+    const devices = [];
+    for (const r of result.rows) {
+      if (r.device_id) {
+        devices.push({
+          id: r.device_id,
+          name: r.device_name,
+          type: r.device_type,
+          fee: r.device_fee,
+          description: r.device_description,
+        });
+      }
+    }
+    row.devices = devices;
   }
   return row;
 };
 
 export const updateRoomType = async (id, data) => {
-  const { name, description, capacity, max_adults, max_children, price } = data;
+  const {
+    name,
+    description,
+    capacity,
+    max_adults,
+    max_children,
+    price,
+    devices_id,
+  } = data;
   const result = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6 WHERE id = $7 RETURNING *",
-    [name, description, capacity, max_adults, max_children, price, id]
+    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6, devices_id = $7 WHERE id = $8 RETURNING *",
+    [
+      name,
+      description,
+      capacity,
+      max_adults,
+      max_children,
+      price,
+      devices_id || [],
+      id,
+    ]
   );
 
-  // Get thumbnail from room_type_images
-  const withThumbnail = await pool.query(
+  // Get thumbnail and devices
+  const withDevices = await pool.query(
     `SELECT 
-      rt.*,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail
-    FROM room_types rt 
+      rt.id,
+      rt.name,
+      rt.description,
+      rt.created_at,
+      rt.max_adults,
+      rt.max_children,
+      rt.capacity,
+      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
+      rt.price,
+      rt.devices_id,
+      d.id as device_id,
+      d.name as device_name,
+      d.type as device_type,
+      d.fee as device_fee,
+      d.description as device_description
+    FROM room_types rt
+    LEFT JOIN LATERAL (
+      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
+    ) d ON TRUE
     WHERE rt.id = $1`,
     [id]
   );
-
-  return withThumbnail.rows[0];
+  const row = withDevices.rows[0];
+  if (row) {
+    const devices = [];
+    for (const r of withDevices.rows) {
+      if (r.device_id) {
+        devices.push({
+          id: r.device_id,
+          name: r.device_name,
+          type: r.device_type,
+          fee: r.device_fee,
+          description: r.device_description,
+        });
+      }
+    }
+    row.devices = devices;
+  }
+  return row;
 };
 
 export const deleteRoomType = async (id) => {
