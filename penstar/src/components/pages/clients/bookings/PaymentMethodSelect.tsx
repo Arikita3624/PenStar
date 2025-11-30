@@ -3,6 +3,7 @@ import React from "react";
 import { Card, Radio, Button, Space, Typography } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPayment } from "@/services/paymentApi";
+import { formatPrice } from "@/utils/formatPrice";
 
 // Logo components với ảnh chính thức
 const VNPayLogo = () => (
@@ -132,8 +133,13 @@ const PaymentMethodSelect: React.FC = () => {
       const { updateMyBooking } = await import("@/services/bookingsApi");
       await updateMyBooking(bookingId, { payment_method: method });
       if (method === "vnpay") {
-        // Lưu bookingId vào localStorage để PaymentResult callback có thể lấy
+        // Lưu bookingId và bookingInfo vào localStorage để PaymentResult callback có thể lấy
         localStorage.setItem("bookingId", bookingId.toString());
+        try {
+          localStorage.setItem("bookingInfo", JSON.stringify(bookingInfo));
+        } catch {
+          // Ignore localStorage error
+        }
 
         const data = await createPayment({
           amount: totalPrice,
@@ -146,12 +152,12 @@ const PaymentMethodSelect: React.FC = () => {
         } else {
           console.error("No paymentUrl from API");
           navigate(`/bookings/success/${bookingId}`, {
-            state: { bookingId, bookingInfo, method },
+            state: { booking: bookingInfo, bookingId, bookingInfo, method },
           });
         }
       } else {
         navigate(`/bookings/success/${bookingId}`, {
-          state: { bookingId, bookingInfo, method },
+          state: { booking: bookingInfo, bookingId, bookingInfo, method },
         });
       }
     } catch (err) {
@@ -257,7 +263,9 @@ const PaymentMethodSelect: React.FC = () => {
                   Tổng tiền:
                 </Typography.Text>
                 <Typography.Text className="text-xl font-bold text-red-600">
-                  {bookingInfo?.total_price ?? "Đang tải..."}
+                  {bookingInfo?.total_price != null
+                    ? formatPrice(bookingInfo.total_price)
+                    : "Đang tải..."}
                 </Typography.Text>
               </div>
             </div>

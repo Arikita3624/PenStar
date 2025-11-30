@@ -12,7 +12,8 @@ import {
   Modal,
 } from "antd";
 import { cancelBooking, getBookingById } from "@/services/bookingsApi";
-import type { Booking } from "@/types/bookings";
+import type { Booking, BookingService } from "@/types/bookings";
+import { getServiceById } from "@/services/servicesApi";
 import dayjs from "dayjs";
 
 const fmtPrice = (v: string | number | undefined) => {
@@ -29,8 +30,11 @@ const BookingSuccess: React.FC = () => {
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
 
   const [booking, setBooking] = React.useState<Booking | null>(initial);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(!initial); // Không loading nếu đã có initial data
   const [updating, setUpdating] = React.useState(false);
+  const [services, setServices] = React.useState<
+    Record<number, { name: string; price: number }>
+  >({});
 
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
@@ -38,6 +42,32 @@ const BookingSuccess: React.FC = () => {
     try {
       const data = await getBookingById(Number(id));
       setBooking(data);
+
+      // Fetch service details - lazy load, không chặn UI
+      if (Array.isArray(data.services) && data.services.length > 0) {
+        const serviceIds = Array.from(
+          new Set(
+            data.services
+              .map((s: { service_id?: number }) => s.service_id)
+              .filter((id): id is number => id != null)
+          )
+        );
+
+        // Fetch services song song nhưng không chặn rendering
+        Promise.all(serviceIds.map((sid: number) => getServiceById(sid)))
+          .then((serviceResults) => {
+            const serviceMap: Record<number, { name: string; price: number }> =
+              {};
+            serviceResults.forEach((s) => {
+              if (s && s.id)
+                serviceMap[s.id] = { name: s.name, price: s.price };
+            });
+            setServices(serviceMap);
+          })
+          .catch((err) => {
+            console.error("Error fetching services:", err);
+          });
+      }
     } catch {
       setBooking(null);
     } finally {
@@ -46,10 +76,24 @@ const BookingSuccess: React.FC = () => {
   }, [id]);
 
   React.useEffect(() => {
-    if (id) {
+    if (!id) return;
+
+    // Nếu đã có initial booking từ state, hiển thị ngay
+    if (initial && initial.id && String(initial.id) === id) {
+      setBooking(initial);
+      setLoading(false);
+
+      // Fetch lại ở background để đảm bảo data mới nhất (đặc biệt là payment_status sau khi thanh toán)
+      // Nhưng không chặn UI - user thấy ngay thông tin
+      setTimeout(() => {
+        fetchBooking();
+      }, 100);
+    } else {
+      // Không có initial data, fetch ngay
       fetchBooking();
     }
-  }, [id, fetchBooking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Chỉ depend vào id để tránh loop
 
   // Đã chuyển logic check-in sang phía admin. Người dùng không thể tự check-in.
 
@@ -320,14 +364,14 @@ const BookingSuccess: React.FC = () => {
                     paymentStatus === "paid"
                       ? "green"
                       : paymentStatus === "pending"
-                        ? "gold"
-                        : paymentStatus === "failed"
-                          ? "red"
-                          : paymentStatus === "refunded"
-                            ? "purple"
-                            : paymentStatus === "cancelled"
-                              ? "red"
-                              : "default"
+                      ? "gold"
+                      : paymentStatus === "failed"
+                      ? "red"
+                      : paymentStatus === "refunded"
+                      ? "purple"
+                      : paymentStatus === "cancelled"
+                      ? "red"
+                      : "default"
                   }
                 >
                   {paymentStatus?.toUpperCase() || "-"}
@@ -391,26 +435,32 @@ const BookingSuccess: React.FC = () => {
                 </Space>
               </Card>
             </div>
-            <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
-              <List
-                size="small"
-                dataSource={booking?.services ?? []}
-                renderItem={(s) => (
-                  <List.Item>
-                    <div className="text-sm">
-                      <div className="font-semibold">
-                        Dịch vụ #{s.service_id}
-                      </div>
-                      <div>
-                        Số lượng: {s.quantity} — Giá:{" "}
-                        {fmtPrice(s.total_service_price)} VND
-                      </div>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </div>
+            {Array.isArray(booking?.services) &&
+              booking.services.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
+                  <List
+                    size="small"
+                    dataSource={booking.services}
+                    renderItem={(s: BookingService) => {
+                      const serviceInfo = services[s.service_id];
+                      return (
+                        <List.Item>
+                          <div className="text-sm">
+                            <div className="font-semibold">
+                              {serviceInfo?.name || `Dịch vụ #${s.service_id}`}
+                            </div>
+                            <div>
+                              Số lượng: {s.quantity} — Giá:{" "}
+                              {fmtPrice(s.total_service_price)} VND
+                            </div>
+                          </div>
+                        </List.Item>
+                      );
+                    }}
+                  />
+                </div>
+              )}
 
             {/* Thông báo thanh toán tại khách sạn */}
             {booking?.id && paymentStatus === "pending" && (

@@ -37,43 +37,40 @@ const PaymentResult: React.FC = () => {
       return;
     }
 
-    setUpdating(true);
+    // Lấy bookingInfo từ localStorage nếu có (đã được lưu từ PaymentMethodSelect)
+    let bookingInfoFromStorage = null;
     try {
-      console.log("[DEBUG] Cập nhật trạng thái booking ID:", bookingId);
-
-      // Cập nhật trạng thái booking thành "paid"
-      const { updateMyBooking } = await import("@/services/bookingsApi");
-      const result = await Promise.race([
-        updateMyBooking(Number(bookingId), { payment_status: "paid" }),
-        new Promise(
-          (_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000) // 10s timeout
-        ),
-      ]);
-
-      console.log(
-        "✅ Cập nhật payment_status thành 'paid' thành công!",
-        result
-      );
-
-      // Clear localStorage
-      localStorage.removeItem("bookingId");
-
-      // Redirect sang trang BookingSuccess
-      navigate(`/bookings/success/${bookingId}`, { replace: true });
-    } catch (err: any) {
-      console.error("❌ Lỗi cập nhật trạng thái booking:", err);
-      setUpdating(false);
-
-      // Hỏi người dùng có muốn redirect sang success page hay không
-      const confirmed = window.confirm(
-        `Có lỗi khi cập nhật trạng thái (${err.message}). Bạn vẫn muốn xem chi tiết đơn hàng không?`
-      );
-
-      if (confirmed) {
-        localStorage.removeItem("bookingId");
-        navigate(`/bookings/success/${bookingId}`, { replace: true });
+      const stored = localStorage.getItem("bookingInfo");
+      if (stored) {
+        bookingInfoFromStorage = JSON.parse(stored);
       }
+    } catch {
+      // Ignore parse error
     }
+
+    // Redirect ngay lập tức, không đợi update payment_status
+    localStorage.removeItem("bookingId");
+
+    // Redirect với bookingInfo nếu có để tránh fetch lại
+    navigate(`/bookings/success/${bookingId}`, {
+      replace: true,
+      state: bookingInfoFromStorage
+        ? { booking: bookingInfoFromStorage }
+        : undefined,
+    });
+
+    // Update payment_status ở background (không chặn UI)
+    setUpdating(true);
+    (async () => {
+      try {
+        const { updateMyBooking } = await import("@/services/bookingsApi");
+        await updateMyBooking(Number(bookingId), { payment_status: "paid" });
+      } catch (err: any) {
+        console.error(" Lỗi cập nhật trạng thái booking (background):", err);
+      } finally {
+        setUpdating(false);
+      }
+    })();
   };
 
   if (loading) {

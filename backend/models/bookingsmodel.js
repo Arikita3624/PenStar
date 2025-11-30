@@ -336,7 +336,19 @@ export const createBooking = async (data) => {
       }
     }
 
-    // ...existing code...
+    // Insert booking_services if provided
+    if (Array.isArray(data.services) && data.services.length > 0) {
+      const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4) RETURNING *`;
+      for (const service of data.services) {
+        const { service_id, quantity, total_service_price } = service;
+        await client.query(insertServiceText, [
+          booking.id,
+          service_id,
+          quantity,
+          total_service_price,
+        ]);
+      }
+    }
 
     await client.query("COMMIT");
     return bookingWithStatus;
