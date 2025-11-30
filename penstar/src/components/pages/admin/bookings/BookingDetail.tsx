@@ -37,6 +37,7 @@ import {
   getBookingById,
   confirmCheckout,
 } from "@/services/bookingsApi";
+import { getServiceById } from "@/services/servicesApi";
 
 const { Title, Text } = Typography;
 
@@ -58,6 +59,9 @@ const BookingDetail = () => {
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomTypes, setRoomTypes] = useState<Record<number, RoomType>>({});
+  const [services, setServices] = useState<
+    Record<number, { name: string; price: number }>
+  >({});
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -143,10 +147,22 @@ const BookingDetail = () => {
           });
         }
         const uniqueRoomTypeIds = Array.from(new Set(roomTypeIds));
-        const [roomResults, roomTypeResults] = await Promise.all([
-          Promise.all(roomIds.map(getRoomID)),
-          Promise.all(uniqueRoomTypeIds.map(getRoomTypeById)),
-        ]);
+
+        // Fetch service IDs from booking.services
+        const serviceIds: number[] = [];
+        if (Array.isArray(booking.services)) {
+          booking.services.forEach((s: any) => {
+            if (s.service_id) serviceIds.push(Number(s.service_id));
+          });
+        }
+        const uniqueServiceIds = Array.from(new Set(serviceIds));
+
+        const [roomResults, roomTypeResults, serviceResults] =
+          await Promise.all([
+            Promise.all(roomIds.map(getRoomID)),
+            Promise.all(uniqueRoomTypeIds.map(getRoomTypeById)),
+            Promise.all(uniqueServiceIds.map(getServiceById)),
+          ]);
         if (mounted) {
           setRooms(roomResults.filter(Boolean) as Room[]);
           const roomTypeMap: Record<number, RoomType> = {};
@@ -154,6 +170,13 @@ const BookingDetail = () => {
             if (rt && rt.id) roomTypeMap[rt.id] = rt;
           });
           setRoomTypes(roomTypeMap);
+
+          const serviceMap: Record<number, { name: string; price: number }> =
+            {};
+          serviceResults.forEach((s) => {
+            if (s && s.id) serviceMap[s.id] = { name: s.name, price: s.price };
+          });
+          setServices(serviceMap);
         }
       } catch (err) {
         message.error("Lỗi tải thông tin phòng/loại phòng");
@@ -401,10 +424,10 @@ const BookingDetail = () => {
                 booking.payment_method === "cash"
                   ? "green"
                   : booking.payment_method === "momo"
-                    ? "magenta"
-                    : booking.payment_method === "vnpay"
-                      ? "purple"
-                      : "default"
+                  ? "magenta"
+                  : booking.payment_method === "vnpay"
+                  ? "purple"
+                  : "default"
               }
             >
               {booking.payment_method?.toUpperCase() || "—"}
@@ -434,12 +457,36 @@ const BookingDetail = () => {
           )}
 
           {Number(booking.total_service_price || 0) > 0 && (
-            <Row justify="space-between" style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 15 }}>Dịch vụ bổ sung</Text>
-              <Text strong style={{ fontSize: 18 }}>
-                {formatPrice(booking.total_service_price ?? 0)}
-              </Text>
-            </Row>
+            <>
+              <Row justify="space-between" style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 15 }}>Dịch vụ bổ sung</Text>
+                <Text strong style={{ fontSize: 18 }}>
+                  {formatPrice(booking.total_service_price ?? 0)}
+                </Text>
+              </Row>
+              {Array.isArray(booking.services) &&
+                booking.services.length > 0 && (
+                  <div
+                    style={{ marginTop: 8, marginBottom: 12, paddingLeft: 16 }}
+                  >
+                    {booking.services.map((s: any, idx: number) => {
+                      const serviceInfo = services[s.service_id];
+                      return (
+                        <div
+                          key={idx}
+                          style={{ marginBottom: 8, fontSize: 14 }}
+                        >
+                          <Text type="secondary">
+                            • {serviceInfo?.name || `Dịch vụ #${s.service_id}`}{" "}
+                            (Số lượng: {s.quantity}) -{" "}
+                            {formatPrice(s.total_service_price || 0)}
+                          </Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+            </>
           )}
 
           <Divider style={{ margin: "24px 0" }} />

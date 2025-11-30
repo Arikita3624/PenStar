@@ -1,19 +1,24 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRoomID } from "@/services/roomsApi";
 import { getRoomTypeById } from "@/services/roomTypeApi";
 import { getFloorById } from "@/services/floorsApi";
 import { getImagesByRoom } from "@/services/roomImagesApi";
+import { message } from "antd";
+import useAuth from "@/hooks/useAuth";
+import RoomBookingModal from "@/components/common/RoomBookingModal";
 import type { Room } from "@/types/room";
 import type { RoomImage } from "@/types/roomImage";
-import type { RoomType } from "@/types/roomtypes"; // Đảm bảo có type này
+import type { RoomType } from "@/types/roomtypes";
 import type { Floors } from "@/types/floors";
-// Đảm bảo có type này
 
 const RoomDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const auth = useAuth();
+
   const { data: room, isLoading } = useQuery<Room | null>({
     queryKey: ["rooms", id],
     queryFn: () => getRoomID(id ?? ""),
@@ -44,6 +49,9 @@ const RoomDetail = () => {
   useEffect(() => {
     setCurrentSlide(0);
   }, [room?.thumbnail, images.length]);
+
+  // Booking modal state
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -484,27 +492,32 @@ const RoomDetail = () => {
                   </button>
                 </Link>
 
-                <Link
-                  to={
+                <button
+                  onClick={() => {
+                    if (status !== "available") {
+                      message.warning("Phòng này hiện không khả dụng để đặt");
+                      return;
+                    }
+                    // Kiểm tra đăng nhập
+                    if (!auth?.token || !auth?.user) {
+                      message.warning("Vui lòng đăng nhập để đặt phòng");
+                      navigate("/signin", {
+                        state: { from: `/rooms/${room.id}` },
+                      });
+                      return;
+                    }
+                    // Mở modal chọn ngày
+                    setIsBookingModalOpen(true);
+                  }}
+                  className={`flex-1 min-w-[150px] w-full px-4 py-2 rounded-lg text-sm font-semibold transition shadow-lg ${
                     status === "available"
-                      ? `/booking/create?room_id=${room.id}`
-                      : "#"
-                  }
-                  className="flex-1 min-w-[150px]"
-                  tabIndex={status === "available" ? 0 : -1}
-                  aria-disabled={status !== "available"}
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                  disabled={status !== "available"}
                 >
-                  <button
-                    className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition shadow-lg ${
-                      status === "available"
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
-                    disabled={status !== "available"}
-                  >
-                    Đặt phòng ngay
-                  </button>
-                </Link>
+                  Đặt phòng ngay
+                </button>
               </div>
             </div>
           </div>
@@ -596,6 +609,14 @@ const RoomDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Booking Modal */}
+      <RoomBookingModal
+        open={isBookingModalOpen}
+        onCancel={() => setIsBookingModalOpen(false)}
+        room={room || null}
+        roomType={roomType || null}
+      />
     </div>
   );
 };
