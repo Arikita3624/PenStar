@@ -72,7 +72,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     }, [selectedRoomsCount]);
 
     const maxAdults = roomType.max_adults ?? 10;
-    const maxChildren = roomType.max_children ?? 10;
+    const capacity = roomType.capacity ?? 10;
 
     const suitableRooms = useMemo(() => {
       return roomsInType.filter((room) => room.status === "available");
@@ -83,18 +83,18 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     const inputDisabled = isDisabled;
     const showNotEnoughRoomsWarning = selectedRoomsCount > maxSelectableRooms;
 
-    // Kiểm tra vượt quá số lượng người lớn/trẻ em cho từng phòng
-    const overLimit =
-      numAdultsList.some((n) => n > maxAdults) ||
-      numChildrenList.some((n) => n > maxChildren);
-    // Kiểm tra tổng số khách vượt quá capacity
+    // Kiểm tra vượt quá số lượng người lớn cho từng phòng (an toàn, tuân thủ)
+    const overAdultsLimit = numAdultsList.some((n) => n > maxAdults);
+
+    // Kiểm tra tổng số khách vượt quá capacity cho từng phòng
     const overCapacity = Array.from({ length: selectedRoomsCount }).some(
       (_, idx) => {
-        return (
-          numAdultsList[idx] + numChildrenList[idx] > (roomType.capacity ?? 10)
-        );
+        return numAdultsList[idx] + numChildrenList[idx] > capacity;
       }
     );
+
+    // Tổng hợp: có vấn đề nếu vượt người lớn HOẶC vượt capacity
+    const overLimit = overAdultsLimit || overCapacity;
     return (
       <div
         className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 mb-6 overflow-hidden"
@@ -359,7 +359,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             </label>
                             <InputNumber
                               min={0}
-                              max={maxChildren}
+                              max={capacity}
                               value={numChildrenList[roomIdx]}
                               disabled={inputDisabled}
                               onChange={(value) => {
@@ -405,17 +405,17 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                 </Space>
 
                 {/* Nút xác nhận - bị disable nếu không đủ phòng */}
-                {(overLimit || overCapacity) && (
+                {overLimit && (
                   <Alert
                     message={
-                      overLimit
-                        ? "Số lượng khách vượt quá quy định!"
+                      overAdultsLimit
+                        ? "Số người lớn vượt quá quy định!"
                         : "Vượt quá sức chứa phòng!"
                     }
                     description={
-                      overLimit
-                        ? `Vui lòng kiểm tra lại số người lớn (tối đa ${maxAdults}) và trẻ em (tối đa ${maxChildren}) cho từng phòng.`
-                        : `Tổng số khách (người lớn + trẻ em) không được vượt quá sức chứa phòng (${roomType.capacity ?? 10}).`
+                      overAdultsLimit
+                        ? `Số người lớn tối đa cho loại phòng này là ${maxAdults} người/phòng.`
+                        : `Tổng số khách (người lớn + trẻ em) không được vượt quá sức chứa phòng (${capacity} người).`
                     }
                     type="warning"
                     showIcon
@@ -437,9 +437,9 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                     fontWeight: "600",
                     cursor: isDisabled || overLimit ? "not-allowed" : "pointer",
                   }}
-                  disabled={isDisabled || overLimit || overCapacity}
+                  disabled={isDisabled || overLimit}
                   onClick={() => {
-                    if (overLimit || overCapacity || isDisabled) return;
+                    if (overLimit || isDisabled) return;
                     const newRoomsConfig = Array.from({
                       length: selectedRoomsCount,
                     }).map((_, idx) => ({
@@ -455,8 +455,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                 >
                   {isDisabled
                     ? "Chọn số lượng phòng"
-                    : overLimit
-                      ? "Vượt quá số lượng khách"
+                    : overAdultsLimit
+                      ? "Vượt quá số người lớn"
                       : overCapacity
                         ? "Vượt quá sức chứa phòng"
                         : "Xác nhận"}

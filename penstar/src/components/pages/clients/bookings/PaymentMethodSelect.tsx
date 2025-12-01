@@ -78,14 +78,26 @@ const paymentMethods = [
 const PaymentMethodSelect: React.FC = () => {
   const [method, setMethod] = React.useState<string>("vnpay");
   const [bookingInfo, setBookingInfo] = React.useState<any>(null);
+  const [isCreatingBooking, setIsCreatingBooking] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // bookingId lấy từ state hoặc query
+  // Kiểm tra xem có cần tạo booking mới không (từ MultiRoomBookingCreate)
+  const shouldCreateBooking = location.state?.shouldCreateBooking;
+  const bookingData = location.state?.bookingData;
+
+  // Hoặc là bookingId đã tồn tại (từ flow cũ)
   const bookingId = location.state?.bookingId;
   const initialBookingInfo = location.state?.bookingInfo;
 
   React.useEffect(() => {
+    // Trường hợp 1: Cần tạo booking mới từ bookingData
+    if (shouldCreateBooking && bookingData) {
+      setBookingInfo(bookingData); // Hiển thị thông tin booking trước
+      return;
+    }
+
+    // Trường hợp 2: BookingId đã tồn tại - flow cũ
     if (!bookingId) {
       alert("Không tìm thấy thông tin booking. Vui lòng đặt phòng lại.");
       navigate("/rooms");
@@ -107,16 +119,47 @@ const PaymentMethodSelect: React.FC = () => {
     } else {
       setBookingInfo(initialBookingInfo);
     }
-  }, [bookingId, initialBookingInfo, navigate]);
+  }, [
+    bookingId,
+    initialBookingInfo,
+    shouldCreateBooking,
+    bookingData,
+    navigate,
+  ]);
 
   const handleConfirm = async () => {
-    if (!bookingId || !bookingInfo) {
+    if (!bookingInfo) {
       alert("Không tìm thấy thông tin booking. Vui lòng đặt phòng lại.");
       return;
     }
+
     try {
+      setIsCreatingBooking(true);
+      let finalBookingId = bookingId;
+      let finalBookingInfo = bookingInfo;
+
+      // Nếu cần tạo booking mới (từ MultiRoomBookingCreate)
+      if (shouldCreateBooking && bookingData) {
+        console.log("[PaymentMethodSelect] Tạo booking mới:", bookingData);
+        console.log(
+          "[PaymentMethodSelect] rooms_config:",
+          bookingData.rooms_config
+        );
+        const { createBooking } = await import("@/services/bookingsApi");
+        const createdBooking = await createBooking(bookingData);
+        finalBookingId = createdBooking?.id;
+        finalBookingInfo = createdBooking;
+        console.log("[PaymentMethodSelect] Booking đã tạo:", finalBookingId);
+      }
+
+      if (!finalBookingId) {
+        alert("Không thể tạo booking. Vui lòng thử lại.");
+        setIsCreatingBooking(false);
+        return;
+      }
+
       // Chuyển đổi số tiền về kiểu number, không format, không replace
-      let totalPrice = bookingInfo?.total_price;
+      let totalPrice = finalBookingInfo?.total_price;
       if (typeof totalPrice === "string") {
         totalPrice = Number(totalPrice);
       }
@@ -126,17 +169,19 @@ const PaymentMethodSelect: React.FC = () => {
           alert(
             "Số tiền không hợp lệ. Số tiền phải từ 5,000 đến dưới 1 tỷ VNĐ."
           );
+          setIsCreatingBooking(false);
           return;
         }
       }
       // Gọi API cập nhật phương thức thanh toán cho booking
       const { updateMyBooking } = await import("@/services/bookingsApi");
-      await updateMyBooking(bookingId, { payment_method: method });
+      await updateMyBooking(finalBookingId, { payment_method: method });
+
       if (method === "vnpay") {
         // Lưu bookingId và bookingInfo vào localStorage để PaymentResult callback có thể lấy
-        localStorage.setItem("bookingId", bookingId.toString());
+        localStorage.setItem("bookingId", finalBookingId.toString());
         try {
-          localStorage.setItem("bookingInfo", JSON.stringify(bookingInfo));
+          localStorage.setItem("bookingInfo", JSON.stringify(finalBookingInfo));
         } catch {
           // Ignore localStorage error
         }
@@ -151,18 +196,34 @@ const PaymentMethodSelect: React.FC = () => {
           window.location.href = data.paymentUrl; // Redirect to VNPay
         } else {
           console.error("No paymentUrl from API");
-          navigate(`/bookings/success/${bookingId}`, {
-            state: { booking: bookingInfo, bookingId, bookingInfo, method },
+          navigate(`/bookings/success/${finalBookingId}`, {
+            state: {
+              booking: finalBookingInfo,
+              bookingId: finalBookingId,
+              bookingInfo: finalBookingInfo,
+              method,
+            },
           });
         }
       } else {
-        navigate(`/bookings/success/${bookingId}`, {
-          state: { booking: bookingInfo, bookingId, bookingInfo, method },
+        navigate(`/bookings/success/${finalBookingId}`, {
+          state: {
+            booking: finalBookingInfo,
+            bookingId: finalBookingId,
+            bookingInfo: finalBookingInfo,
+            method,
+          },
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       // Xử lý lỗi
-      console.error("Update payment method failed", err);
+      console.error("Payment method selection failed", err);
+      if (err?.response?.data) {
+        alert(err.response.data.message || "Có lỗi xảy ra khi tạo booking");
+      } else {
+        alert("Có lỗi xảy ra. Vui lòng thử lại.");
+      }
+      setIsCreatingBooking(false);
     }
   };
 
@@ -271,13 +332,18 @@ const PaymentMethodSelect: React.FC = () => {
             </div>
 
             <div className="flex justify-between">
-              <Button onClick={() => navigate(-1)} style={{ minWidth: 120 }}>
+              <Button
+                onClick={() => navigate(-1)}
+                style={{ minWidth: 120 }}
+                disabled={isCreatingBooking}
+              >
                 Quay lại
               </Button>
               <Button
                 type="primary"
                 onClick={handleConfirm}
-                disabled={!bookingInfo}
+                disabled={!bookingInfo || isCreatingBooking}
+                loading={isCreatingBooking}
                 size="large"
                 style={{
                   background:
@@ -288,7 +354,7 @@ const PaymentMethodSelect: React.FC = () => {
                   fontWeight: "600",
                 }}
               >
-                Xác nhận và thanh toán
+                {isCreatingBooking ? "Đang xử lý..." : "Xác nhận và thanh toán"}
               </Button>
             </div>
           </Space>

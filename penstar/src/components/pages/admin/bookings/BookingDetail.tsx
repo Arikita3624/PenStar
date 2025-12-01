@@ -364,6 +364,18 @@ const BookingDetail = () => {
                   {group.rooms.map(({ room, item }, i) => {
                     const totalGuests =
                       (item.num_adults || 0) + (item.num_children || 0);
+
+                    // Lấy services của phòng này (theo booking_item_id)
+                    const roomServices =
+                      booking.services?.filter(
+                        (s: any) => s.booking_item_id === item.id
+                      ) || [];
+                    const roomServiceTotal = roomServices.reduce(
+                      (sum: number, s: any) =>
+                        sum + Number(s.total_service_price || 0),
+                      0
+                    );
+
                     return (
                       <div
                         key={i}
@@ -392,6 +404,39 @@ const BookingDetail = () => {
                               (Tổng: {totalGuests} khách)
                             </span>
                           </div>
+
+                          {/* Hiển thị services của phòng này */}
+                          {roomServices.length > 0 && (
+                            <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                              <div className="text-sm font-semibold text-green-800 mb-2">
+                                Dịch vụ đã chọn:
+                              </div>
+                              {roomServices.map((s: any, idx: number) => {
+                                const serviceInfo = services[s.service_id];
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-sm text-gray-700 ml-2"
+                                  >
+                                    •{" "}
+                                    {serviceInfo?.name ||
+                                      `Dịch vụ #${s.service_id}`}
+                                    <span className="text-gray-600">
+                                      {" "}
+                                      (SL: {s.quantity})
+                                    </span>
+                                    <span className="text-green-600 font-medium ml-2">
+                                      {formatPrice(s.total_service_price || 0)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              <div className="text-sm font-semibold text-green-700 mt-2 pt-2 border-t border-green-300">
+                                Tổng dịch vụ phòng này:{" "}
+                                {formatPrice(roomServiceTotal)}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -412,7 +457,11 @@ const BookingDetail = () => {
             <DollarOutlined /> Tổng kết thanh toán
           </Space>
         }
-        style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+        style={{
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          marginTop: 24,
+        }}
       >
         <div style={{ padding: "12px 0" }}>
           <Row justify="space-between" style={{ marginBottom: 16 }}>
@@ -424,10 +473,10 @@ const BookingDetail = () => {
                 booking.payment_method === "cash"
                   ? "green"
                   : booking.payment_method === "momo"
-                  ? "magenta"
-                  : booking.payment_method === "vnpay"
-                  ? "purple"
-                  : "default"
+                    ? "magenta"
+                    : booking.payment_method === "vnpay"
+                      ? "purple"
+                      : "default"
               }
             >
               {booking.payment_method?.toUpperCase() || "—"}
