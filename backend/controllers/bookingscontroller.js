@@ -106,6 +106,7 @@ export const createBooking = async (req, res) => {
       console.log("Auto-assigning rooms based on rooms_config");
 
       const assignedItems = [];
+      const assignedRoomIds = []; // Track phòng đã assign
 
       for (const config of payload.rooms_config) {
         const {
@@ -116,16 +117,18 @@ export const createBooking = async (req, res) => {
           num_adults,
           num_children,
           room_type_price, // Use price from room_types
+          services, // Lấy services từ config
         } = config;
 
-        // Auto-assign rooms
+        // Auto-assign rooms - truyền assignedRoomIds để tránh trùng
         const assignedRooms = await modelAutoAssignRooms(
           room_type_id,
           quantity,
           check_in,
           check_out,
           num_adults,
-          num_children
+          num_children,
+          assignedRoomIds
         );
 
         console.log(
@@ -135,6 +138,7 @@ export const createBooking = async (req, res) => {
 
         // Convert assigned rooms to booking items format
         for (const room of assignedRooms) {
+          assignedRoomIds.push(room.id); // Thêm vào danh sách đã assign
           assignedItems.push({
             room_id: room.id,
             check_in,
@@ -143,6 +147,7 @@ export const createBooking = async (req, res) => {
             num_adults,
             num_children,
             room_type_id,
+            services: services || [], // Copy services từ config
           });
         }
       }

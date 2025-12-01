@@ -74,6 +74,15 @@ export const bookingCreateSchema = Joi.object({
             })
           )
           .optional(),
+        services: Joi.array()
+          .items(
+            Joi.object({
+              service_id: Joi.number().positive().required(),
+              quantity: Joi.number().integer().min(1).required(),
+              total_service_price: Joi.number().min(0).required(),
+            })
+          )
+          .optional(),
       })
     )
     .min(1)
@@ -88,6 +97,15 @@ export const bookingCreateSchema = Joi.object({
         room_type_price: Joi.number().min(0).required(),
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),
+        services: Joi.array()
+          .items(
+            Joi.object({
+              service_id: Joi.number().positive().required(),
+              quantity: Joi.number().integer().min(1).required(),
+              total_service_price: Joi.number().min(0).required(),
+            })
+          )
+          .optional(),
       })
     )
     .min(1)
