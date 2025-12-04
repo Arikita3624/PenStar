@@ -340,17 +340,30 @@ export const createBooking = async (data) => {
       }
     }
 
+    // Lưu thông tin mã giảm giá vào notes nếu có
+    let finalNotes = notes || null;
+    if (data.promo_code) {
+      const discountInfo = {
+        promo_code: data.promo_code,
+        discount_amount: data.discount_amount || null,
+        original_total: data.original_total || total_price,
+      };
+      finalNotes = finalNotes 
+        ? `${finalNotes}\n[Discount: ${JSON.stringify(discountInfo)}]`
+        : `[Discount: ${JSON.stringify(discountInfo)}]`;
+    }
+    
     const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, notes, created_at, is_refunded)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), FALSE) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
-      total_price,
+      total_price, // Đã được áp dụng mã giảm giá nếu có
       payment_status,
       data.payment_method || null, // Phương thức thanh toán (optional)
       booking_method,
       stay_status_id,
       user_id,
-      notes || null, // Ghi chú từ khách hàng (optional)
+      finalNotes, // Ghi chú từ khách hàng + thông tin mã giảm giá
     ]);
     const booking = bookingRes.rows[0];
 

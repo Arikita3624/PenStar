@@ -71,8 +71,29 @@ export const getBookingById = async (req, res) => {
     );
     booking.total_amount =
       booking.total_room_price + booking.total_service_price;
-    // Ghi đè total_price bằng giá trị tính toán đúng (không lấy từ DB)
-    booking.total_price = booking.total_amount;
+    
+    // Kiểm tra xem có mã giảm giá không (lưu trong notes)
+    let discountInfo = null;
+    if (booking.notes) {
+      const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+      if (discountMatch) {
+        try {
+          discountInfo = JSON.parse(discountMatch[1]);
+          booking.promo_code = discountInfo.promo_code;
+          booking.discount_amount = discountInfo.discount_amount;
+          booking.original_total = discountInfo.original_total;
+        } catch (e) {
+          console.error("Error parsing discount info:", e);
+        }
+      }
+    }
+    
+    // Nếu có mã giảm giá, dùng total_price từ DB (đã được áp dụng giảm giá)
+    // Nếu không có, tính lại từ total_amount
+    if (!discountInfo) {
+      booking.total_price = booking.total_amount;
+    }
+    // Nếu có discountInfo, booking.total_price đã đúng từ DB (giá sau giảm)
 
     res.json({
       success: true,

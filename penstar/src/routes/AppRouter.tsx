@@ -14,6 +14,9 @@ import FloorEdit from "@/components/pages/admin/floors/FloorEdit";
 import ServicesPage from "@/components/pages/admin/services/Services";
 import ServiceAdd from "@/components/pages/admin/services/ServiceAdd";
 import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
+import DiscountCodesPage from "@/components/pages/admin/discountcodes/DiscountCodes";
+import DiscountCodeAdd from "@/components/pages/admin/discountcodes/DiscountCodeAdd";
+import DiscountCodeEdit from "@/components/pages/admin/discountcodes/DiscountCodeEdit";
 import { Route, Routes } from "react-router-dom";
 import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
@@ -125,6 +128,12 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
+          <Route path="discount-codes" element={<DiscountCodesPage />} />
+          <Route path="discount-codes/add" element={<DiscountCodeAdd />} />
+          <Route
+            path="discount-codes/:id/edit"
+            element={<DiscountCodeEdit />}
+          />
 
           {/* Users management - Manager+ */}
           <Route

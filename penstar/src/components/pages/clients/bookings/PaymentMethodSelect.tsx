@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import { Card, Radio, Button, Space, Typography } from "antd";
+import { Card, Radio, Button, Space, Typography, Input, Tag, message } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPayment } from "@/services/paymentApi";
 import { formatPrice } from "@/utils/formatPrice";
+import { validateDiscountCode, getActiveDiscountCodes } from "@/services/discountCodesApi";
+import type { ValidateDiscountCodeResponse, DiscountCode } from "@/services/discountCodesApi";
+import { useQuery } from "@tanstack/react-query";
 
 // Logo components với ảnh chính thức
 const VNPayLogo = () => (
@@ -79,8 +82,17 @@ const PaymentMethodSelect: React.FC = () => {
   const [method, setMethod] = React.useState<string>("vnpay");
   const [bookingInfo, setBookingInfo] = React.useState<any>(null);
   const [isCreatingBooking, setIsCreatingBooking] = React.useState(false);
+  const [discountCode, setDiscountCode] = React.useState<string>("");
+  const [appliedDiscount, setAppliedDiscount] = React.useState<ValidateDiscountCodeResponse | null>(null);
+  const [isValidatingDiscount, setIsValidatingDiscount] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Load danh sách mã giảm giá đang hoạt động
+  const { data: availableDiscountCodes = [] } = useQuery<DiscountCode[]>({
+    queryKey: ["activeDiscountCodes"],
+    queryFn: getActiveDiscountCodes,
+  });
 
   // Kiểm tra xem có cần tạo booking mới không (từ MultiRoomBookingCreate)
   const shouldCreateBooking = location.state?.shouldCreateBooking;
@@ -127,6 +139,46 @@ const PaymentMethodSelect: React.FC = () => {
     navigate,
   ]);
 
+  const handleApplyDiscount = async (codeToApply?: string) => {
+    const code = codeToApply || discountCode.trim();
+    if (!code) {
+      message.warning("Vui lòng nhập mã giảm giá");
+      return;
+    }
+
+    if (!bookingInfo?.total_price) {
+      message.warning("Chưa có thông tin tổng tiền");
+      return;
+    }
+
+    setIsValidatingDiscount(true);
+    try {
+      const totalPrice =
+        typeof bookingInfo.total_price === "string"
+          ? Number(bookingInfo.total_price)
+          : bookingInfo.total_price;
+
+      const result = await validateDiscountCode(code, totalPrice);
+      setAppliedDiscount(result);
+      setDiscountCode(code); // Cập nhật input với mã đã áp dụng
+      message.success("Áp dụng mã giảm giá thành công!");
+    } catch (err: any) {
+      console.error("Validate discount code error:", err);
+      const errorMessage =
+        err?.response?.data?.message || "Mã giảm giá không hợp lệ";
+      message.error(errorMessage);
+      setAppliedDiscount(null);
+    } finally {
+      setIsValidatingDiscount(false);
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountCode("");
+    message.info("Đã xóa mã giảm giá");
+  };
+
   const handleConfirm = async () => {
     if (!bookingInfo) {
       alert("Không tìm thấy thông tin booking. Vui lòng đặt phòng lại.");
@@ -145,6 +197,16 @@ const PaymentMethodSelect: React.FC = () => {
           "[PaymentMethodSelect] rooms_config:",
           bookingData.rooms_config
         );
+        
+        // Áp dụng mã giảm giá vào bookingData nếu có
+        if (appliedDiscount) {
+          const originalTotal = bookingData.total_price;
+          bookingData.total_price = appliedDiscount.finalAmount;
+          bookingData.promo_code = appliedDiscount.discountCode.code;
+          bookingData.discount_amount = appliedDiscount.discountAmount;
+          bookingData.original_total = originalTotal;
+        }
+        
         const { createBooking } = await import("@/services/bookingsApi");
         const createdBooking = await createBooking(bookingData);
         finalBookingId = createdBooking?.id;
@@ -158,10 +220,17 @@ const PaymentMethodSelect: React.FC = () => {
         return;
       }
 
-      // Chuyển đổi số tiền về kiểu number, không format, không replace
+      // Áp dụng mã giảm giá nếu có
       let totalPrice = finalBookingInfo?.total_price;
       if (typeof totalPrice === "string") {
         totalPrice = Number(totalPrice);
+      }
+      
+      // Nếu có mã giảm giá đã áp dụng, sử dụng giá sau giảm
+      if (appliedDiscount) {
+        totalPrice = appliedDiscount.finalAmount;
+        // Cập nhật total_price trong bookingData nếu booking chưa tạo
+        // (Đã được xử lý ở trên khi tạo booking mới)
       }
       // Kiểm tra số tiền hợp lệ trước khi gọi VNPAY
       if (method === "vnpay") {
@@ -311,6 +380,123 @@ const PaymentMethodSelect: React.FC = () => {
               </Radio.Group>
             </div>
 
+            {/* Mã giảm giá */}
+            <div
+              className="p-4 rounded-lg"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(255,193,7,0.05) 0%, rgba(255,152,0,0.05) 100%)",
+                border: "1px solid rgba(255,193,7,0.2)",
+              }}
+            >
+              <h3 className="text-base font-bold mb-3 text-[#ff9800]">
+                🎫 Mã giảm giá
+              </h3>
+              <Space.Compact style={{ width: "100%" }}>
+                <Input
+                  placeholder="Nhập mã giảm giá"
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                  onPressEnter={() => handleApplyDiscount()}
+                  disabled={isValidatingDiscount || !!appliedDiscount}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  type="primary"
+                  onClick={() => handleApplyDiscount()}
+                  loading={isValidatingDiscount}
+                  disabled={!discountCode || !!appliedDiscount}
+                  style={{
+                    background: "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)",
+                    borderColor: "transparent",
+                  }}
+                >
+                  {appliedDiscount ? "Đã áp dụng" : "Áp dụng"}
+                </Button>
+                {appliedDiscount && (
+                  <Button
+                    danger
+                    onClick={handleRemoveDiscount}
+                    disabled={isCreatingBooking}
+                  >
+                    Xóa
+                  </Button>
+                )}
+              </Space.Compact>
+              
+              {/* Danh sách mã giảm giá có sẵn */}
+              {availableDiscountCodes.length > 0 && !appliedDiscount && (
+                <div className="mt-3">
+                  <Typography.Text className="text-xs text-gray-600 mb-2 block">
+                    💡 Mã giảm giá có sẵn:
+                  </Typography.Text>
+                  <div className="flex flex-wrap gap-2">
+                    {availableDiscountCodes.slice(0, 5).map((code) => {
+                      const isEligible = bookingInfo?.total_price 
+                        ? bookingInfo.total_price >= (code.min_order_amount || 0)
+                        : false;
+                      
+                      return (
+                        <Tag
+                          key={code.id}
+                          color={isEligible ? "gold" : "default"}
+                          style={{
+                            cursor: isEligible ? "pointer" : "not-allowed",
+                            opacity: isEligible ? 1 : 0.6,
+                            padding: "4px 12px",
+                            fontSize: "12px",
+                          }}
+                          onClick={() => {
+                            if (isEligible) {
+                              handleApplyDiscount(code.code);
+                            } else {
+                              message.warning(
+                                `Đơn hàng tối thiểu ${formatPrice(code.min_order_amount || 0)} để sử dụng mã này`
+                              );
+                            }
+                          }}
+                        >
+                          <span className="font-bold">{code.code}</span>
+                          {code.discount_type === "percentage" ? (
+                            <span> - {code.discount_value}%</span>
+                          ) : (
+                            <span> - {formatPrice(code.discount_value)}</span>
+                          )}
+                        </Tag>
+                      );
+                    })}
+                  </div>
+                  {availableDiscountCodes.length > 5 && (
+                    <Typography.Text className="text-xs text-gray-500 mt-2 block">
+                      Và {availableDiscountCodes.length - 5} mã khác...
+                    </Typography.Text>
+                  )}
+                </div>
+              )}
+              
+              {appliedDiscount && (
+                <div className="mt-3 p-2 bg-green-50 rounded border border-green-200">
+                  <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                    <div className="flex justify-between items-center">
+                      <Typography.Text className="text-sm text-gray-600">
+                        Mã giảm giá:
+                      </Typography.Text>
+                      <Tag color="green">{appliedDiscount.discountCode.code}</Tag>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <Typography.Text className="text-sm text-gray-600">
+                        Giảm giá:
+                      </Typography.Text>
+                      <Typography.Text className="text-sm font-bold text-green-600">
+                        -{formatPrice(appliedDiscount.discountAmount)}
+                      </Typography.Text>
+                    </div>
+                  </Space>
+                </div>
+              )}
+            </div>
+
+            {/* Tổng tiền */}
             <div
               className="p-4 rounded-lg"
               style={{
@@ -319,16 +505,42 @@ const PaymentMethodSelect: React.FC = () => {
                 border: "1px solid rgba(10,79,134,0.1)",
               }}
             >
-              <div className="flex justify-between items-center">
-                <Typography.Text className="text-gray-700 text-sm font-medium">
-                  Tổng tiền:
-                </Typography.Text>
-                <Typography.Text className="text-xl font-bold text-red-600">
-                  {bookingInfo?.total_price != null
-                    ? formatPrice(bookingInfo.total_price)
-                    : "Đang tải..."}
-                </Typography.Text>
-              </div>
+              <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                {bookingInfo?.total_price != null && (
+                  <div className="flex justify-between items-center">
+                    <Typography.Text className="text-gray-700 text-sm">
+                      Tổng tiền gốc:
+                    </Typography.Text>
+                    <Typography.Text className="text-sm text-gray-500 line-through">
+                      {formatPrice(bookingInfo.total_price)}
+                    </Typography.Text>
+                  </div>
+                )}
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center">
+                    <Typography.Text className="text-gray-700 text-sm">
+                      Giảm giá:
+                    </Typography.Text>
+                    <Typography.Text className="text-sm font-bold text-green-600">
+                      -{formatPrice(appliedDiscount.discountAmount)}
+                    </Typography.Text>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <Typography.Text className="text-gray-700 text-sm font-medium">
+                    Tổng thanh toán:
+                  </Typography.Text>
+                  <Typography.Text className="text-xl font-bold text-red-600">
+                    {bookingInfo?.total_price != null
+                      ? formatPrice(
+                          appliedDiscount
+                            ? appliedDiscount.finalAmount
+                            : bookingInfo.total_price
+                        )
+                      : "Đang tải..."}
+                  </Typography.Text>
+                </div>
+              </Space>
             </div>
 
             <div className="flex justify-between">
