@@ -59,14 +59,14 @@ const BookingsList: React.FC = () => {
           vv === "paid"
             ? "green"
             : vv === "pending"
-            ? "gold"
-            : vv === "failed"
-            ? "red"
-            : vv === "refunded"
-            ? "purple"
-            : vv === "cancelled"
-            ? "red"
-            : "default";
+              ? "gold"
+              : vv === "failed"
+                ? "red"
+                : vv === "refunded"
+                  ? "purple"
+                  : vv === "cancelled"
+                    ? "red"
+                    : "default";
         return (
           <Space direction="vertical" size="small">
             <Tag color={color}>{String(v || "").toUpperCase()}</Tag>
@@ -169,6 +169,13 @@ const BookingsList: React.FC = () => {
     <div className="p-4">
       <div className="mb-4 flex items-center gap-3">
         <h3 className="text-3xl font-bold">BOOKINGS</h3>
+        <Button
+          type="primary"
+          style={{ marginLeft: 16 }}
+          onClick={() => nav("/admin/bookings/create?method=offline")}
+        >
+          Tạo booking trực tiếp
+        </Button>
         <div style={{ flex: 1 }}>
           <Input.Search
             placeholder="Search by customer or id"

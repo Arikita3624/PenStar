@@ -91,8 +91,7 @@ const RoomAdd: React.FC = () => {
               name: values.name ?? "",
               type_id: values.type_id ? Number(values.type_id) : undefined,
               floor_id: values.floor_id ? Number(values.floor_id) : undefined,
-              price: values.price ? Number(values.price) : 0,
-              capacity: values.capacity ? Number(values.capacity) : 1,
+              // price removed, now taken from room_types
               short_desc: values.short_desc ?? "",
               long_desc: values.long_desc ?? "",
               // backend validation requires status and thumbnail on create
@@ -157,22 +156,7 @@ const RoomAdd: React.FC = () => {
                 </Form.Item>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Form.Item
-                  name="capacity"
-                  label="Capacity"
-                  rules={[{ required: true }]}
-                >
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-                <Form.Item
-                  name="price"
-                  label="Price (VND)"
-                  rules={[{ required: true }]}
-                >
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </div>
+              {/* Price input removed, now managed in room type */}
 
               <Form.Item
                 name="short_desc"

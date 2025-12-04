@@ -4,8 +4,12 @@ import type { RoomType } from "./roomtypes";
 // Types for room booking configuration
 export interface RoomBookingConfig {
   room_id: number;
+  room_type_id: number;
   num_adults: number;
   num_children: number;
+  num_babies?: number; // Em bé (0-5 tuổi) - optional, tối đa 2, không tính vào giới hạn
+  special_requests?: string;
+  price: number;
 }
 
 // Props for RoomTypeCard component
@@ -15,13 +19,14 @@ export interface RoomTypeCardProps {
   numRooms: number;
   selectedRoomIds: number[];
   roomsConfig: RoomBookingConfig[];
-  onSelectRoomType: (rooms: Room[]) => void;
-  onRoomSelect: (room: Room) => void;
-  onGuestChange: (
-    roomId: number,
-    field: "num_adults" | "num_children",
-    value: number | null
+  disabled?: boolean;
+  // useCapacity = true -> use room_type.capacity instead of per-type max adults/children
+  onSelectRoomType: (
+    rooms: Room[],
+    roomsConfig: RoomBookingConfig[],
+    useCapacity?: boolean
   ) => void;
+  onRoomSelect: (room: Room) => void;
 }
 
 // Props for RoomCard component
@@ -34,7 +39,7 @@ export interface RoomCardProps {
   onRoomSelect: (room: Room) => void;
   onGuestChange: (
     roomId: number,
-    field: "num_adults" | "num_children",
+    field: "num_adults" | "num_children" | "num_babies",
     value: number | null
   ) => void;
 }

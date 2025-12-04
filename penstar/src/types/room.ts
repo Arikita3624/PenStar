@@ -2,18 +2,10 @@ export interface Room {
   id: number;
   name: string;
   type_id: number;
-  price: number;
-  capacity: number;
   status: string;
-  thumbnail: string;
-  floor_id: number;
-  short_desc: string;
-  long_desc: string;
-  max_adults?: number;
-  max_children?: number;
-  base_occupancy?: number;
-  createdAt: string;
-  updatedAt: string;
+  thumbnail?: string;
+  room_type_name?: string;
+  room_type_price?: number;
 }
 
 // Type cho tìm kiếm phòng

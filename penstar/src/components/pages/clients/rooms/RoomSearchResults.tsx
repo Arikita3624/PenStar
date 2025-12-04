@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { message, Spin, Empty, Button, Tag, Row, Col, Select } from "antd";
@@ -37,10 +38,21 @@ const RoomSearchResults = () => {
     queryFn: getFloors,
   });
 
-  // State cho multi-room selection
+  // State cho multi-room selection (giữ lại cho RoomTypeCard, nhưng không dùng cho booking payload nữa)
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [numRooms, setNumRooms] = useState(1);
   const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]);
+
+  // State cho nhiều loại phòng đã xác nhận
+  const [confirmedBookings, setConfirmedBookings] = useState<
+    Array<{
+      roomTypeId: number;
+      roomTypeName: string;
+      roomPrice: number;
+      roomsConfig: RoomBookingConfig[];
+      numRooms: number;
+    }>
+  >([]);
 
   useEffect(() => {
     if (searchParams) {
@@ -89,69 +101,7 @@ const RoomSearchResults = () => {
     }
   };
 
-  // Hàm chọn phòng theo loại (khi nhấn nút "Chọn phòng" trên card loại phòng)
-  const handleSelectRoomType = useCallback(
-    (roomsInType: Room[]) => {
-      // Kiểm tra đã chọn phòng chưa
-      if (selectedRoomIds.length > 0) {
-        message.warning(
-          "Vui lòng bỏ chọn các phòng đã chọn trước khi chọn loại phòng khác"
-        );
-        return;
-      }
-
-      // Lọc phòng trống
-      const availableRooms = roomsInType.filter(
-        (room) => room.status === "available"
-      );
-
-      if (availableRooms.length === 0) {
-        message.warning("Không có phòng trống của loại này");
-        return;
-      }
-
-      // Kiểm tra số lượng phòng trống có đủ không
-      if (availableRooms.length < numRooms) {
-        message.warning(
-          `Loại phòng này chỉ còn ${availableRooms.length} phòng trống, không đủ ${numRooms} phòng`
-        );
-        return;
-      }
-
-      // Sắp xếp theo tầng và số phòng tăng dần
-      const sortedRooms = [...availableRooms].sort((a, b) => {
-        // Ưu tiên tầng (floor_id)
-        if (a.floor_id !== b.floor_id) {
-          return a.floor_id - b.floor_id;
-        }
-        // Sau đó sắp xếp theo số phòng (ví dụ: P301 -> 301)
-        const numA = parseInt(a.name.replace(/[^\d]/g, "")) || 0;
-        const numB = parseInt(b.name.replace(/[^\d]/g, "")) || 0;
-        return numA - numB;
-      });
-
-      // Chọn số lượng phòng cần thiết
-      const roomsToSelect = sortedRooms.slice(0, numRooms);
-
-      // Cập nhật state
-      const newSelectedIds = roomsToSelect.map((r) => r.id);
-      const newConfigs = roomsToSelect.map((room) => ({
-        room_id: room.id,
-        num_adults: 1,
-        num_children: 0,
-      }));
-
-      setSelectedRoomIds(newSelectedIds);
-      setRoomsConfig(newConfigs);
-
-      message.success(
-        `Đã tự động chọn ${roomsToSelect.length} phòng: ${roomsToSelect
-          .map((r) => r.name)
-          .join(", ")}`
-      );
-    },
-    [numRooms, selectedRoomIds.length]
-  );
+  // ...existing code...
 
   // Toggle room selection
   const handleRoomSelect = useCallback(
@@ -179,6 +129,7 @@ const RoomSearchResults = () => {
             room_id: room.id,
             num_adults: 1,
             num_children: 0,
+            num_babies: 0,
           },
         ]);
       }
@@ -186,130 +137,7 @@ const RoomSearchResults = () => {
     [numRooms, roomsConfig, selectedRoomIds]
   );
 
-  const handleGuestChange = useCallback(
-    (
-      roomId: number,
-      field: "num_adults" | "num_children",
-      value: number | null
-    ) => {
-      const room = rooms.find((r) => r.id === roomId);
-      if (!room) return;
-
-      const configIndex = roomsConfig.findIndex((c) => c.room_id === roomId);
-      if (configIndex === -1) return;
-
-      const newConfig = [...roomsConfig];
-      const currentConfig = { ...newConfig[configIndex] };
-      const newValue = value || 0;
-
-      // Tính tổng sau khi thay đổi
-      const otherField = field === "num_adults" ? "num_children" : "num_adults";
-      const total = newValue + currentConfig[otherField];
-
-      // Kiểm tra vượt capacity
-      if (total > room.capacity) {
-        message.warning(
-          `Tổng số khách không được vượt quá ${room.capacity} người!`
-        );
-        return;
-      }
-
-      // Kiểm tra max_adults hoặc max_children
-      if (
-        field === "num_adults" &&
-        room.max_adults &&
-        newValue > room.max_adults
-      ) {
-        message.warning(`Số người lớn tối đa: ${room.max_adults}`);
-        return;
-      }
-
-      if (
-        field === "num_children" &&
-        room.max_children &&
-        newValue > room.max_children
-      ) {
-        message.warning(`Số trẻ em tối đa: ${room.max_children}`);
-        return;
-      }
-
-      currentConfig[field] = newValue;
-      newConfig[configIndex] = currentConfig;
-      setRoomsConfig(newConfig);
-    },
-    [rooms, roomsConfig]
-  );
-
-  const validateCapacity = () => {
-    for (let i = 0; i < roomsConfig.length; i++) {
-      const config = roomsConfig[i];
-      const room = rooms.find((r) => r.id === config.room_id);
-      if (!room) continue;
-
-      const { num_adults, num_children } = config;
-      const total = num_adults + num_children;
-
-      if (total > room.capacity) {
-        message.error(
-          `Phòng "${room.name}": Tổng số khách (${total}) vượt quá sức chứa (${room.capacity})`
-        );
-        return false;
-      }
-
-      if (room.max_adults && num_adults > room.max_adults) {
-        message.error(
-          `Phòng "${room.name}": Số người lớn (${num_adults}) vượt quá giới hạn (${room.max_adults})`
-        );
-        return false;
-      }
-
-      if (room.max_children && num_children > room.max_children) {
-        message.error(
-          `Phòng "${room.name}": Số trẻ em (${num_children}) vượt quá giới hạn (${room.max_children})`
-        );
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleBooking = () => {
-    if (selectedRoomIds.length === 0) {
-      message.warning("Vui lòng chọn ít nhất 1 phòng");
-      return;
-    }
-
-    if (selectedRoomIds.length !== numRooms) {
-      message.warning(`Vui lòng chọn đúng ${numRooms} phòng`);
-      return;
-    }
-
-    if (!validateCapacity()) {
-      return;
-    }
-
-    if (!searchParams) {
-      message.error("Thiếu thông tin tìm kiếm. Vui lòng tìm kiếm lại!");
-      return;
-    }
-
-    // Convert roomsConfig to format expected by MultiRoomBookingCreate
-    const roomsConfigForBooking = roomsConfig.map((config) => ({
-      num_adults: config.num_adults,
-      num_children: config.num_children,
-    }));
-
-    // Navigate to multi-room booking page
-    navigate("/booking/multi-create", {
-      state: {
-        selectedRoomIds,
-        searchParams,
-        roomsConfig: roomsConfigForBooking,
-        numRooms,
-      },
-    });
-  };
+  // Đã chuyển toàn bộ logic booking sang confirmedBookings và sidebar checkout
 
   // Filter rooms by floor
   const filteredRooms = useMemo(
@@ -323,13 +151,16 @@ const RoomSearchResults = () => {
   // Group rooms by room type
   const roomsByType = useMemo(
     () =>
-      filteredRooms.reduce((acc, room) => {
-        if (!acc[room.type_id]) {
-          acc[room.type_id] = [];
-        }
-        acc[room.type_id].push(room);
-        return acc;
-      }, {} as Record<number, Room[]>),
+      filteredRooms.reduce(
+        (acc, room) => {
+          if (!acc[room.type_id]) {
+            acc[room.type_id] = [];
+          }
+          acc[room.type_id].push(room);
+          return acc;
+        },
+        {} as Record<number, Room[]>
+      ),
     [filteredRooms]
   );
 
@@ -444,7 +275,7 @@ const RoomSearchResults = () => {
                   const roomType = roomTypes.find(
                     (rt) => rt.id === Number(typeId)
                   );
-
+                  // Nếu số phòng trống < numRooms, chỉ hiện thông báo
                   return (
                     <RoomTypeCard
                       key={typeId}
@@ -453,37 +284,130 @@ const RoomSearchResults = () => {
                       numRooms={numRooms}
                       selectedRoomIds={selectedRoomIds}
                       roomsConfig={roomsConfig}
-                      onSelectRoomType={handleSelectRoomType}
+                      disabled={roomsInType.length < numRooms}
+                      onSelectRoomType={(selectedRooms, newRoomsConfig) => {
+                        setRoomsConfig(newRoomsConfig);
+                        setSelectedRoomIds(selectedRooms.map((r) => r.id));
+
+                        // Thêm hoặc cập nhật loại phòng đã xác nhận
+                        setConfirmedBookings((prev) => {
+                          const idx = prev.findIndex(
+                            (b) => b.roomTypeId === (roomType?.id || 0)
+                          );
+                          const newBooking = {
+                            roomTypeId: roomType?.id || 0,
+                            roomTypeName: roomType?.name || "",
+                            roomPrice: roomType?.price || 0,
+                            numRooms,
+                            roomsConfig: newRoomsConfig,
+                          };
+                          if (idx >= 0) {
+                            // Cập nhật loại phòng đã có
+                            const updated = [...prev];
+                            updated[idx] = newBooking;
+                            return updated;
+                          } else {
+                            // Thêm mới loại phòng
+                            return [...prev, newBooking];
+                          }
+                        });
+                      }}
                       onRoomSelect={handleRoomSelect}
-                      onGuestChange={handleGuestChange}
                     />
                   );
                 })}
               </div>
             </Col>
 
-            {/* Right Column: Booking Sidebar */}
+            {/* Right Column: Booking Sidebar - Show after confirmation */}
             <Col xs={24} lg={8}>
               <div className="sticky top-0">
-                {searchParams && (
+                {confirmedBookings.length > 0 && searchParams ? (
                   <BookingSidebar
                     checkIn={searchParams.check_in}
                     checkOut={searchParams.check_out}
-                    rooms={roomsConfig.map((config) => {
-                      const room = rooms.find((r) => r.id === config.room_id);
-                      return {
-                        id: room?.id || 0,
-                        name: room?.name || "",
-                        type_name: "",
-                        price: room?.price || 0,
-                        num_adults: config.num_adults,
-                        num_children: config.num_children,
-                      };
-                    })}
+                    rooms={confirmedBookings.flatMap((booking) =>
+                      booking.roomsConfig.map((config, idx) => {
+                        const room = rooms.find((r) => r.id === config.room_id);
+                        return {
+                          id: room?.id || 0,
+                          name: room?.name || `Phòng ${idx + 1}`,
+                          type_name: booking.roomTypeName,
+                          price: booking.roomPrice,
+                          num_adults: config.num_adults,
+                          num_children: config.num_children,
+                        };
+                      })
+                    )}
                     promoCode={searchParams.promo_code}
-                    onCheckout={handleBooking}
+                    onCheckout={() => {
+                      // Gộp toàn bộ roomsConfig của các loại phòng
+                      const allRoomsConfig = confirmedBookings.flatMap(
+                        (booking) =>
+                          booking.roomsConfig.map((cfg) => ({
+                            ...cfg,
+                            room_type_id: booking.roomTypeId,
+                            room_type_name: booking.roomTypeName,
+                            room_type_price: booking.roomPrice,
+                          }))
+                      );
+
+                      // Chuẩn hóa cho backend: tạo mảng items
+                      const items = allRoomsConfig.map((cfg) => ({
+                        room_id: cfg.room_id,
+                        num_adults: cfg.num_adults,
+                        num_children: cfg.num_children,
+                        room_type_id: cfg.room_type_id,
+                        room_type_name: cfg.room_type_name,
+                        room_type_price: cfg.room_type_price,
+                        check_in: searchParams.check_in,
+                        check_out: searchParams.check_out,
+                      }));
+
+                      navigate("/booking/multi-create", {
+                        state: {
+                          searchParams,
+                          roomsConfig: allRoomsConfig,
+                          confirmedBookings,
+                          selectedRoomIds: allRoomsConfig.map(
+                            (cfg) => cfg.room_id
+                          ),
+                          items,
+                        },
+                      });
+                    }}
                     loading={loading}
                   />
+                ) : (
+                  <div
+                    className="bg-white p-6 shadow-lg"
+                    style={{ borderRadius: 0 }}
+                  >
+                    <div className="text-center text-gray-500">
+                      <div className="mb-4">
+                        <svg
+                          className="w-16 h-16 mx-auto text-gray-300"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        Chưa chọn phòng nào
+                      </h3>
+                      <p className="text-sm">
+                        Nhấn "Xác nhận" trên loại phòng để hệ thống tự động chọn
+                        phòng phù hợp
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             </Col>

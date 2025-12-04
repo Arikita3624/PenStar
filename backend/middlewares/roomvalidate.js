@@ -3,8 +3,6 @@ import Joi from "joi";
 const roomSchema = Joi.object({
   name: Joi.string().required(),
   type_id: Joi.number().positive().required(),
-  price: Joi.number().min(0).required(),
-  capacity: Joi.number().positive().required(),
   short_desc: Joi.string().required(),
   long_desc: Joi.string().required(),
   status: Joi.string().required(),

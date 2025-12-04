@@ -33,11 +33,183 @@ export const getBookingsByUser = async (userId) => {
   return resuit.rows;
 };
 
+/**
+ * Auto-assign available rooms based on room type, quantity, dates, and capacity
+ * @param {number} roomTypeId - ID of the room type
+ * @param {number} quantity - Number of rooms needed
+ * @param {string} checkIn - Check-in date
+ * @param {string} checkOut - Check-out date
+ * @param {number} numAdults - Number of adults
+ * @param {number} numChildren - Number of children
+ * @returns {Promise<Array>} Array of assigned room objects
+ */
+export const autoAssignRooms = async (
+  roomTypeId,
+  quantity,
+  checkIn,
+  checkOut,
+  numAdults,
+  numChildren,
+  excludeRoomIds = [] // Danh sách phòng đã assign trong transaction
+) => {
+  const client = await pool.connect();
+  try {
+    // Validate guest numbers trước khi tìm phòng
+    const typeCheck = await client.query(
+      `SELECT max_adults, max_children, capacity, name FROM room_types WHERE id = $1`,
+      [roomTypeId]
+    );
+
+    if (typeCheck.rows.length === 0) {
+      throw new Error(`Loại phòng ID ${roomTypeId} không tồn tại.`);
+    }
+
+    const roomType = typeCheck.rows[0];
+    const totalGuests = numAdults + numChildren;
+
+    // Kiểm tra 1: Tổng số khách (người lớn + trẻ em, không tính em bé) <= 4 (mặc định)
+    const MAX_GUESTS_DEFAULT = 4;
+    if (totalGuests > MAX_GUESTS_DEFAULT) {
+      throw new Error(
+        `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé).`
+      );
+    }
+
+    // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
+    const maxCapacity = Math.min(roomType.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+    if (totalGuests > maxCapacity) {
+      throw new Error(
+        `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${roomType.name}".`
+      );
+    }
+
+    // Kiểm tra 3: Số người lớn không vượt quy định (an toàn, tuân thủ)
+    if (numAdults > roomType.max_adults) {
+      throw new Error(
+        `Số người lớn (${numAdults}) vượt quá quy định (${roomType.max_adults}) cho loại phòng "${roomType.name}".`
+      );
+    }
+
+    // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình có nhiều trẻ em
+    // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
+
+    console.log(`[DEBUG autoAssignRooms] Excluding room IDs:`, excludeRoomIds);
+
+    // Find available rooms of the specified type and capacity
+    // Exclude rooms that have overlapping bookings AND rooms already assigned in this transaction
+    const query = `
+      SELECT DISTINCT r.*
+      FROM rooms r
+      JOIN room_types rt ON r.type_id = rt.id
+      WHERE r.type_id = $1
+        AND r.status = 'available'
+        AND rt.capacity >= $2
+        AND rt.max_adults >= $3
+        ${
+          excludeRoomIds.length > 0
+            ? `AND r.id NOT IN (${excludeRoomIds
+                .map((_, i) => `$${7 + i}`)
+                .join(",")})`
+            : ""
+        }
+        AND NOT EXISTS (
+          SELECT 1 FROM booking_items bi
+          JOIN bookings b ON bi.booking_id = b.id
+          WHERE bi.room_id = r.id
+            AND b.stay_status_id IN (1, 2, 3)
+            AND NOT (
+              bi.check_out::date <= $4::date 
+              OR bi.check_in::date >= $5::date
+            )
+        )
+      ORDER BY r.name ASC
+      LIMIT $6
+    `;
+
+    // Build params array
+    const params = [
+      roomTypeId,
+      totalGuests,
+      numAdults,
+      checkIn,
+      checkOut,
+      quantity,
+      ...excludeRoomIds,
+    ];
+
+    console.log(`[DEBUG autoAssignRooms] Query:`, query);
+    console.log(`[DEBUG autoAssignRooms] Params:`, params);
+
+    const result = await client.query(query, params);
+
+    console.log(
+      `[DEBUG autoAssignRooms] Found ${result.rows.length} rooms:`,
+      result.rows.map((r) => `${r.name} (ID: ${r.id})`)
+    );
+
+    // Nếu số phòng khả dụng < số phòng cần, báo lỗi rõ ràng
+    if (result.rows.length < quantity) {
+      throw new Error(
+        `Không đủ phòng trống! Cần ${quantity} phòng nhưng chỉ có ${result.rows.length} phòng khả dụng cho loại phòng này trong khoảng thời gian đã chọn.`
+      );
+    }
+
+    return result.rows;
+  } finally {
+    client.release();
+  }
+};
+
 export const createBooking = async (data) => {
-  // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_price}], services: [{service_id, quantity, total_service_price}] }
+  // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_type_price}], services: [{service_id, quantity, total_service_price}] }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    console.log(
+      "[DEBUG] createBooking received data.rooms_config:",
+      data.rooms_config
+    );
+    console.log("[DEBUG] createBooking received data.items:", data.items);
+
+    // === AUTO ASSIGN ROOMS ===
+    if (Array.isArray(data.rooms_config)) {
+      console.log(
+        "[DEBUG] rooms_config received:",
+        JSON.stringify(data.rooms_config, null, 2)
+      );
+      let bookingItems = [];
+      let assignedRoomIds = []; // Track phòng đã assign trong transaction này
+
+      for (const cfg of data.rooms_config) {
+        console.log("[DEBUG] Processing config:", cfg);
+        console.log("[DEBUG] cfg.services:", cfg.services);
+        const assignedRooms = await autoAssignRooms(
+          cfg.room_type_id,
+          cfg.quantity,
+          cfg.check_in,
+          cfg.check_out,
+          cfg.num_adults,
+          cfg.num_children,
+          assignedRoomIds // Truyền danh sách phòng đã assign
+        );
+        for (let i = 0; i < cfg.quantity; i++) {
+          const roomId = assignedRooms[i].id;
+          assignedRoomIds.push(roomId); // Thêm vào danh sách đã assign
+          bookingItems.push({
+            room_id: roomId,
+            room_type_id: cfg.room_type_id,
+            check_in: cfg.check_in,
+            check_out: cfg.check_out,
+            room_type_price: cfg.room_type_price,
+            num_adults: cfg.num_adults,
+            num_children: cfg.num_children,
+            services: cfg.services || [], // 🔧 Thêm services từ config
+          });
+        }
+      }
+      data.items = bookingItems;
+    }
 
     console.log("Creating booking with data:", JSON.stringify(data, null, 2));
 
@@ -73,14 +245,25 @@ export const createBooking = async (data) => {
       );
     }
 
-    // Check room availability
+    // Check room availability & validate guest numbers
     if (Array.isArray(data.items)) {
       for (const item of data.items) {
-        const { room_id, check_in, check_out } = item;
+        const {
+          room_id,
+          check_in,
+          check_out,
+          num_adults,
+          num_children,
+          room_type_price,
+        } = item;
+        // Validate room_type_price
+        if (room_type_price === undefined || room_type_price === null) {
+          throw new Error("Thiếu trường room_type_price cho từng phòng!");
+        }
 
         // Check 1: Room must be available (not booked/occupied/unavailable/maintenance)
         const roomCheck = await client.query(
-          `SELECT id, name, status FROM rooms WHERE id = $1`,
+          `SELECT id, name, status, type_id FROM rooms WHERE id = $1`,
           [room_id]
         );
 
@@ -91,18 +274,60 @@ export const createBooking = async (data) => {
         const room = roomCheck.rows[0];
         if (room.status !== "available") {
           throw new Error(
-            `Phòng "${room.name}" hiện đang ở trạng thái "${room.status}" và không thể đặt. Vui lòng chọn phòng khác.`
+            `Phòng \"${room.name}\" hiện đang ở trạng thái \"${room.status}\" và không thể đặt. Vui lòng chọn phòng khác.`
           );
         }
 
-        // Check 2: Room availability in booking time range
+        // Check 2: Validate guest numbers against room type
+        const typeRes = await client.query(
+          `SELECT max_adults, max_children, name FROM room_types WHERE id = $1`,
+          [room.type_id]
+        );
+        if (typeRes.rows.length === 0) {
+          throw new Error(`Loại phòng cho phòng ${room.name} không tồn tại.`);
+        }
+        const type = typeRes.rows[0];
+        const totalGuests = num_adults + num_children;
+
+        // Kiểm tra 1: Tổng số khách (người lớn + trẻ em, không tính em bé) <= 4 (mặc định)
+        const MAX_GUESTS_DEFAULT = 4;
+        if (totalGuests > MAX_GUESTS_DEFAULT) {
+          throw new Error(
+            `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
+          );
+        }
+
+        // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
+        const maxCapacity = Math.min(type.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+        if (totalGuests > maxCapacity) {
+          throw new Error(
+            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+          );
+        }
+
+        // Kiểm tra 3: Số người lớn <= max_adults
+        if (num_adults > type.max_adults) {
+          throw new Error(
+            `Số người lớn (${num_adults}) vượt quá quy định (${type.max_adults}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+          );
+        }
+
+        // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình
+        // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
+
+        // Check 3: Room availability in booking time range
+        // Logic: Conflict khi khoảng thời gian CHỒNG LẤN
+        // Sử dụng ::date để so sánh chính xác ngày, tránh vấn đề timezone/time
         const availabilityCheck = await client.query(
           `SELECT bi.id, b.id as booking_id, b.customer_name, bi.check_in, bi.check_out
            FROM booking_items bi
            JOIN bookings b ON bi.booking_id = b.id
            WHERE bi.room_id = $1
-             AND b.stay_status_id IN (1, 2, 6)
-             AND NOT (bi.check_out <= $2 OR bi.check_in >= $3)`,
+             AND b.stay_status_id IN (1, 2, 3)
+             AND NOT (
+               bi.check_out::date <= $2::date 
+               OR bi.check_in::date >= $3::date
+             )`,
           [room_id, check_in, check_out]
         );
 
@@ -140,87 +365,62 @@ export const createBooking = async (data) => {
 
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
+      console.log("[DEBUG] data.items:", JSON.stringify(data.items, null, 2));
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
       for (const item of data.items) {
+        console.log("[DEBUG] Processing item:", item);
         const {
           room_id,
+          room_type_id,
           check_in,
           check_out,
-          room_price,
+          room_type_price,
           num_adults,
           num_children,
+          services,
         } = item;
+        console.log("[DEBUG] Extracted services from item:", services);
+        // Không validate hay insert room_price nữa
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
+          room_type_id,
           check_in,
           check_out,
-          room_price,
+          room_type_price,
           num_adults || 1,
           num_children || 0,
         ]);
 
         const booking_item_id = itemResult.rows[0].id;
 
-        // Update room status to 'pending' when booking is created (client creates → stay_status_id=6 pending)
-        await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
-          "pending",
-          room_id,
-        ]);
-      }
-    }
-
-    // insert booking_items with multi-room support if rooms array provided
-    if (Array.isArray(data.rooms)) {
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price, num_adults, num_children, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
-
-      for (const room of data.rooms) {
-        const { room_id, num_adults, num_children, special_requests } = room;
-        const check_in = data.check_in;
-        const check_out = data.check_out;
-
-        // Get room price
-        const roomResult = await client.query(
-          "SELECT price FROM rooms WHERE id = $1",
-          [room_id]
+        // Insert services cho phòng này (nếu có)
+        console.log(
+          `[DEBUG] Processing services for booking_item_id ${booking_item_id}:`,
+          services
         );
-        const room_price = roomResult.rows[0]?.price || 0;
-
-        const itemResult = await client.query(insertItemText, [
-          booking.id,
-          room_id,
-          check_in,
-          check_out,
-          room_price,
-          num_adults || 1,
-          num_children || 0,
-          special_requests || null,
-        ]);
-
-        const booking_item_id = itemResult.rows[0].id;
-
-        // Insert services for this room
-        if (Array.isArray(room.service_ids) && room.service_ids.length > 0) {
-          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5)`;
-          for (const service_id of room.service_ids) {
-            // Get service price
-            const serviceResult = await client.query(
-              "SELECT price FROM services WHERE id = $1",
-              [service_id]
-            );
-            const service_price = serviceResult.rows[0]?.price || 0;
-
-            await client.query(insertServiceText, [
+        if (Array.isArray(services) && services.length > 0) {
+          console.log(
+            `[DEBUG] Inserting ${services.length} services for room ${booking_item_id}`
+          );
+          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+          for (const service of services) {
+            const { service_id, quantity, total_service_price } = service;
+            const serviceResult = await client.query(insertServiceText, [
               booking.id,
-              booking_item_id, // Link service to specific room
+              booking_item_id,
               service_id,
-              1, // quantity default to 1
-              service_price,
+              quantity,
+              total_service_price,
             ]);
+            console.log(`[DEBUG] Inserted service:`, serviceResult.rows[0]);
           }
+        } else {
+          console.log(
+            `[DEBUG] No services to insert for booking_item_id ${booking_item_id}`
+          );
         }
 
-        // Update room status to 'pending'
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
           "pending",
           room_id,
@@ -228,11 +428,12 @@ export const createBooking = async (data) => {
       }
     }
 
-    // insert booking_services if provided
-    if (Array.isArray(data.services)) {
+    // Insert booking_services chung (backward compatibility - nếu có)
+    // Ưu tiên dùng services trong từng item thay vì services chung
+    if (Array.isArray(data.services) && data.services.length > 0) {
       const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4) RETURNING *`;
-      for (const s of data.services) {
-        const { service_id, quantity, total_service_price } = s;
+      for (const service of data.services) {
+        const { service_id, quantity, total_service_price } = service;
         await client.query(insertServiceText, [
           booking.id,
           service_id,
@@ -343,8 +544,11 @@ export const confirmCheckout = async (id) => {
       "SELECT stay_status_id FROM bookings WHERE id = $1",
       [id]
     );
-    if (!checkBooking.rows[0] || checkBooking.rows[0].stay_status_id !== 3) {
-      throw new Error("Booking không ở trạng thái checked_out");
+    if (
+      !checkBooking.rows[0] ||
+      ![2, 3].includes(checkBooking.rows[0].stay_status_id)
+    ) {
+      throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
     }
 
     // Get rooms from this booking
@@ -354,12 +558,19 @@ export const confirmCheckout = async (id) => {
     );
 
     // Update all rooms to "cleaning" status
+
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         "cleaning",
         item.room_id,
       ]);
     }
+
+    // Update booking stay_status_id to checked_out (3)
+    await client.query(
+      "UPDATE bookings SET stay_status_id = $1 WHERE id = $2",
+      [3, id]
+    );
 
     await client.query("COMMIT");
 
@@ -548,21 +759,50 @@ export const changeRoomInBooking = async (data) => {
     }
     const newRoom = newRoomRes.rows[0];
 
-    // 6. Check if new room is available
+    // 6. Check if new room is available (status)
     if (newRoom.status !== "available") {
-      throw new Error("Phòng mới không khả dụng");
+      throw new Error(
+        "Phòng mới không khả dụng (đang được sử dụng hoặc bảo trì)"
+      );
     }
 
-    // 7. Calculate price difference
+    // 7. Check if new room conflicts with other bookings in the date range
+    const conflictCheck = await client.query(
+      `SELECT bi.id, b.customer_name, bi.check_in, bi.check_out
+       FROM booking_items bi
+       JOIN bookings b ON bi.booking_id = b.id
+       WHERE bi.room_id = $1
+         AND b.stay_status_id IN (1, 2, 3)
+         AND bi.id != $2
+         AND NOT (
+           bi.check_out::date <= $3::date 
+           OR bi.check_in::date >= $4::date
+         )`,
+      [
+        new_room_id,
+        booking_item_id,
+        bookingItem.check_in,
+        bookingItem.check_out,
+      ]
+    );
+
+    if (conflictCheck.rows.length > 0) {
+      const conflict = conflictCheck.rows[0];
+      throw new Error(
+        `Phòng mới đã được đặt trong khoảng thời gian ${conflict.check_in} - ${conflict.check_out}. Vui lòng chọn phòng khác.`
+      );
+    }
+
+    // 8. Calculate price difference
     const checkIn = new Date(bookingItem.check_in);
     const checkOut = new Date(bookingItem.check_out);
     const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
     const new_price = newRoom.price * nights;
-    const price_difference = new_price - bookingItem.room_price;
+    const price_difference = new_price - bookingItem.room_type_price;
 
     // 8. Update booking_item
     await client.query(
-      "UPDATE booking_items SET room_id = $1, room_price = $2 WHERE id = $3",
+      "UPDATE booking_items SET room_id = $1, room_type_price = $2 WHERE id = $3",
       [new_room_id, new_price, booking_item_id]
     );
 

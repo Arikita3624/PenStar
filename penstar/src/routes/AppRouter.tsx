@@ -1,6 +1,7 @@
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RequireRole from "@/components/common/RequireRole";
+import RequireCustomerOnly from "@/components/common/RequireCustomerOnly";
 import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
@@ -23,7 +24,6 @@ import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
 import MultiRoomBookingCreate from "@/components/pages/clients/bookings/MultiRoomBookingCreate";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
-import ChangeRoomPage from "@/components/pages/clients/bookings/ChangeRoomPage";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
@@ -32,7 +32,6 @@ import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
 import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
-import StaffBookingCreate from "@/components/pages/clients/bookings/StaffBookingCreate";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 
@@ -48,54 +47,52 @@ const AppRouter = () => {
           <Route path="rooms/:id" element={<RoomDetail />} />
 
           {/* Staff booking - Walk-in customers (staff creates for guest) */}
-          <Route path="booking/staff-create" element={<StaffBookingCreate />} />
 
-          {/* Customer bookings - REQUIRE authentication */}
+          {/* Customer bookings - CHỈ cho phép customer, chặn admin/staff */}
           <Route
             path="booking/multi-create"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MultiRoomBookingCreate />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="bookings"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MyBookings />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="my-bookings"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MyBookings />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="bookings/confirm"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <BookingConfirm />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
+          {/* BookingSuccess không cần RequireCustomerOnly vì có thể truy cập từ callback VNPay hoặc từ email */}
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
-          <Route
-            path="bookings/:id/change-room"
-            element={
-              <RequireRole role="customer">
-                <ChangeRoomPage />
-              </RequireRole>
-            }
-          />
+
           <Route
             path="bookings/payment-method"
-            element={<PaymentMethodSelect />}
+            element={
+              <RequireCustomerOnly>
+                <PaymentMethodSelect />
+              </RequireCustomerOnly>
+            }
           />
+          {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
           <Route path="payment-result" element={<PaymentResult />} />
           {/* admin booking routes moved to admin layout below */}
           <Route path="signup" element={<SignUp />} />
@@ -114,7 +111,6 @@ const AppRouter = () => {
           {/* Bookings management - Staff+ */}
           <Route path="bookings" element={<BookingsList />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
-          <Route path="bookings/:id/change-room" element={<ChangeRoomPage />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
           <Route path="rooms" element={<Rooms />} />

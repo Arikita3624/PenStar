@@ -75,10 +75,10 @@ const AppHeader = () => {
 
         <div className="flex items-center gap-3">
           <a
-            href="tel:+840000000"
+            href="tel:+84 394879813"
             className="hidden md:flex items-center gap-2 text-sm text-white/90"
           >
-            <PhoneOutlined className="text-base" /> <span>+84 24 0000 000</span>
+            <PhoneOutlined className="text-base" /> <span>+84 394879813</span>
           </a>
           {isLogged ? (
             <Button

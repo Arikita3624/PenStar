@@ -11,12 +11,9 @@ import {
   message,
   Modal,
 } from "antd";
-import {
-  updateMyBooking,
-  cancelBooking,
-  getBookingById,
-} from "@/services/bookingsApi";
-import type { Booking } from "@/types/bookings";
+import { cancelBooking, getBookingById } from "@/services/bookingsApi";
+import type { Booking, BookingService } from "@/types/bookings";
+import { getServiceById } from "@/services/servicesApi";
 import dayjs from "dayjs";
 
 const fmtPrice = (v: string | number | undefined) => {
@@ -33,8 +30,11 @@ const BookingSuccess: React.FC = () => {
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
 
   const [booking, setBooking] = React.useState<Booking | null>(initial);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(!initial); // Không loading nếu đã có initial data
   const [updating, setUpdating] = React.useState(false);
+  const [services, setServices] = React.useState<
+    Record<number, { name: string; price: number }>
+  >({});
 
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
@@ -42,6 +42,32 @@ const BookingSuccess: React.FC = () => {
     try {
       const data = await getBookingById(Number(id));
       setBooking(data);
+
+      // Fetch service details - lazy load, không chặn UI
+      if (Array.isArray(data.services) && data.services.length > 0) {
+        const serviceIds = Array.from(
+          new Set(
+            data.services
+              .map((s: { service_id?: number }) => s.service_id)
+              .filter((id): id is number => id != null)
+          )
+        );
+
+        // Fetch services song song nhưng không chặn rendering
+        Promise.all(serviceIds.map((sid: number) => getServiceById(sid)))
+          .then((serviceResults) => {
+            const serviceMap: Record<number, { name: string; price: number }> =
+              {};
+            serviceResults.forEach((s) => {
+              if (s && s.id)
+                serviceMap[s.id] = { name: s.name, price: s.price };
+            });
+            setServices(serviceMap);
+          })
+          .catch((err) => {
+            console.error("Error fetching services:", err);
+          });
+      }
     } catch {
       setBooking(null);
     } finally {
@@ -50,58 +76,28 @@ const BookingSuccess: React.FC = () => {
   }, [id]);
 
   React.useEffect(() => {
-    if (id) {
+    if (!id) return;
+
+    // Nếu đã có initial booking từ state, hiển thị ngay
+    if (initial && initial.id && String(initial.id) === id) {
+      setBooking(initial);
+      setLoading(false);
+
+      // Fetch lại ở background để đảm bảo data mới nhất (đặc biệt là payment_status sau khi thanh toán)
+      // Nhưng không chặn UI - user thấy ngay thông tin
+      setTimeout(() => {
+        fetchBooking();
+      }, 100);
+    } else {
+      // Không có initial data, fetch ngay
       fetchBooking();
     }
-  }, [id, fetchBooking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Chỉ depend vào id để tránh loop
 
-  const handleCheckIn = async () => {
-    if (!booking?.id) return;
-    const bookingId = booking.id;
-    Modal.confirm({
-      title: "Xác nhận Check-in",
-      content:
-        "Bạn có muốn check-in vào phòng không? Trạng thái phòng sẽ chuyển sang Occupied.",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await updateMyBooking(bookingId, { stay_status_id: 2 }); // 2 = checked_in
-          message.success(
-            "Check-in thành công! Phòng đã chuyển sang trạng thái Occupied"
-          );
-          fetchBooking();
-        } catch {
-          message.error("Lỗi check-in");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
+  // Đã chuyển logic check-in sang phía admin. Người dùng không thể tự check-in.
 
-  const handleCheckOut = async () => {
-    if (!booking?.id) return;
-    const bookingId = booking.id;
-    Modal.confirm({
-      title: "Xác nhận Check-out",
-      content:
-        "Bạn có muốn check-out không? Phòng sẽ chuyển sang trạng thái Cleaning.",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await updateMyBooking(bookingId, { stay_status_id: 3 }); // 3 = checked_out
-          message.success(
-            "Check-out thành công! Phòng sẽ chuyển sang trạng thái Cleaning"
-          );
-          fetchBooking();
-        } catch {
-          message.error("Lỗi check-out");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
+  // chuyển logic check-out sang admin. Người dùng không thể tự check-out.
 
   const handleCancel = async () => {
     if (!booking?.id) return;
@@ -157,16 +153,17 @@ const BookingSuccess: React.FC = () => {
   const statusId = booking?.stay_status_id || 0;
   const paymentStatus = booking?.payment_status || "";
 
-  // Chỉ cho check-in khi: reserved (1) VÀ payment = paid
-  const canCheckIn = statusId === 1 && paymentStatus === "paid";
-  // Chỉ cho check-out khi: checked_in (2)
-  const canCheckOut = statusId === 2;
   // Có thể hủy khi: pending (6) HOẶC reserved (1)
   // Backend sẽ kiểm tra thêm điều kiện 24h
   const canCancel = statusId === 6 || statusId === 1;
-  // Có thể đổi phòng khi: pending (6) HOẶC reserved (1), VÀ chưa đổi quá 1 lần
-  const canChangeRoom =
-    (statusId === 6 || statusId === 1) && (booking?.change_count || 0) < 1;
+
+  // Tính tổng số người lớn và trẻ em từ tất cả các phòng
+  const totalAdults = Array.isArray(booking?.items)
+    ? booking!.items.reduce((sum, item) => sum + (item.num_adults || 0), 0)
+    : 0;
+  const totalChildren = Array.isArray(booking?.items)
+    ? booking!.items.reduce((sum, item) => sum + (item.num_children || 0), 0)
+    : 0;
 
   return (
     <div className="bg-gray-50 py-6">
@@ -318,9 +315,6 @@ const BookingSuccess: React.FC = () => {
                     <div className="font-bold text-base text-gray-700 mb-0.5">
                       Đã check-out
                     </div>
-                    <div className="text-gray-700 text-sm">
-                      Cảm ơn bạn đã checkout! Chờ admin xác nhận để hoàn tất.
-                    </div>
                   </div>
                 </div>
               </div>
@@ -408,45 +402,68 @@ const BookingSuccess: React.FC = () => {
               </Descriptions.Item>
             </Descriptions>
             <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">Phòng đã đặt</h3>
-              <List
-                size="small"
-                dataSource={booking?.items ?? []}
-                renderItem={(it) => (
-                  <List.Item>
-                    <div className="text-sm">
-                      <div className="font-semibold">Phòng #{it.room_id}</div>
-                      <div>Check in: {it.check_in}</div>
-                      <div>Check out: {it.check_out}</div>
-                      <div>Giá: {fmtPrice(it.room_price)} VND</div>
+              <h3 className="mb-1.5 font-semibold text-sm">
+                Thông tin đặt phòng
+              </h3>
+              <Card size="small" className="bg-blue-50 border-blue-200">
+                <Space direction="vertical" className="w-full">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Số phòng:</span>
+                    <span className="font-semibold">
+                      {booking?.items?.length || 0} phòng
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Số người lớn:</span>
+                    <span className="font-semibold">{totalAdults}</span>
+                  </div>
+                  {totalChildren > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Số trẻ em:</span>
+                      <span className="font-semibold">{totalChildren} trẻ</span>
                     </div>
-                  </List.Item>
-                )}
-              />
+                  )}
+                  <div className="pt-2 border-t border-blue-200">
+                    <p className="text-xs text-blue-800 flex items-start gap-2">
+                      <span>📧</span>
+                      <span>
+                        <strong>Thông tin phòng cụ thể</strong> (số phòng, tầng)
+                        đã được gửi qua email của bạn
+                      </span>
+                    </p>
+                  </div>
+                </Space>
+              </Card>
             </div>
-            <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
-              <List
-                size="small"
-                dataSource={booking?.services ?? []}
-                renderItem={(s) => (
-                  <List.Item>
-                    <div className="text-sm">
-                      <div className="font-semibold">
-                        Dịch vụ #{s.service_id}
-                      </div>
-                      <div>
-                        Số lượng: {s.quantity} — Giá:{" "}
-                        {fmtPrice(s.total_service_price)} VND
-                      </div>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </div>
+            {Array.isArray(booking?.services) &&
+              booking.services.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
+                  <List
+                    size="small"
+                    dataSource={booking.services}
+                    renderItem={(s: BookingService) => {
+                      const serviceInfo = services[s.service_id];
+                      return (
+                        <List.Item>
+                          <div className="text-sm">
+                            <div className="font-semibold">
+                              {serviceInfo?.name || `Dịch vụ #${s.service_id}`}
+                            </div>
+                            <div>
+                              Số lượng: {s.quantity} — Giá:{" "}
+                              {fmtPrice(s.total_service_price)} VND
+                            </div>
+                          </div>
+                        </List.Item>
+                      );
+                    }}
+                  />
+                </div>
+              )}
 
-            {/* Thông báo thanh toán tại khách sạn */}
-            {booking?.id && paymentStatus === "pending" && (
+            {/* Thông báo thanh toán và nút thanh toán lại */}
+            {booking?.id && (paymentStatus === "pending" || paymentStatus === "failed") && (
               <Card
                 title="💳 Thanh toán"
                 style={{ marginTop: 16 }}
@@ -455,16 +472,36 @@ const BookingSuccess: React.FC = () => {
               >
                 <div style={{ textAlign: "center", padding: "12px 0" }}>
                   <p style={{ fontSize: 14, marginBottom: 12 }}>
-                    Vui lòng thanh toán{" "}
-                    <strong>{fmtPrice(booking.total_price)}</strong> khi đến
-                    khách sạn
+                    {paymentStatus === "pending" 
+                      ? `Vui lòng thanh toán ${fmtPrice(booking.total_price)} khi đến khách sạn`
+                      : `Thanh toán thất bại. Vui lòng thanh toán lại ${fmtPrice(booking.total_price)}`}
                   </p>
                   <Tag
-                    color="warning"
-                    style={{ fontSize: 13, padding: "6px 12px" }}
+                    color={paymentStatus === "pending" ? "warning" : "error"}
+                    style={{ fontSize: 13, padding: "6px 12px", marginBottom: 12 }}
                   >
-                    Trạng thái: Chờ thanh toán
+                    Trạng thái: {paymentStatus === "pending" ? "Chờ thanh toán" : "Thanh toán thất bại"}
                   </Tag>
+                  <div>
+                    <Button
+                      type="primary"
+                      size="middle"
+                      onClick={() => {
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: booking.id,
+                            bookingInfo: booking,
+                          },
+                        });
+                      }}
+                      style={{
+                        background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                        borderColor: "transparent",
+                      }}
+                    >
+                      {paymentStatus === "pending" ? "Thanh toán ngay" : "Thanh toán lại"}
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
@@ -474,68 +511,6 @@ const BookingSuccess: React.FC = () => {
                 Xem booking của tôi
               </Button>
               <Space size="small">
-                {canCheckIn && (
-                  <Button
-                    type="primary"
-                    size="middle"
-                    onClick={handleCheckIn}
-                    loading={updating}
-                  >
-                    Check-in
-                  </Button>
-                )}
-                {!canCheckIn && statusId === 1 && paymentStatus !== "paid" && (
-                  <Button type="primary" size="middle" disabled>
-                    Check-in (Chờ thanh toán)
-                  </Button>
-                )}
-                {canCheckOut && (
-                  <Button
-                    type="primary"
-                    danger
-                    size="middle"
-                    onClick={handleCheckOut}
-                    loading={updating}
-                  >
-                    Check-out
-                  </Button>
-                )}
-                {canChangeRoom && booking?.items?.[0] && (
-                  <Button
-                    type="default"
-                    size="middle"
-                    onClick={() => {
-                      // Chuyển tất cả phòng sang trang đổi phòng
-                      navigate(`/bookings/${booking.id}/change-room`, {
-                        state: {
-                          bookingId: booking.id,
-                          items: booking.items.map((item) => {
-                            const nights = Math.ceil(
-                              (new Date(item.check_out).getTime() -
-                                new Date(item.check_in).getTime()) /
-                                (1000 * 60 * 60 * 24)
-                            );
-                            return {
-                              bookingItemId: item.id,
-                              currentRoom: {
-                                id: item.room_id,
-                                name: `Phòng ${item.room_id}`,
-                                price: item.room_price / nights,
-                                type_id: item.room_id,
-                              },
-                              checkIn: item.check_in,
-                              checkOut: item.check_out,
-                              numAdults: item.num_adults || 1,
-                              numChildren: item.num_children || 0,
-                            };
-                          }),
-                        },
-                      });
-                    }}
-                  >
-                    Đổi phòng
-                  </Button>
-                )}
                 {canCancel && (
                   <Button
                     danger

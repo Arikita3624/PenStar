@@ -3,6 +3,7 @@ import {
   Card,
   Form,
   Input,
+  InputNumber,
   message,
   Select,
   Upload,
@@ -74,6 +75,10 @@ const RoomTypeEdit = () => {
       name: data.name,
       description: data.description,
       amenities: data.amenities || [],
+      capacity: data.capacity,
+      max_adults: data.max_adults,
+      max_children: data.max_children,
+      price: data.price,
     });
   }, [data, form]);
 
@@ -81,6 +86,11 @@ const RoomTypeEdit = () => {
     name: string;
     description: string;
     amenities?: string[];
+    capacity?: number;
+    max_adults?: number;
+    max_children?: number;
+    price?: number;
+    // removed base_occupancy
   }) => {
     try {
       // 1. Update room type basic info
@@ -88,6 +98,12 @@ const RoomTypeEdit = () => {
         name: values.name,
         description: values.description,
         amenities: values.amenities,
+        capacity: values.capacity ? Number(values.capacity) : undefined,
+        max_adults: values.max_adults ? Number(values.max_adults) : undefined,
+        max_children: values.max_children
+          ? Number(values.max_children)
+          : undefined,
+        price: values.price ? Number(values.price) : undefined,
       });
 
       // 2. Handle thumbnail
@@ -167,6 +183,58 @@ const RoomTypeEdit = () => {
               <Form.Item name="name" label="Name" rules={[{ required: true }]}>
                 <Input placeholder="Enter room type name (e.g., Deluxe, Suite)" />
               </Form.Item>
+
+              <div className="grid grid-cols-4 gap-4">
+                <Form.Item
+                  name="price"
+                  label="Price (VND)"
+                  rules={[{ required: true }]}
+                  tooltip="Giá phòng cho loại này"
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    min={0}
+                    placeholder="1000000"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="capacity"
+                  label="Capacity"
+                  rules={[{ required: true }]}
+                  tooltip="Tổng số người tối đa (người lớn + trẻ em)"
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    min={1}
+                    placeholder="2"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="max_adults"
+                  label="Max Adults"
+                  rules={[{ required: true }]}
+                  tooltip="Số người lớn tối đa"
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    min={1}
+                    placeholder="2"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="max_children"
+                  label="Max Children"
+                  rules={[{ required: true }]}
+                  tooltip="Số trẻ em tối đa"
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    min={0}
+                    placeholder="1"
+                  />
+                </Form.Item>
+                {/* Base Occupancy removed */}
+              </div>
 
               <Form.Item
                 name="description"

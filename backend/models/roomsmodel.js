@@ -34,66 +34,27 @@ export const getRoomID = async (id) => {
 };
 
 export const createRoom = async (data) => {
-  const {
-    name,
-    type_id,
-    price,
-    capacity,
-    short_desc,
-    long_desc,
-    status,
-    thumbnail,
-    floor_id,
-  } = data;
+  const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
+    data;
   const resuit = await pool.query(
-    `INSERT INTO rooms (name, type_id, price, capacity, short_desc, long_desc, status, thumbnail, floor_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-    [
-      name,
-      type_id,
-      price,
-      capacity,
-      short_desc,
-      long_desc,
-      status,
-      thumbnail,
-      floor_id,
-    ]
+    `INSERT INTO rooms (name, type_id, short_desc, long_desc, status, thumbnail, floor_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [name, type_id, short_desc, long_desc, status, thumbnail, floor_id]
   );
   console.log(resuit);
   return resuit.rows[0];
 };
 
 export const updateRoom = async (id, data) => {
-  const {
-    name,
-    type_id,
-    price,
-    capacity,
-    short_desc,
-    long_desc,
-    status,
-    thumbnail,
-    floor_id,
-  } = data;
-  const resuit = await pool.query(
-    `UPDATE rooms SET name = $1, type_id = $2, price = $3, capacity = $4, short_desc = $5, long_desc = $6, status = $7, thumbnail = $8, floor_id = $9
-     WHERE id = $10 RETURNING *`,
-    [
-      name,
-      type_id,
-      price,
-      capacity,
-      short_desc,
-      long_desc,
-      status,
-      thumbnail,
-      floor_id,
-      id,
-    ]
+  const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
+    data;
+  const result = await pool.query(
+    `UPDATE rooms SET name = $1, type_id = $2, short_desc = $3, long_desc = $4, status = $5, thumbnail = $6, floor_id = $7
+     WHERE id = $8 RETURNING *`,
+    [name, type_id, short_desc, long_desc, status, thumbnail, floor_id, id]
   );
-  console.log(resuit);
-  return resuit.rows[0];
+  console.log(result);
+  return result.rows[0];
 };
 
 // Check if room has active bookings (đang được book)
@@ -187,6 +148,7 @@ export const searchAvailableRooms = async ({
   floor_id = null,
   num_adults = 1,
   num_children = 0,
+  status = null,
 }) => {
   console.log("🔍 Search params:", {
     check_in,
@@ -199,18 +161,25 @@ export const searchAvailableRooms = async ({
 
   const totalGuests = num_adults + num_children;
 
-  // Simplified query - chỉ check available và không conflict booking
+  // Cho phép truyền vào trạng thái phòng cần kiểm tra (mặc định là 'available')
+  const statusList = Array.isArray(status)
+    ? status
+    : status
+    ? [status]
+    : ["available"];
+
   let query = `
-    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.base_occupancy
+    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.capacity
     FROM rooms r
     LEFT JOIN room_types rt ON r.type_id = rt.id
-    WHERE r.status = 'available'
-      AND r.capacity >= $1
+    WHERE r.status = ANY($1)
+      AND rt.capacity >= $2
+      AND rt.max_adults >= $3
   `;
 
-  const params = [totalGuests];
+  const params = [statusList, totalGuests, num_adults];
   console.log("📦 Initial params:", params);
-  let paramIndex = 2;
+  let paramIndex = 4;
 
   // Filter theo loại phòng nếu có
   if (room_type_id) {
@@ -227,21 +196,24 @@ export const searchAvailableRooms = async ({
   }
 
   // Loại trừ phòng đã có booking conflict
+  // Logic: Conflict xảy ra khi khoảng thời gian CHỒNG LẤN
+  // Không conflict khi: check_out_cũ <= check_in_mới HOẶC check_in_cũ >= check_out_mới
+  // => Conflict khi: NOT (check_out_cũ <= check_in_mới OR check_in_cũ >= check_out_mới)
   query += `
     AND NOT EXISTS (
       SELECT 1 FROM booking_items bi
       JOIN bookings b ON bi.booking_id = b.id
       WHERE bi.room_id = r.id
         AND b.stay_status_id IN (1, 2, 3) -- reserved, approved, checked_in
-        AND NOT (bi.check_out <= $${paramIndex} OR bi.check_in >= $${
-    paramIndex + 1
-  })
+        AND NOT (
+          bi.check_out::date <= $${paramIndex}::date 
+          OR bi.check_in::date >= $${paramIndex + 1}::date
+        )
     )
   `;
   params.push(check_in, check_out);
 
   // Sắp xếp theo tầng (floor_id) và tên phòng (name) tăng dần
-  // Điều này đảm bảo: Tầng 2 trước, trong cùng tầng thì P301 < P302 < P303...
   query += ` ORDER BY r.floor_id ASC, r.name ASC`;
 
   console.log("📝 Final query:", query);

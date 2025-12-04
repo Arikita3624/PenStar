@@ -37,43 +37,40 @@ const PaymentResult: React.FC = () => {
       return;
     }
 
-    setUpdating(true);
+    // Lấy bookingInfo từ localStorage nếu có (đã được lưu từ PaymentMethodSelect)
+    let bookingInfoFromStorage = null;
     try {
-      console.log("[DEBUG] Cập nhật trạng thái booking ID:", bookingId);
-
-      // Cập nhật trạng thái booking thành "paid"
-      const { updateMyBooking } = await import("@/services/bookingsApi");
-      const result = await Promise.race([
-        updateMyBooking(Number(bookingId), { payment_status: "paid" }),
-        new Promise(
-          (_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000) // 10s timeout
-        ),
-      ]);
-
-      console.log(
-        "✅ Cập nhật payment_status thành 'paid' thành công!",
-        result
-      );
-
-      // Clear localStorage
-      localStorage.removeItem("bookingId");
-
-      // Redirect sang trang BookingSuccess
-      navigate(`/bookings/success/${bookingId}`, { replace: true });
-    } catch (err: any) {
-      console.error("❌ Lỗi cập nhật trạng thái booking:", err);
-      setUpdating(false);
-
-      // Hỏi người dùng có muốn redirect sang success page hay không
-      const confirmed = window.confirm(
-        `Có lỗi khi cập nhật trạng thái (${err.message}). Bạn vẫn muốn xem chi tiết đơn hàng không?`
-      );
-
-      if (confirmed) {
-        localStorage.removeItem("bookingId");
-        navigate(`/bookings/success/${bookingId}`, { replace: true });
+      const stored = localStorage.getItem("bookingInfo");
+      if (stored) {
+        bookingInfoFromStorage = JSON.parse(stored);
       }
+    } catch {
+      // Ignore parse error
     }
+
+    // Redirect ngay lập tức, không đợi update payment_status
+    localStorage.removeItem("bookingId");
+
+    // Redirect với bookingInfo nếu có để tránh fetch lại
+    navigate(`/bookings/success/${bookingId}`, {
+      replace: true,
+      state: bookingInfoFromStorage
+        ? { booking: bookingInfoFromStorage }
+        : undefined,
+    });
+
+    // Update payment_status ở background (không chặn UI)
+    setUpdating(true);
+    (async () => {
+      try {
+        const { updateMyBooking } = await import("@/services/bookingsApi");
+        await updateMyBooking(Number(bookingId), { payment_status: "paid" });
+      } catch (err: any) {
+        console.error(" Lỗi cập nhật trạng thái booking (background):", err);
+      } finally {
+        setUpdating(false);
+      }
+    })();
   };
 
   if (loading) {
@@ -174,12 +171,34 @@ const PaymentResult: React.FC = () => {
               extra={[
                 <Button
                   type="primary"
-                  danger
                   key="retry"
-                  onClick={() => navigate(-1)}
+                  onClick={async () => {
+                    const bookingId = localStorage.getItem("bookingId");
+                    if (bookingId) {
+                      try {
+                        const { getBookingById } = await import("@/services/bookingsApi");
+                        const bookingInfo = await getBookingById(Number(bookingId));
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: Number(bookingId),
+                            bookingInfo: bookingInfo,
+                          },
+                        });
+                      } catch (err) {
+                        console.error("Error fetching booking:", err);
+                        navigate(-1);
+                      }
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
                   size="middle"
+                  style={{
+                    background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    borderColor: "transparent",
+                  }}
                 >
-                  Quay lại
+                  Thanh toán lại
                 </Button>,
                 <Button onClick={() => navigate("/")} size="middle">
                   Về trang chủ

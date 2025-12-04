@@ -15,13 +15,11 @@ export const getBookingItems = async (req, res) => {
     });
   } catch (error) {
     console.error("booking_items.getBookingItems error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -40,13 +38,11 @@ export const getBookingItemById = async (req, res) => {
     });
   } catch (error) {
     console.error("booking_items.getBookingItemById error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -60,21 +56,17 @@ export const createBookingItem = async (req, res) => {
   } catch (error) {
     console.error("booking_items.createBookingItem error:", error);
     if (error && error.code === "23503") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Foreign key constraint failed",
-          error: error.message,
-        });
-    }
-    res
-      .status(500)
-      .json({
+      return res.status(400).json({
         success: false,
-        message: "🚨 Internal server error",
+        message: "Foreign key constraint failed",
         error: error.message,
       });
+    }
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -93,12 +85,10 @@ export const deleteBookingItem = async (req, res) => {
     });
   } catch (error) {
     console.error("booking_items.deleteBookingItem error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "🚨 Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "🚨 Internal server error",
+      error: error.message,
+    });
   }
 };

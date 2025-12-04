@@ -9,7 +9,10 @@ export const register = async (payload: RegisterPayload) => {
 
 export const login = async (email: string, password: string) => {
   const response = await instance.post(`/users/login`, { email, password });
-  // backend returns { token }
+  console.debug("[usersApi] login response:", response);
+  if (!response.data || !response.data.token) {
+    console.error("[usersApi] login: No token in response", response.data);
+  }
   return response.data.token;
 };
 
@@ -25,4 +28,9 @@ export const updateUser = async (
 ) => {
   const response = await instance.put(`/users/${id}`, payload);
   return response.data;
+};
+
+export const getCurrentUser = async () => {
+  const response = await instance.get(`/users/me`);
+  return response.data.user;
 };

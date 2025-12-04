@@ -13,10 +13,17 @@ export const getBookingItemById = async (id) => {
 };
 
 export const createBookingItem = async (data) => {
-  const { booking_id, room_id, check_in, check_out, room_price } = data;
+  const {
+    booking_id,
+    room_id,
+    room_type_id,
+    check_in,
+    check_out,
+    room_type_price,
+  } = data;
   const res = await pool.query(
-    `INSERT INTO booking_items (booking_id, room_id, check_in, check_out, room_price) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [booking_id, room_id, check_in, check_out, room_price]
+    `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [booking_id, room_id, room_type_id, check_in, check_out, room_type_price]
   );
   return res.rows[0];
 };

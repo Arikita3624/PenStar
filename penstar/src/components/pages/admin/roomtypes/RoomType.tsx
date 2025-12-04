@@ -91,6 +91,19 @@ const RoomTypesPage = () => {
       width: 150,
     },
     {
+      title: "Price (VND)",
+      dataIndex: "price",
+      key: "price",
+      width: 120,
+      render: (price: number) =>
+        price
+          ? new Intl.NumberFormat("vi-VN", {
+              style: "currency",
+              currency: "VND",
+            }).format(price)
+          : "--",
+    },
+    {
       title: "Description",
       dataIndex: "description",
       key: "description",

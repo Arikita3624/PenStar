@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import useAuth from "@/hooks/useAuth";
 import { DatePicker, Select, Input, Button, message } from "antd";
 import {
   SearchOutlined,
@@ -15,30 +17,66 @@ interface RoomSearchBarProps {
   onSearch: (params: RoomSearchParams) => void;
   loading?: boolean;
   variant?: "floating" | "inline"; // floating cho HomePage, inline cho Results
+  requireAuthForSearch?: boolean; // if true, redirect to signin when not authenticated
 }
 
 const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   onSearch,
   loading,
   variant = "inline",
+  requireAuthForSearch = true,
 }) => {
+  const auth = useAuth();
+  const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs, Dayjs] | null>(null);
-  const [numRooms, setNumRooms] = useState(1);
   const [promoCode, setPromoCode] = useState("");
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const handleSearch = () => {
+    // If required, check authentication and redirect to signin
+    if (requireAuthForSearch && auth?.initialized && !auth?.token) {
+      message.error("Vui lòng đăng nhập để tìm kiếm và đặt phòng");
+      navigate("/signin");
+      return;
+    }
     if (!dates || dates.length !== 2) {
       message.warning("Vui lòng chọn ngày check-in và check-out");
+      return;
+    }
+
+    // Validate thời điểm check-in: từ 14:00
+    const checkInDate = dates[0];
+    const now = dayjs();
+    const isToday = checkInDate.isSame(now, "day");
+    const currentHour = now.hour();
+    
+    // Nếu check-in là hôm nay và chưa đến 14:00 thì không cho phép
+    if (isToday && currentHour < 14) {
+      message.warning("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
+      return;
+    }
+
+    // Validate thời điểm check-out: trước 12:00
+    const checkOutDate = dates[1];
+    const isCheckOutToday = checkOutDate.isSame(now, "day");
+    
+    // Nếu check-out là hôm nay và đã quá 12:00 thì không cho phép
+    if (isCheckOutToday && currentHour >= 12) {
+      message.warning("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
+      return;
+    }
+    
+    // Kiểm tra check-out phải sau check-in
+    if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
+      message.warning("Ngày check-out phải sau ngày check-in.");
       return;
     }
 
     const searchParams: RoomSearchParams = {
       check_in: dates[0].format("YYYY-MM-DD"),
       check_out: dates[1].format("YYYY-MM-DD"),
-      num_rooms: numRooms,
       promo_code: promoCode || undefined,
     };
-
     onSearch(searchParams);
   };
 
@@ -74,31 +112,51 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               onChange={(values) => {
                 if (values && values[0] && values[1]) {
                   setDates([values[0], values[1]]);
+                  
+                  // Validate ngay khi chọn ngày
+                  const now = dayjs();
+                  const checkInDate = values[0];
+                  const checkOutDate = values[1];
+                  const isToday = checkInDate.isSame(now, "day");
+                  const currentHour = now.hour();
+                  const currentMinute = now.minute();
+                  
+                  // Reset error
+                  setDateError(null);
+                  
+                  // Validate check-in: từ 14:00
+                  if (isToday && (currentHour < 14 || (currentHour === 14 && currentMinute < 0))) {
+                    setDateError("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
+                    return;
+                  }
+                  
+                  // Validate check-out: trước 12:00
+                  const isCheckOutToday = checkOutDate.isSame(now, "day");
+                  if (isCheckOutToday && (currentHour >= 12)) {
+                    setDateError("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
+                    return;
+                  }
+                  
+                  // Kiểm tra check-out phải sau check-in
+                  if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
+                    setDateError("Ngày check-out phải sau ngày check-in.");
+                    return;
+                  }
                 } else {
                   setDates(null);
+                  setDateError(null);
                 }
               }}
             />
+            {/* Hiển thị lỗi validation ngày */}
+            {dateError && (
+              <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                ⚠️ {dateError}
+              </div>
+            )}
           </div>
 
-          {/* Số phòng */}
-          <div className="flex-1 min-w-[150px]">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Số phòng
-            </div>
-            <Select
-              size="large"
-              value={numRooms}
-              onChange={setNumRooms}
-              className="w-full"
-              suffixIcon={<HomeOutlined />}
-              style={{ borderRadius: 0 }}
-              options={Array.from({ length: 10 }, (_, i) => ({
-                label: `${i + 1} Phòng`,
-                value: i + 1,
-              }))}
-            />
-          </div>
+          {/* Đã xóa phần chọn số lượng phòng. Số lượng phòng sẽ chọn ở từng loại phòng trong RoomSearchResults. */}
 
           {/* Mã khuyến mãi */}
           <div className="flex-1 min-w-[180px]">
@@ -124,6 +182,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               icon={<SearchOutlined />}
               onClick={handleSearch}
               loading={loading}
+              disabled={!!dateError}
               className="h-[40px] px-8 font-bold"
               style={{
                 background: "#fbbf24",

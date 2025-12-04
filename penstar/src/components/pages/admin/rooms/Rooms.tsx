@@ -118,16 +118,7 @@ const Rooms = () => {
       key: "floor_name",
       render: (floor_name) => floor_name || "N/A",
     },
-    {
-      title: "Price",
-      dataIndex: "price",
-      key: "price",
-      render: (price) =>
-        new Intl.NumberFormat("vi-VN", {
-          style: "currency",
-          currency: "VND",
-        }).format(price),
-    },
+    // Price column removed, now managed in room type
     {
       title: "Action",
       key: "action",

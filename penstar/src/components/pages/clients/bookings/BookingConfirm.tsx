@@ -22,6 +22,10 @@ const BookingConfirm: React.FC = () => {
     if (!data) {
       navigate("/rooms");
     }
+    // Redirect to sign-in if not authenticated
+    if (!auth || !auth.user) {
+      navigate("/signin", { state: { from: loc } });
+    }
   }, [data, navigate]);
 
   const onConfirm = async () => {
@@ -47,6 +51,40 @@ const BookingConfirm: React.FC = () => {
       if (!payload.customer_name && auth?.user?.email) {
         payload.customer_name = auth.user.email;
       }
+
+      // Render email HTML bằng React Email
+      // Chuyển dữ liệu phòng và dịch vụ sang dạng template
+      const roomsForEmail = (data.rooms || []).map((r) => ({
+        roomType: r.name || "", // hoặc lấy từ room_type nếu có
+        roomId: r.room_id,
+        checkIn: r.check_in,
+        checkOut: r.check_out,
+        numAdults: r.num_adults || 1,
+        numChildren: r.num_children || 0,
+      }));
+      const servicesForEmail = (data.services || []).map((s) => ({
+        name: s.name || `Service ${s.service_id}`,
+        quantity: s.quantity,
+        price: s.total_service_price,
+      }));
+
+      // Import động để tránh lỗi SSR nếu cần
+      const { render } = await import("@react-email/render");
+      const { BookingConfirmationEmail } = await import(
+        "@/emailTemplates/BookingConfirmationEmail"
+      );
+      const emailHtml = render(
+        <BookingConfirmationEmail
+          customerName={payload.customer_name as string}
+          bookingId={0} // bookingId chưa có, backend sẽ thay thế nếu cần
+          rooms={roomsForEmail}
+          services={servicesForEmail}
+          totalPrice={payload.total_price as number}
+          paymentStatus={payload.payment_status as string}
+        />
+      );
+      payload.email_html = emailHtml;
+
       const res = await createBooking(payload as any);
       const booking = res;
       console.log("[DEBUG] booking object:", booking);

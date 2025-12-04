@@ -68,8 +68,6 @@ const RoomEdit = () => {
             name: data.name,
             type_id: data.type_id,
             floor_id: data.floor_id,
-            capacity: data.capacity,
-            price: data.price,
             short_desc: data.short_desc,
             long_desc: data.long_desc,
             status: data.status,
@@ -221,8 +219,7 @@ const RoomEdit = () => {
               ...values,
               type_id: values.type_id ? Number(values.type_id) : undefined,
               floor_id: values.floor_id ? Number(values.floor_id) : undefined,
-              price: values.price ? Number(values.price) : undefined,
-              capacity: values.capacity ? Number(values.capacity) : undefined,
+              // price removed, now taken from room_types
             } as Record<string, unknown>;
 
             if (!thumbFile) {
@@ -284,22 +281,7 @@ const RoomEdit = () => {
                   </Select>
                 </Form.Item>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Form.Item
-                  name="capacity"
-                  label="Capacity"
-                  rules={[{ required: true }]}
-                >
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-                <Form.Item
-                  name="price"
-                  label="Price (VND)"
-                  rules={[{ required: true }]}
-                >
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </div>
+              {/* Price input removed, now managed in room type */}
               <Form.Item
                 name="status"
                 label="Status"
@@ -345,15 +327,15 @@ const RoomEdit = () => {
                           },
                         ]
                       : existingThumbUrl
-                      ? [
-                          {
-                            uid: "existing",
-                            name: "current",
-                            status: "done",
-                            url: existingThumbUrl,
-                          },
-                        ]
-                      : []
+                        ? [
+                            {
+                              uid: "existing",
+                              name: "current",
+                              status: "done",
+                              url: existingThumbUrl,
+                            },
+                          ]
+                        : []
                   }
                   beforeUpload={(file) => {
                     const f = file as RcFile & { lastModified?: number };

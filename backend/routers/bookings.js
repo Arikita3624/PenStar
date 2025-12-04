@@ -41,6 +41,7 @@ router.post(
   requireRole("staff"),
   confirmCheckout
 );
+
 // Change room in booking - both customer and staff can use
 router.patch("/:id/change-room", requireAuth, changeRoomInBooking);
 

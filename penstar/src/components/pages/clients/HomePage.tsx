@@ -46,8 +46,10 @@ const HomePage = () => {
           <div className="max-w-6xl mx-auto px-4">
             <RoomSearchBar
               onSearch={(params: RoomSearchParams) => {
+                // Đảm bảo không truyền num_rooms vào searchParams
+                const { num_rooms, ...rest } = params as any;
                 navigate("/rooms/search-results", {
-                  state: { searchParams: params },
+                  state: { searchParams: rest },
                 });
               }}
             />

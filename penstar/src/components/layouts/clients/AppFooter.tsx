@@ -71,14 +71,14 @@ const AppFooter = () => {
           <div className="text-lg font-semibold mb-3">Theo dõi chúng tôi</div>
           <div className="flex gap-4 text-2xl">
             <a
-              href="#"
+              href="https://www.facebook.com/nguyen.duy.hung.3624/"
               className="hover:text-blue-400 transition"
               aria-label="Facebook"
             >
               <FacebookOutlined />
             </a>
             <a
-              href="#"
+              href="https://www.instagram.com/arikita_000/"
               className="hover:text-pink-400 transition"
               aria-label="Instagram"
             >

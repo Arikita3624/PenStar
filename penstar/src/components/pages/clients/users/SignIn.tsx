@@ -19,12 +19,43 @@ const SignIn = () => {
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       login(email, password),
-    onSuccess: (token) => {
+    onSuccess: async (token) => {
+      console.debug(
+        "[SignIn] login mutation onSuccess, token:",
+        token,
+        typeof token
+      );
+      if (!token || typeof token !== "string" || token.length < 10) {
+        message.error(
+          "Token trả về không hợp lệ! Vui lòng kiểm tra lại backend hoặc cấu hình JWT."
+        );
+        setError("Token trả về không hợp lệ!");
+        return;
+      }
       try {
+        // Persist token to localStorage in case context isn't available or fails
+        try {
+          localStorage.setItem("penstar_token", token);
+          console.debug(
+            "[SignIn] localStorage token after set:",
+            localStorage.getItem("penstar_token")
+          );
+        } catch (e) {
+          console.debug("[SignIn] localStorage setItem failed", e);
+        }
         if (auth && typeof auth.loginWithToken === "function") {
           auth.loginWithToken(token);
-        } else {
-          localStorage.setItem("penstar_token", token);
+        }
+        // Lấy thông tin user từ backend và lưu vào localStorage
+        try {
+          const { getCurrentUser } = await import("@/services/usersApi");
+          const user = await getCurrentUser();
+          if (user) {
+            localStorage.setItem("penstar_user", JSON.stringify(user));
+            console.debug("[SignIn] user info saved:", user);
+          }
+        } catch (e) {
+          console.debug("[SignIn] getCurrentUser failed", e);
         }
       } catch (e) {
         // fallback and expose debug info
@@ -32,7 +63,18 @@ const SignIn = () => {
         localStorage.setItem("penstar_token", token);
       }
       message.success("Đăng nhập thành công");
+      // Ensure token is persisted and app re-initializes auth state
+      try {
+        console.debug(
+          "[SignIn] final localStorage token:",
+          localStorage.getItem("penstar_token")
+        );
+      } catch (e) {
+        console.debug("[SignIn] localStorage read failed", e);
+      }
       navigate("/");
+      // Reload to ensure AuthProvider re-initializes and picks up token
+      setTimeout(() => window.location.reload(), 200);
     },
     onError: (err) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,6 +95,16 @@ const SignIn = () => {
       return;
     }
     setLoading(true);
+    // Log before login
+    try {
+      localStorage.setItem("test_key", "test_value");
+      console.debug(
+        "[SignIn] test localStorage setItem success:",
+        localStorage.getItem("test_key")
+      );
+    } catch (err) {
+      console.debug("[SignIn] test localStorage setItem failed:", err);
+    }
     loginMutation.mutate({ email, password });
   };
 

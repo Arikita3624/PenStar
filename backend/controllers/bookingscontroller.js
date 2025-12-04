@@ -7,6 +7,7 @@ import {
   confirmCheckout as modelConfirmCheckout,
   cancelBooking as modelCancelBooking,
   changeRoomInBooking as modelChangeRoomInBooking,
+  autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
 import pool from "../db.js";
 
@@ -38,7 +39,7 @@ export const getBookingById = async (req, res) => {
         .json({ success: false, message: "Booking not found" });
     }
 
-    // fetch items and services
+    // fetch items and services only
     const itemsRes = await pool.query(
       "SELECT * FROM booking_items WHERE booking_id = $1",
       [id]
@@ -58,10 +59,12 @@ export const getBookingById = async (req, res) => {
     }
 
     // Calculate total prices
-    booking.total_room_price = booking.items.reduce(
-      (sum, item) => sum + Number(item.room_price || 0),
-      0
-    );
+    // Use room_types.price for each item
+    booking.total_room_price = booking.items.reduce((sum, item) => {
+      // Assume item.room_type_id is available, otherwise fetch from DB
+      const roomTypePrice = item.room_type_price || item.room_price || 0;
+      return sum + Number(roomTypePrice);
+    }, 0);
     booking.total_service_price = booking.services.reduce(
       (sum, service) => sum + Number(service.total_service_price || 0),
       0
@@ -98,6 +101,62 @@ export const createBooking = async (req, res) => {
       payload.user_id = Number(req.user.id);
     }
 
+    // Handle auto-assignment if rooms_config is provided
+    if (Array.isArray(payload.rooms_config)) {
+      console.log("Auto-assigning rooms based on rooms_config");
+
+      const assignedItems = [];
+      const assignedRoomIds = []; // Track phòng đã assign
+
+      for (const config of payload.rooms_config) {
+        const {
+          room_type_id,
+          quantity,
+          check_in,
+          check_out,
+          num_adults,
+          num_children,
+          room_type_price, // Use price from room_types
+          services, // Lấy services từ config
+        } = config;
+
+        // Auto-assign rooms - truyền assignedRoomIds để tránh trùng
+        const assignedRooms = await modelAutoAssignRooms(
+          room_type_id,
+          quantity,
+          check_in,
+          check_out,
+          num_adults,
+          num_children,
+          assignedRoomIds
+        );
+
+        console.log(
+          `Auto-assigned ${assignedRooms.length} rooms:`,
+          assignedRooms.map((r) => r.name)
+        );
+
+        // Convert assigned rooms to booking items format
+        for (const room of assignedRooms) {
+          assignedRoomIds.push(room.id); // Thêm vào danh sách đã assign
+          assignedItems.push({
+            room_id: room.id,
+            check_in,
+            check_out,
+            room_type_price,
+            num_adults,
+            num_children,
+            room_type_id,
+            services: services || [], // Copy services từ config
+          });
+        }
+      }
+
+      // Replace rooms_config with assigned items
+      payload.items = assignedItems;
+      delete payload.rooms_config;
+    }
+
     console.log("Final payload:", JSON.stringify(payload, null, 2));
 
     const booking = await modelCreateBooking(payload);
@@ -113,6 +172,9 @@ export const createBooking = async (req, res) => {
     );
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
+
+    // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
+
     res.status(201).json({
       success: true,
       message: "✅ Booking created successfully",
@@ -170,6 +232,14 @@ export const createBooking = async (req, res) => {
 
     // Custom error từ business logic
     if (error.message && error.message.includes("Phòng đã được đặt")) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        error: error.message,
+      });
+    }
+
+    if (error.message && error.message.includes("Không đủ phòng trống")) {
       return res.status(409).json({
         success: false,
         message: error.message,
@@ -278,6 +348,26 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
+      // Gửi email xác nhận nếu đã thanh toán thành công
+      if (payment_status === "paid") {
+        try {
+          const booking = await modelGetBookingById(id);
+          const customerEmail = booking.email;
+          if (customerEmail) {
+            const { sendBookingConfirmationEmail } = await import(
+              "../utils/mailer.js"
+            );
+            await sendBookingConfirmationEmail(customerEmail, id);
+            console.log(
+              `Đã gửi email xác nhận booking #${id} tới ${customerEmail}`
+            );
+          } else {
+            console.warn("Không tìm thấy email khách để gửi xác nhận booking");
+          }
+        } catch (mailErr) {
+          console.error("Lỗi gửi email xác nhận booking:", mailErr);
+        }
+      }
       return res.json({
         success: true,
         message: "Cập nhật trạng thái thanh toán thành công!",
@@ -295,50 +385,12 @@ export const updateMyBookingStatus = async (req, res) => {
       });
     }
 
-    // Nếu gửi stay_status_id thì xử lý như cũ
+    // Không cho phép user cập nhật stay_status_id (check-in/check-out)
     if (stay_status_id !== undefined) {
-      // Only allow check-in (2) and check-out (3)
-      if (![2, 3].includes(stay_status_id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Bạn chỉ có thể check-in hoặc check-out",
-        });
-      }
-
-      // Check-in requires: status = 1 (reserved) AND payment = paid
-      if (stay_status_id === 2) {
-        if (booking.stay_status_id !== 1) {
-          return res.status(400).json({
-            success: false,
-            message: "Chỉ có thể check-in khi booking đã được duyệt",
-          });
-        }
-        if (booking.payment_status !== "paid") {
-          return res.status(400).json({
-            success: false,
-            message: "Vui lòng thanh toán trước khi check-in",
-          });
-        }
-      }
-
-      // Check-out requires: status = 2 (checked_in)
-      if (stay_status_id === 3) {
-        if (booking.stay_status_id !== 2) {
-          return res.status(400).json({
-            success: false,
-            message: "Chỉ có thể check-out khi đã check-in",
-          });
-        }
-      }
-
-      const updated = await modelUpdateBookingStatus(id, { stay_status_id });
-      return res.json({
-        success: true,
+      return res.status(403).json({
+        success: false,
         message:
-          stay_status_id === 2
-            ? "Check-in thành công!"
-            : "Check-out thành công!",
-        data: updated,
+          "Chỉ admin hoặc nhân viên mới được phép check-in/check-out. Vui lòng liên hệ lễ tân hoặc quản trị viên!",
       });
     }
   } catch (err) {
