@@ -11,20 +11,75 @@ const PaymentResult: React.FC = () => {
   const [updating, setUpdating] = React.useState(false);
 
   React.useEffect(() => {
-    // Lấy query parameters từ VNPAY callback
+    // Lấy query parameters từ callback
     const queryParams = new URLSearchParams(location.search);
-    const responseCode = queryParams.get("vnp_ResponseCode");
-    const transactionNo = queryParams.get("vnp_TransactionNo");
-    const amount = queryParams.get("vnp_Amount");
-    const orderId = queryParams.get("vnp_TxnRef");
-
-    const status = {
-      responseCode,
-      transactionNo,
-      amount: amount ? Number(amount) / 100 : 0, // VNPAY gửi amount × 100
-      orderId,
-      success: responseCode === "00",
+    
+    // Kiểm tra xem là VNPay hay MoMo
+    // MoMo thật có thể không có paymentMethod, nhưng có resultCode, partnerCode
+    const paymentMethod = queryParams.get("paymentMethod");
+    const resultCode = queryParams.get("resultCode");
+    const partnerCode = queryParams.get("partnerCode");
+    
+    // Nếu có resultCode hoặc partnerCode thì là MoMo thật
+    // Nếu có paymentMethod=momo thì là MoMo (mock hoặc có paymentMethod)
+    const isMoMo = paymentMethod === "momo" || (resultCode !== null || partnerCode === "MOMO");
+    
+    let status: any = {
+      success: false,
+      responseCode: null,
+      transactionNo: null,
+      amount: 0,
+      orderId: null,
     };
+
+    if (isMoMo) {
+      // Xử lý callback từ MoMo (có thể là mock hoặc thật)
+      // MoMo thật trả về: resultCode, orderId, amount, transId, ...
+      // MoMo mock trả về: status, orderId, amount, ...
+      const momoStatus = queryParams.get("status"); // Mock mode
+      const orderId = queryParams.get("orderId");
+      const amount = queryParams.get("amount");
+      const transId = queryParams.get("transId");
+      
+      // Nếu có resultCode thì là MoMo thật, nếu không thì là mock
+      if (resultCode !== null) {
+        // MoMo thật: resultCode = "0" hoặc 0 là thành công
+        const resultCodeNum = Number(resultCode);
+        status = {
+          responseCode: resultCode,
+          transactionNo: transId || orderId || null,
+          amount: amount ? Number(amount) : 0,
+          orderId: orderId || null,
+          success: resultCode === "0" || resultCodeNum === 0,
+          paymentMethod: "momo",
+        };
+      } else {
+        // MoMo mock: status = "success" là thành công
+        status = {
+          responseCode: momoStatus === "success" ? "00" : "99",
+          transactionNo: orderId || null,
+          amount: amount ? Number(amount) : 0,
+          orderId: orderId || null,
+          success: momoStatus === "success",
+          paymentMethod: "momo",
+        };
+      }
+    } else {
+      // Xử lý callback từ VNPay
+      const responseCode = queryParams.get("vnp_ResponseCode");
+      const transactionNo = queryParams.get("vnp_TransactionNo");
+      const amount = queryParams.get("vnp_Amount");
+      const orderId = queryParams.get("vnp_TxnRef");
+
+      status = {
+        responseCode,
+        transactionNo,
+        amount: amount ? Number(amount) / 100 : 0, // VNPAY gửi amount × 100
+        orderId,
+        success: responseCode === "00",
+        paymentMethod: "vnpay",
+      };
+    }
 
     setPaymentStatus(status);
     setLoading(false);

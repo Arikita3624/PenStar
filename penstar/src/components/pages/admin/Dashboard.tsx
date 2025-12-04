@@ -15,6 +15,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Card, List, Tag, Empty } from "antd";
+import { WarningOutlined } from "@ant-design/icons";
 
 const Dashboard = () => {
   const auth = useAuth();
@@ -312,6 +314,114 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Device Damage Statistics Section */}
+      {!isStaff && (
+        <div className="mt-8 bg-white p-6 rounded-xl shadow-lg">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+              <WarningOutlined className="mr-2 text-orange-500" />
+              Thống kê thiết bị hỏng khi checkout
+            </h2>
+          </div>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <Spin />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* Total Cases */}
+              <Card className="text-center">
+                <div className="text-3xl font-bold text-orange-600 mb-2">
+                  {statistics?.deviceDamage?.totalCases || 0}
+                </div>
+                <div className="text-gray-600">Tổng số thiết bị hỏng</div>
+              </Card>
+              {/* Bookings with Damage */}
+              <Card className="text-center">
+                <div className="text-3xl font-bold text-red-600 mb-2">
+                  {statistics?.deviceDamage?.bookingsWithDamage || 0}
+                </div>
+                <div className="text-gray-600">Số booking có thiết bị hỏng</div>
+              </Card>
+              {/* Average per Booking */}
+              <Card className="text-center">
+                <div className="text-3xl font-bold text-yellow-600 mb-2">
+                  {statistics?.deviceDamage?.bookingsWithDamage && statistics.deviceDamage.bookingsWithDamage > 0
+                    ? (
+                        ((statistics.deviceDamage.totalCases || 0) /
+                          statistics.deviceDamage.bookingsWithDamage) *
+                        1
+                      ).toFixed(1)
+                    : 0}
+                </div>
+                <div className="text-gray-600">TB thiết bị/booking</div>
+              </Card>
+            </div>
+          )}
+          
+          {/* Recent Device Damage Details */}
+          {statistics?.deviceDamage?.details && statistics.deviceDamage.details.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                Chi tiết thiết bị hỏng gần đây
+              </h3>
+              <List
+                dataSource={statistics.deviceDamage.details.slice(0, 10)}
+                renderItem={(item) => (
+                  <List.Item
+                    className="cursor-pointer hover:bg-gray-50 p-3 rounded-lg transition-colors"
+                    onClick={() => navigate(`/admin/bookings/${item.booking_id}`)}
+                  >
+                    <List.Item.Meta
+                      avatar={
+                        <div className="bg-orange-100 text-orange-600 p-2 rounded-full">
+                          <WarningOutlined />
+                        </div>
+                      }
+                      title={
+                        <span>
+                          Booking #{item.booking_id} - {item.customer_name}
+                          <Tag color="orange" className="ml-2">
+                            {item.damage_count} thiết bị
+                          </Tag>
+                        </span>
+                      }
+                      description={
+                        <div>
+                          <div className="text-sm text-gray-500 mb-2">
+                            {format(
+                              new Date(item.created_at),
+                              "dd/MM/yyyy HH:mm",
+                              { locale: vi }
+                            )}
+                          </div>
+                          <div className="text-sm">
+                            {item.damage_items.slice(0, 3).map((damage, idx) => (
+                              <Tag key={idx} color="red" className="mb-1">
+                                {damage.replace(/^-\s*/, "")}
+                              </Tag>
+                            ))}
+                            {item.damage_items.length > 3 && (
+                              <Tag>+{item.damage_items.length - 3} khác</Tag>
+                            )}
+                          </div>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+          {statistics?.deviceDamage?.details?.length === 0 && (
+            <Empty
+              description="Chưa có thiết bị hỏng nào được ghi nhận"
+              className="py-8"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -47,6 +47,7 @@ import {
   DollarOutlined,
   TagOutlined,
   DeleteOutlined,
+  PrinterOutlined,
 } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
@@ -74,6 +75,8 @@ const BookingDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null); // booking_item_id đang thêm dịch vụ
+  const [deviceDamageModalVisible, setDeviceDamageModalVisible] = useState(false);
+  const [deviceDamage, setDeviceDamage] = useState<Array<{device_id: number; device_name: string; description: string}>>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -355,28 +358,290 @@ const BookingDetail = () => {
 
   const handleConfirmCheckout = async () => {
     if (!booking || !booking.id) return;
-    Modal.confirm({
-      title: "Xác nhận checkout",
-      content:
-        "Xác nhận khách đã checkout? Phòng sẽ chuyển sang trạng thái Cleaning.",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await confirmCheckout(booking.id!);
-          setCheckoutConfirmed(true); // Đánh dấu đã confirm
-          message.success(
-            "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning"
-          );
-          // Reload rooms data để cập nhật UI
-          await refetch();
-        } catch (err) {
-          console.error("Lỗi xác nhận checkout:", err);
-          message.error("Lỗi xác nhận checkout");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
+    // Mở modal để ghi nhận thiết bị hỏng
+    setDeviceDamageModalVisible(true);
+  };
+
+  const handleConfirmCheckoutWithDamage = async () => {
+    if (!booking || !booking.id) return;
+    
+    setUpdating(true);
+    try {
+      // Tạo notes về thiết bị hỏng nếu có
+      let damageNotes = "";
+      if (deviceDamage.length > 0) {
+        damageNotes = `\n[DEVICE_DAMAGE]\n${deviceDamage.map(d => `- ${d.device_name}: ${d.description}`).join('\n')}`;
+      }
+      
+      // Cập nhật notes của booking với thông tin thiết bị hỏng
+      if (damageNotes) {
+        const currentNotes = booking.notes || "";
+        await updateBookingStatus(booking.id, {
+          notes: currentNotes + damageNotes
+        });
+      }
+      
+      await confirmCheckout(booking.id!);
+      setCheckoutConfirmed(true);
+      setDeviceDamageModalVisible(false);
+      setDeviceDamage([]);
+      message.success(
+        "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning"
+      );
+      await refetch();
+    } catch (err) {
+      console.error("Lỗi xác nhận checkout:", err);
+      message.error("Lỗi xác nhận checkout");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePrintBill = () => {
+    if (!booking) return;
+    
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      message.error("Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt.");
+      return;
+    }
+
+    const groupedServices = booking.services?.reduce((acc: any[], curr: any) => {
+      const existing = acc.find(
+        (s) => s.service_id === curr.service_id && s.booking_item_id === curr.booking_item_id
+      );
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + (curr.quantity || 1);
+        existing.total_service_price =
+          (Number(existing.total_service_price) || 0) +
+          (Number(curr.total_service_price) || 0);
+      } else {
+        acc.push({
+          ...curr,
+          quantity: curr.quantity || 1,
+          total_service_price: Number(curr.total_service_price) || 0,
+        });
+      }
+      return acc;
+    }, []);
+
+    const billHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Hóa đơn #${booking.id}</title>
+          <style>
+            @media print {
+              @page { margin: 1cm; }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #1890ff;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #1890ff;
+              margin: 0;
+              font-size: 28px;
+            }
+            .header p {
+              margin: 5px 0;
+              color: #666;
+            }
+            .info-section {
+              margin-bottom: 30px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 8px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #666;
+            }
+            .info-value {
+              color: #333;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            th, td {
+              padding: 12px;
+              text-align: left;
+              border-bottom: 1px solid #eee;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+              color: #333;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .total-section {
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 2px solid #1890ff;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 10px 0;
+              font-size: 16px;
+            }
+            .total-final {
+              font-size: 20px;
+              font-weight: bold;
+              color: #ff4d4f;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: center;
+              color: #666;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>PENSTAR HOTEL</h1>
+            <p>Hóa đơn thanh toán</p>
+            <p>Mã đơn: #${booking.id}</p>
+          </div>
+
+          <div class="info-section">
+            <div class="info-row">
+              <span class="info-label">Khách hàng:</span>
+              <span class="info-value">${booking.customer_name || "—"}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Ngày tạo:</span>
+              <span class="info-value">${booking.created_at ? formatDate(booking.created_at) : "—"}</span>
+            </div>
+            ${booking.items && booking.items.length > 0 ? `
+            <div class="info-row">
+              <span class="info-label">Ngày nhận phòng:</span>
+              <span class="info-value">${formatDate(booking.items[0].check_in)}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Ngày trả phòng:</span>
+              <span class="info-value">${formatDate(booking.items[0].check_out)}</span>
+            </div>
+            ` : ""}
+            <div class="info-row">
+              <span class="info-label">Phương thức thanh toán:</span>
+              <span class="info-value">${booking.payment_method?.toUpperCase() || "—"}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Trạng thái:</span>
+              <span class="info-value">${booking.payment_status?.toUpperCase() || "—"}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Phòng</th>
+                <th class="text-right">Giá</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${booking.items?.map((item: any, idx: number) => {
+                const room = rooms.find((r) => r.id === item.room_id);
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${room?.name || `Phòng ${item.room_id}`}</td>
+                    <td class="text-right">${formatPrice(item.room_type_price || 0)}</td>
+                  </tr>
+                `;
+              }).join("") || ""}
+            </tbody>
+          </table>
+
+          ${groupedServices && groupedServices.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Dịch vụ</th>
+                <th class="text-right">Số lượng</th>
+                <th class="text-right">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groupedServices.map((service: any, idx: number) => {
+                const serviceInfo = services.find((s) => s.id === service.service_id);
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${serviceInfo?.name || `Dịch vụ #${service.service_id}`}</td>
+                    <td class="text-right">${service.quantity || 1}</td>
+                    <td class="text-right">${formatPrice(service.total_service_price || 0)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+          ` : ""}
+
+          <div class="total-section">
+            <div class="total-row">
+              <span>Tiền phòng:</span>
+              <span>${formatPrice(booking.total_room_price || 0)}</span>
+            </div>
+            ${booking.total_service_price ? `
+            <div class="total-row">
+              <span>Dịch vụ bổ sung:</span>
+              <span>${formatPrice(booking.total_service_price)}</span>
+            </div>
+            ` : ""}
+            ${booking.promo_code && booking.discount_amount ? `
+            <div class="total-row">
+              <span>Tổng tiền gốc:</span>
+              <span style="text-decoration: line-through; color: #999;">${formatPrice(booking.original_total || booking.total_amount || 0)}</span>
+            </div>
+            <div class="total-row">
+              <span>Mã giảm giá (${booking.promo_code}):</span>
+              <span style="color: #52c41a;">-${formatPrice(booking.discount_amount)}</span>
+            </div>
+            ` : ""}
+            <div class="total-row total-final">
+              <span>TỔNG CỘNG:</span>
+              <span>${formatPrice(booking.total_price || booking.total_amount || 0)}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Cảm ơn quý khách đã sử dụng dịch vụ của chúng tôi!</p>
+            <p>PenStar Hotel - Hotline: 1900-xxxx</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(billHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   };
 
   if (isLoading) {
@@ -1191,8 +1456,87 @@ const BookingDetail = () => {
                 Xác nhận checkout
               </Button>
             )}
+            {/* Hiện nút In hóa đơn khi đã thanh toán (có thể in bất cứ lúc nào sau khi thanh toán) */}
+            {booking.payment_status === "paid" && (
+              <Button
+                type="default"
+                icon={<PrinterOutlined />}
+                onClick={handlePrintBill}
+              >
+                In hóa đơn
+              </Button>
+            )}
           </Space>
         </div>
+
+        {/* Modal ghi nhận thiết bị hỏng */}
+        <Modal
+          title="Xác nhận checkout và ghi nhận thiết bị hỏng"
+          open={deviceDamageModalVisible}
+          onOk={handleConfirmCheckoutWithDamage}
+          onCancel={() => {
+            setDeviceDamageModalVisible(false);
+            setDeviceDamage([]);
+          }}
+          okText="Xác nhận checkout"
+          cancelText="Hủy"
+          width={600}
+        >
+          <div>
+            <Text>
+              Xác nhận khách đã checkout? Phòng sẽ chuyển sang trạng thái Cleaning.
+            </Text>
+            <Divider />
+            <Title level={5}>Thiết bị hỏng (nếu có)</Title>
+            <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 12 }}>
+              Ghi nhận các thiết bị bị hỏng trong phòng khi khách checkout
+            </Text>
+            {deviceDamage.map((damage, index) => (
+              <Card key={index} size="small" style={{ marginBottom: 8 }}>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <div>
+                    <Text strong>{damage.device_name}</Text>
+                    <Button
+                      danger
+                      size="small"
+                      onClick={() => {
+                        const newDamage = deviceDamage.filter((_, i) => i !== index);
+                        setDeviceDamage(newDamage);
+                      }}
+                      style={{ float: "right" }}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
+                  <Text>{damage.description}</Text>
+                </Space>
+              </Card>
+            ))}
+            <Button
+              type="dashed"
+              onClick={() => {
+                const deviceName = prompt("Tên thiết bị:");
+                if (deviceName) {
+                  const description = prompt("Mô tả tình trạng hỏng:");
+                  if (description) {
+                    setDeviceDamage([
+                      ...deviceDamage,
+                      {
+                        device_id: deviceDamage.length + 1,
+                        device_name: deviceName,
+                        description: description,
+                      },
+                    ]);
+                  }
+                }
+              }}
+              block
+              style={{ marginTop: 8 }}
+            >
+              + Thêm thiết bị hỏng
+            </Button>
+          </div>
+        </Modal>
       </div>
     </div>
   );

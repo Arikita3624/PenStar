@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, Radio, Button, Space, Typography, Input, Tag, message } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
-import { createPayment } from "@/services/paymentApi";
+import { createPayment, createMoMoPayment } from "@/services/paymentApi";
 import { formatPrice } from "@/utils/formatPrice";
 import { validateDiscountCode, getActiveDiscountCodes } from "@/services/discountCodesApi";
 import type { ValidateDiscountCodeResponse, DiscountCode } from "@/services/discountCodesApi";
@@ -246,15 +246,15 @@ const PaymentMethodSelect: React.FC = () => {
       const { updateMyBooking } = await import("@/services/bookingsApi");
       await updateMyBooking(finalBookingId, { payment_method: method });
 
-      if (method === "vnpay") {
-        // Lưu bookingId và bookingInfo vào localStorage để PaymentResult callback có thể lấy
-        localStorage.setItem("bookingId", finalBookingId.toString());
-        try {
-          localStorage.setItem("bookingInfo", JSON.stringify(finalBookingInfo));
-        } catch {
-          // Ignore localStorage error
-        }
+      // Lưu bookingId và bookingInfo vào localStorage để PaymentResult callback có thể lấy
+      localStorage.setItem("bookingId", finalBookingId.toString());
+      try {
+        localStorage.setItem("bookingInfo", JSON.stringify(finalBookingInfo));
+      } catch {
+        // Ignore localStorage error
+      }
 
+      if (method === "vnpay") {
         const data = await createPayment({
           amount: totalPrice,
           language: "vn",
@@ -274,7 +274,39 @@ const PaymentMethodSelect: React.FC = () => {
             },
           });
         }
+      } else if (method === "momo") {
+        // Kiểm tra số tiền hợp lệ cho MoMo (1,000 - 100,000,000 VNĐ)
+        if (isNaN(totalPrice) || totalPrice < 1000 || totalPrice > 100000000) {
+          alert(
+            "Số tiền không hợp lệ. Số tiền phải từ 1,000 đến 100 triệu VNĐ."
+          );
+          setIsCreatingBooking(false);
+          return;
+        }
+        
+        try {
+          const data = await createMoMoPayment({
+            amount: totalPrice,
+            language: "vn",
+            returnUrl: `${window.location.origin}/payment-result`,
+            orderId: `BOOKING_${finalBookingId}`, // Format: BOOKING_123 để callback có thể parse
+            orderInfo: `Thanh_toan_booking_${finalBookingId}`,
+          });
+
+          if (data.paymentUrl) {
+            window.location.href = data.paymentUrl; // Redirect to MoMo
+          } else {
+            message.error("Không nhận được URL thanh toán từ MoMo. Vui lòng thử lại hoặc chọn phương thức thanh toán khác.");
+            setIsCreatingBooking(false);
+          }
+        } catch (error: any) {
+          console.error("MoMo payment error:", error);
+          const errorMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message || "Không thể tạo yêu cầu thanh toán MoMo";
+          message.error(errorMessage);
+          setIsCreatingBooking(false);
+        }
       } else {
+        // Cash, card, transfer - không cần redirect
         navigate(`/bookings/success/${finalBookingId}`, {
           state: {
             booking: finalBookingInfo,

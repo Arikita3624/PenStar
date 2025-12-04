@@ -26,6 +26,17 @@ export interface Statistics {
     stay_status_name: string;
     email: string;
   }>;
+  deviceDamage?: {
+    totalCases: number;
+    bookingsWithDamage: number;
+    details: Array<{
+      booking_id: number;
+      customer_name: string;
+      created_at: string;
+      damage_count: number;
+      damage_items: string[];
+    }>;
+  };
 }
 
 export const getStatistics = async (

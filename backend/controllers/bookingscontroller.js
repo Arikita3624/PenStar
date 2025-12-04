@@ -9,6 +9,7 @@ import {
   changeRoomInBooking as modelChangeRoomInBooking,
   autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
+import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js";
 import pool from "../db.js";
 
 export const getBookings = async (req, res) => {
@@ -194,6 +195,37 @@ export const createBooking = async (req, res) => {
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
 
+    // Tăng usage count cho mã giảm giá nếu có
+    // promo_code có thể ở payload.promo_code hoặc trong notes
+    let promoCodeToIncrement = payload.promo_code;
+    
+    // Nếu không có trong payload, thử parse từ notes
+    if (!promoCodeToIncrement && booking.notes) {
+      try {
+        const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+        if (discountMatch) {
+          const discountInfo = JSON.parse(discountMatch[1]);
+          promoCodeToIncrement = discountInfo.promo_code;
+        }
+      } catch (parseErr) {
+        console.warn(`[Booking] Could not parse promo_code from notes:`, parseErr);
+      }
+    }
+    
+    if (promoCodeToIncrement) {
+      try {
+        const updatedDiscount = await modelIncrementUsageCount(promoCodeToIncrement);
+        console.log(`[Booking] Incremented usage count for discount code: ${promoCodeToIncrement}`);
+        console.log(`[Booking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+      } catch (discountErr) {
+        console.error(`[Booking] Error incrementing usage count for ${promoCodeToIncrement}:`, discountErr);
+        console.error(`[Booking] Error details:`, discountErr.message);
+        // Không fail booking nếu lỗi increment usage count
+      }
+    } else {
+      console.log(`[Booking] No promo_code found in payload or notes, skipping usage count increment`);
+    }
+
     // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
 
     res.status(201).json({
@@ -369,8 +401,28 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
-      // Gửi email xác nhận nếu đã thanh toán thành công
+      
+      // Tăng usage count cho mã giảm giá nếu thanh toán thành công
       if (payment_status === "paid") {
+        try {
+          const booking = await modelGetBookingById(id);
+          if (booking && booking.notes) {
+            const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+            if (discountMatch) {
+              const discountInfo = JSON.parse(discountMatch[1]);
+              if (discountInfo.promo_code) {
+                const updatedDiscount = await modelIncrementUsageCount(discountInfo.promo_code);
+                console.log(`[UpdateMyBooking] Incremented usage count for discount code: ${discountInfo.promo_code}`);
+                console.log(`[UpdateMyBooking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+              }
+            }
+          }
+        } catch (discountErr) {
+          console.error("[UpdateMyBooking] Error incrementing usage count:", discountErr);
+          // Không fail update nếu lỗi increment usage count
+        }
+        
+        // Gửi email xác nhận nếu đã thanh toán thành công
         try {
           const booking = await modelGetBookingById(id);
           const customerEmail = booking.email;
