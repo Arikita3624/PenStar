@@ -76,13 +76,14 @@ export const getStatistics = async (req, res) => {
 
     // Bookings by status
     const bookingsByStatusParams = dateFilter ? [...params] : [];
+    const dateCondition = dateFilter ? dateFilter.replace("WHERE ", "AND b.") : "";
     const bookingsByStatusRes = await pool.query(
       `SELECT 
         ss.id,
         ss.name,
         COUNT(b.id) as count
        FROM stay_status ss
-       LEFT JOIN bookings b ON ss.id = b.stay_status_id ${dateFilter ? "AND b." + dateFilter.replace("WHERE ", "") : ""}
+       LEFT JOIN bookings b ON ss.id = b.stay_status_id ${dateCondition}
        GROUP BY ss.id, ss.name
        ORDER BY ss.id`,
       bookingsByStatusParams
@@ -110,17 +111,64 @@ export const getStatistics = async (req, res) => {
     );
     const totalRooms = parseInt(totalRoomsRes.rows[0].count);
     const occupiedRoomsParams = dateFilter ? [...params] : [];
+    const occupiedRoomsDateCondition = dateFilter ? dateFilter.replace("WHERE ", "AND b.") : "";
     const occupiedRoomsRes = await pool.query(
       `SELECT COUNT(DISTINCT bi.room_id) as count
        FROM booking_items bi
        JOIN bookings b ON bi.booking_id = b.id
        WHERE b.stay_status_id IN (1, 2) -- reserved or checked_in
-       ${dateFilter ? "AND b." + dateFilter.replace("WHERE ", "") : ""}`,
+       ${occupiedRoomsDateCondition}`,
       occupiedRoomsParams
     );
     const occupiedRooms = parseInt(occupiedRoomsRes.rows[0].count) || 0;
     const occupancyRate =
       totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(2) : 0;
+
+    // Device Damage Statistics
+    const deviceDamageParams = dateFilter ? [...params] : [];
+    const deviceDamageWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
+    const deviceDamageRes = await pool.query(
+      `SELECT 
+        COUNT(*) as total_damage_cases,
+        COUNT(DISTINCT b.id) as bookings_with_damage
+       FROM bookings b
+       ${deviceDamageWhereClause}
+       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
+       AND b.stay_status_id = 3`, // checked_out
+      deviceDamageParams
+    );
+
+    // Extract device damage details from notes
+    const deviceDamageDetailsWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
+    const deviceDamageDetailsParams = dateFilter ? [...params] : [];
+    const deviceDamageDetailsRes = await pool.query(
+      `SELECT 
+        b.id as booking_id,
+        b.customer_name,
+        b.created_at,
+        b.notes
+       FROM bookings b
+       ${deviceDamageDetailsWhereClause}
+       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
+       AND b.stay_status_id = 3
+       ORDER BY b.created_at DESC
+       LIMIT 20`,
+      deviceDamageDetailsParams
+    );
+
+    const deviceDamageDetails = deviceDamageDetailsRes.rows.map((row) => {
+      const damageMatch = row.notes.match(/\[DEVICE_DAMAGE\]([\s\S]*?)(?=\n\[|$)/);
+      const damageText = damageMatch ? damageMatch[1].trim() : "";
+      const damageItems = damageText.split('\n').filter(line => line.trim().startsWith('-'));
+      
+      return {
+        booking_id: row.booking_id,
+        customer_name: row.customer_name,
+        created_at: row.created_at,
+        damage_count: damageItems.length,
+        damage_items: damageItems,
+      };
+    });
 
     res.json({
       success: true,
@@ -144,6 +192,11 @@ export const getStatistics = async (req, res) => {
           count: parseInt(row.count) || 0,
         })),
         recentBookings: recentBookingsRes.rows,
+        deviceDamage: {
+          totalCases: parseInt(deviceDamageRes.rows[0].total_damage_cases) || 0,
+          bookingsWithDamage: parseInt(deviceDamageRes.rows[0].bookings_with_damage) || 0,
+          details: deviceDamageDetails,
+        },
       },
     });
   } catch (error) {

@@ -13,3 +13,13 @@ export const createPayment = async (
   );
   return data;
 };
+
+export const createMoMoPayment = async (
+  params: CreatePaymentParams & { orderId?: string; orderInfo?: string }
+): Promise<CreatePaymentResponse> => {
+  const { data } = await instance.get<CreatePaymentResponse>(
+    "/payment/create_momo_payment",
+    { params }
+  );
+  return data;
+};

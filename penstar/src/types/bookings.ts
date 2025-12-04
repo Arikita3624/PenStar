@@ -68,6 +68,7 @@ export type BookingUpdatePayload = {
   payment_method?: string;
   stay_status_id?: number;
   is_refunded?: boolean;
+  notes?: string;
 };
 
 // For multi-room booking form

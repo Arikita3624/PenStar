@@ -35,8 +35,10 @@ import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
 import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
+import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBooking";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
+import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
 
 const AppRouter = () => {
   return (
@@ -97,6 +99,8 @@ const AppRouter = () => {
           />
           {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
           <Route path="payment-result" element={<PaymentResult />} />
+          {/* MoMo Mock Payment - chỉ dùng trong test mode */}
+          <Route path="momo-mock-payment" element={<MoMoMockPayment />} />
           {/* admin booking routes moved to admin layout below */}
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
@@ -113,6 +117,9 @@ const AppRouter = () => {
 
           {/* Bookings management - Staff+ */}
           <Route path="bookings" element={<BookingsList />} />
+          {/* Đặt các route cụ thể trước route :id để tránh conflict */}
+          <Route path="bookings/create" element={<AdminWalkInBooking />} />
+          <Route path="bookings/new" element={<AdminWalkInBooking />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
