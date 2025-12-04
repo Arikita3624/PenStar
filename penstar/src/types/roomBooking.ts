@@ -7,6 +7,7 @@ export interface RoomBookingConfig {
   room_type_id: number;
   num_adults: number;
   num_children: number;
+  num_babies?: number; // Em bé (0-5 tuổi) - optional, tối đa 2, không tính vào giới hạn
   special_requests?: string;
   price: number;
 }
@@ -38,7 +39,7 @@ export interface RoomCardProps {
   onRoomSelect: (room: Room) => void;
   onGuestChange: (
     roomId: number,
-    field: "num_adults" | "num_children",
+    field: "num_adults" | "num_children" | "num_babies",
     value: number | null
   ) => void;
 }

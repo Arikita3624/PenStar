@@ -171,12 +171,34 @@ const PaymentResult: React.FC = () => {
               extra={[
                 <Button
                   type="primary"
-                  danger
                   key="retry"
-                  onClick={() => navigate(-1)}
+                  onClick={async () => {
+                    const bookingId = localStorage.getItem("bookingId");
+                    if (bookingId) {
+                      try {
+                        const { getBookingById } = await import("@/services/bookingsApi");
+                        const bookingInfo = await getBookingById(Number(bookingId));
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: Number(bookingId),
+                            bookingInfo: bookingInfo,
+                          },
+                        });
+                      } catch (err) {
+                        console.error("Error fetching booking:", err);
+                        navigate(-1);
+                      }
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
                   size="middle"
+                  style={{
+                    background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    borderColor: "transparent",
+                  }}
                 >
-                  Quay lại
+                  Thanh toán lại
                 </Button>,
                 <Button onClick={() => navigate("/")} size="middle">
                   Về trang chủ

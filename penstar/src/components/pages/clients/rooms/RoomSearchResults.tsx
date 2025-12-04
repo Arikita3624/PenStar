@@ -129,6 +129,7 @@ const RoomSearchResults = () => {
             room_id: room.id,
             num_adults: 1,
             num_children: 0,
+            num_babies: 0,
           },
         ]);
       }
