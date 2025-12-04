@@ -67,14 +67,23 @@ export const autoAssignRooms = async (
     const roomType = typeCheck.rows[0];
     const totalGuests = numAdults + numChildren;
 
-    // Kiểm tra 1: Tổng số khách không vượt sức chứa
-    if (totalGuests > roomType.capacity) {
+    // Kiểm tra 1: Tổng số khách (người lớn + trẻ em, không tính em bé) <= 4 (mặc định)
+    const MAX_GUESTS_DEFAULT = 4;
+    if (totalGuests > MAX_GUESTS_DEFAULT) {
       throw new Error(
-        `Tổng số khách (${totalGuests}) vượt quá sức chứa (${roomType.capacity}) cho loại phòng "${roomType.name}".`
+        `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé).`
       );
     }
 
-    // Kiểm tra 2: Số người lớn không vượt quy định (an toàn, tuân thủ)
+    // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
+    const maxCapacity = Math.min(roomType.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+    if (totalGuests > maxCapacity) {
+      throw new Error(
+        `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${roomType.name}".`
+      );
+    }
+
+    // Kiểm tra 3: Số người lớn không vượt quy định (an toàn, tuân thủ)
     if (numAdults > roomType.max_adults) {
       throw new Error(
         `Số người lớn (${numAdults}) vượt quá quy định (${roomType.max_adults}) cho loại phòng "${roomType.name}".`
@@ -82,7 +91,7 @@ export const autoAssignRooms = async (
     }
 
     // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình có nhiều trẻ em
-    // Chỉ cần: totalGuests <= capacity VÀ numAdults <= max_adults
+    // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
 
     console.log(`[DEBUG autoAssignRooms] Excluding room IDs:`, excludeRoomIds);
 
@@ -280,14 +289,23 @@ export const createBooking = async (data) => {
         const type = typeRes.rows[0];
         const totalGuests = num_adults + num_children;
 
-        // Kiểm tra 1: Tổng số khách <= capacity
-        if (totalGuests > type.capacity) {
+        // Kiểm tra 1: Tổng số khách (người lớn + trẻ em, không tính em bé) <= 4 (mặc định)
+        const MAX_GUESTS_DEFAULT = 4;
+        if (totalGuests > MAX_GUESTS_DEFAULT) {
           throw new Error(
-            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${type.capacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+            `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
           );
         }
 
-        // Kiểm tra 2: Số người lớn <= max_adults
+        // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
+        const maxCapacity = Math.min(type.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+        if (totalGuests > maxCapacity) {
+          throw new Error(
+            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+          );
+        }
+
+        // Kiểm tra 3: Số người lớn <= max_adults
         if (num_adults > type.max_adults) {
           throw new Error(
             `Số người lớn (${num_adults}) vượt quá quy định (${type.max_adults}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
@@ -295,6 +313,7 @@ export const createBooking = async (data) => {
         }
 
         // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình
+        // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
 
         // Check 3: Room availability in booking time range
         // Logic: Conflict khi khoảng thời gian CHỒNG LẤN

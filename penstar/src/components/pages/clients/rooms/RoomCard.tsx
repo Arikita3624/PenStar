@@ -189,15 +189,26 @@ const RoomCard: React.FC<RoomCardProps> = React.memo(
                 </div>
                 <Select
                   value={config.num_adults}
-                  onChange={(value) =>
-                    onGuestChange(room.id, "num_adults", value)
-                  }
+                  onChange={(value) => {
+                    const MAX_GUESTS = 4;
+                    const totalGuests = value + (config.num_children || 0);
+                    if (totalGuests > MAX_GUESTS) {
+                      // Tự động điều chỉnh số trẻ em nếu tổng vượt quá 4
+                      const maxChildren = Math.max(0, MAX_GUESTS - value);
+                      onGuestChange(room.id, "num_adults", value);
+                      if (config.num_children > maxChildren) {
+                        onGuestChange(room.id, "num_children", maxChildren);
+                      }
+                    } else {
+                      onGuestChange(room.id, "num_adults", value);
+                    }
+                  }}
                   className="w-full"
                   size="small"
                 >
                   {Array.from(
                     {
-                      length: room.max_adults || room.capacity,
+                      length: Math.min(room.max_adults || room.capacity || 4, 4),
                     },
                     (_, i) => i + 1
                   ).map((num) => (
@@ -219,15 +230,26 @@ const RoomCard: React.FC<RoomCardProps> = React.memo(
                 </div>
                 <Select
                   value={config.num_children}
-                  onChange={(value) =>
-                    onGuestChange(room.id, "num_children", value)
-                  }
+                  onChange={(value) => {
+                    const MAX_GUESTS = 4;
+                    const totalGuests = (config.num_adults || 0) + value;
+                    if (totalGuests > MAX_GUESTS) {
+                      // Tự động điều chỉnh số người lớn nếu tổng vượt quá 4
+                      const maxAdults = Math.max(1, MAX_GUESTS - value);
+                      onGuestChange(room.id, "num_children", value);
+                      if (config.num_adults > maxAdults) {
+                        onGuestChange(room.id, "num_adults", maxAdults);
+                      }
+                    } else {
+                      onGuestChange(room.id, "num_children", value);
+                    }
+                  }}
                   className="w-full"
                   size="small"
                 >
                   {Array.from(
                     {
-                      length: (room.max_children || room.capacity) + 1,
+                      length: Math.min((room.max_children || room.capacity || 4) + 1, 5),
                     },
                     (_, i) => i
                   ).map((num) => (
@@ -245,18 +267,35 @@ const RoomCard: React.FC<RoomCardProps> = React.memo(
                     color: "#595959",
                   }}
                 >
-                  Em bé (0-5 tuổi)
+                  Em bé (0-5t) <span style={{ fontSize: "10px", color: "#8c8c8c" }}>(optional)</span>
                 </div>
                 <Select
-                  defaultValue={0}
+                  value={config.num_babies || 0}
+                  onChange={(value) =>
+                    onGuestChange(room.id, "num_babies", value)
+                  }
                   className="w-full"
                   size="small"
-                  disabled
                 >
-                  <Select.Option value={0}>0</Select.Option>
+                  {Array.from({ length: 3 }, (_, i) => i).map((num) => (
+                    <Select.Option key={num} value={num}>
+                      {num}
+                    </Select.Option>
+                  ))}
                 </Select>
+                <div style={{ fontSize: "9px", color: "#8c8c8c", marginTop: "2px" }}>
+                  Tối đa 2
+                </div>
               </Col>
             </Row>
+            <div style={{ marginTop: "8px", fontSize: "10px", color: "#8c8c8c" }}>
+              Tối đa 4 người (không bao gồm em bé) - Đã chọn: {(config.num_adults || 0) + (config.num_children || 0)}/4
+              {config.num_babies && config.num_babies > 0 && (
+                <span style={{ color: "#1890ff", marginLeft: "4px" }}>
+                  • Em bé: {config.num_babies}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </Card>

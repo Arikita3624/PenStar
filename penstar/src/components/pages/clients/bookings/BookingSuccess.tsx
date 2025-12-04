@@ -462,8 +462,8 @@ const BookingSuccess: React.FC = () => {
                 </div>
               )}
 
-            {/* Thông báo thanh toán tại khách sạn */}
-            {booking?.id && paymentStatus === "pending" && (
+            {/* Thông báo thanh toán và nút thanh toán lại */}
+            {booking?.id && (paymentStatus === "pending" || paymentStatus === "failed") && (
               <Card
                 title="💳 Thanh toán"
                 style={{ marginTop: 16 }}
@@ -472,16 +472,36 @@ const BookingSuccess: React.FC = () => {
               >
                 <div style={{ textAlign: "center", padding: "12px 0" }}>
                   <p style={{ fontSize: 14, marginBottom: 12 }}>
-                    Vui lòng thanh toán{" "}
-                    <strong>{fmtPrice(booking.total_price)}</strong> khi đến
-                    khách sạn
+                    {paymentStatus === "pending" 
+                      ? `Vui lòng thanh toán ${fmtPrice(booking.total_price)} khi đến khách sạn`
+                      : `Thanh toán thất bại. Vui lòng thanh toán lại ${fmtPrice(booking.total_price)}`}
                   </p>
                   <Tag
-                    color="warning"
-                    style={{ fontSize: 13, padding: "6px 12px" }}
+                    color={paymentStatus === "pending" ? "warning" : "error"}
+                    style={{ fontSize: 13, padding: "6px 12px", marginBottom: 12 }}
                   >
-                    Trạng thái: Chờ thanh toán
+                    Trạng thái: {paymentStatus === "pending" ? "Chờ thanh toán" : "Thanh toán thất bại"}
                   </Tag>
+                  <div>
+                    <Button
+                      type="primary"
+                      size="middle"
+                      onClick={() => {
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: booking.id,
+                            bookingInfo: booking,
+                          },
+                        });
+                      }}
+                      style={{
+                        background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                        borderColor: "transparent",
+                      }}
+                    >
+                      {paymentStatus === "pending" ? "Thanh toán ngay" : "Thanh toán lại"}
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
