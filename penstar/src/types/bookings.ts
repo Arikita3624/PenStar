@@ -35,6 +35,9 @@ export type Booking = {
   services?: BookingService[];
   created_at?: string;
   stay_status_name?: string;
+  promo_code?: string;
+  discount_amount?: number;
+  original_total?: number;
 };
 
 // For listing bookings

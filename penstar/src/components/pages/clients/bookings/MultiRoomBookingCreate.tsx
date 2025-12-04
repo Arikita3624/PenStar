@@ -168,13 +168,18 @@ const MultiRoomBookingCreate = () => {
   const totalRoomPrice = useMemo(() => {
     // Tính tổng giá phòng từ items (payload truyền sang)
     if (Array.isArray(location.state?.items)) {
+      // room_type_price trong items từ RoomBookingModal đã là tổng (đã nhân với số đêm)
+      // Không cần nhân thêm với nights nữa
       return location.state.items.reduce(
-        (sum: number, item: any) =>
-          sum + Number(item.room_type_price || 0) * nights,
+        (sum: number, item: any) => {
+          // room_type_price đã là tổng giá cho cả kỳ nghỉ
+          return sum + Number(item.room_type_price || 0);
+        },
         0
       );
     }
     // Fallback: nếu không có items thì lấy từ roomPrice (autoAssign)
+    // roomPrice là giá mỗi đêm, cần nhân với số phòng và số đêm
     if (autoAssign) return Number(roomPrice) * numRooms * nights;
     return 0;
   }, [autoAssign, roomPrice, numRooms, nights, location.state]);
@@ -400,7 +405,10 @@ const MultiRoomBookingCreate = () => {
             <Collapse accordion>
               {roomsData.map((item: any, idx: number) => {
                 const roomName = `Phòng ${idx + 1}`;
-                const roomPrice = item.price || 0;
+                // item.price từ RoomBookingModal đã là tổng giá cho cả kỳ nghỉ (đã nhân với số đêm)
+                // Cần tính lại giá mỗi đêm: pricePerNight = totalPrice / nights
+                const totalRoomPrice = item.price || 0;
+                const pricePerNight = nights > 0 ? totalRoomPrice / nights : totalRoomPrice;
 
                 // Tính tổng giá dịch vụ của phòng này
                 const roomServiceMap = roomServices[idx] || {};
@@ -422,9 +430,14 @@ const MultiRoomBookingCreate = () => {
                     header={
                       <div className="flex justify-between items-center">
                         <Text strong>{roomName}</Text>
-                        <Text type="secondary">
-                          {formatPrice(roomPrice)} / đêm
-                        </Text>
+                        <div className="text-right">
+                          <Text type="secondary" className="block text-xs">
+                            {formatPrice(pricePerNight)} / đêm
+                          </Text>
+                          <Text strong className="text-red-600">
+                            {formatPrice(totalRoomPrice)} ({nights} đêm)
+                          </Text>
+                        </div>
                       </div>
                     }
                     key={idx}

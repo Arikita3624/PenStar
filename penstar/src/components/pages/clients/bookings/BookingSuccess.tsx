@@ -355,9 +355,30 @@ const BookingSuccess: React.FC = () => {
               <Descriptions.Item label="Khách hàng">
                 {booking?.customer_name ?? "-"}
               </Descriptions.Item>
-              <Descriptions.Item label="Tổng tiền">
-                {fmtPrice(booking?.total_price)} VND
-              </Descriptions.Item>
+              {booking?.original_total && booking?.discount_amount ? (
+                <>
+                  <Descriptions.Item label="Tổng tiền gốc">
+                    <span style={{ textDecoration: "line-through", color: "#999" }}>
+                      {fmtPrice(booking.original_total)} VND
+                    </span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Mã giảm giá">
+                    <Tag color="green">{booking.promo_code}</Tag>
+                    <span style={{ marginLeft: 8, color: "#52c41a", fontWeight: "bold" }}>
+                      -{fmtPrice(booking.discount_amount)} VND
+                    </span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Tổng tiền sau giảm">
+                    <span style={{ fontSize: "16px", fontWeight: "bold", color: "#ff4d4f" }}>
+                      {fmtPrice(booking?.total_price)} VND
+                    </span>
+                  </Descriptions.Item>
+                </>
+              ) : (
+                <Descriptions.Item label="Tổng tiền">
+                  {fmtPrice(booking?.total_price)} VND
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Thanh toán">
                 <Tag
                   color={

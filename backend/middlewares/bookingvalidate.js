@@ -10,6 +10,7 @@ export const bookingItemSchema = Joi.object({
 
 export const bookingServiceSchema = Joi.object({
   booking_id: Joi.number().positive().required(),
+  booking_item_id: Joi.number().positive().optional().allow(null), // Optional: để thêm dịch vụ cho từng phòng
   service_id: Joi.number().positive().required(),
   quantity: Joi.number().integer().min(1).required(),
   total_service_price: Joi.number().min(0).required(),
@@ -43,7 +44,9 @@ export const bookingCreateSchema = Joi.object({
   email: Joi.any().optional(), // Legacy
   phone: Joi.any().optional(), // Legacy
   notes: Joi.any().optional(), // Ignored
-  promo_code: Joi.any().optional(), // Ignored
+  promo_code: Joi.any().optional(), // Ignored - sẽ được lưu vào notes
+  discount_amount: Joi.number().min(0).optional(), // Số tiền giảm giá - sẽ được lưu vào notes
+  original_total: Joi.number().min(0).optional(), // Tổng tiền gốc trước giảm - sẽ được lưu vào notes
   num_adults: Joi.number().integer().min(1).max(20).optional(), // Số người lớn (root level)
   num_children: Joi.number().integer().min(0).max(20).optional(), // Số trẻ em (root level)
   total_price: Joi.number().min(0).required(),
