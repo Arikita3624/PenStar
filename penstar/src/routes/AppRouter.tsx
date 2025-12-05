@@ -30,6 +30,7 @@ import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
+import CustomerProfile from "@/components/pages/clients/users/CustomerProfile";
 import Userslist from "@/components/pages/admin/users/Userslist";
 import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
@@ -104,6 +105,14 @@ const AppRouter = () => {
           {/* admin booking routes moved to admin layout below */}
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
+          <Route
+            path="profile"
+            element={
+              <RequireCustomerOnly>
+                <CustomerProfile />
+              </RequireCustomerOnly>
+            }
+          />
         </Route>
         <Route
           path="admin"

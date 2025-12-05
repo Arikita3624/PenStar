@@ -1,4 +1,4 @@
-import { Button, message } from "antd";
+import { Button, message, Space } from "antd";
 import { PhoneOutlined } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -81,16 +81,29 @@ const AppHeader = () => {
             <PhoneOutlined className="text-base" /> <span>+84 394879813</span>
           </a>
           {isLogged ? (
-            <Button
-              onClick={handleLogout}
-              style={{
-                backgroundColor: "#e53e3e",
-                borderColor: "#e53e3e",
-                color: "#ffffff",
-              }}
-            >
-              Đăng xuất
-            </Button>
+            <Space>
+              <Link to="/profile">
+                <Button
+                  style={{
+                    backgroundColor: "#0a66a3",
+                    borderColor: "#0a66a3",
+                    color: "#ffffff",
+                  }}
+                >
+                  Tài khoản
+                </Button>
+              </Link>
+              <Button
+                onClick={handleLogout}
+                style={{
+                  backgroundColor: "#e53e3e",
+                  borderColor: "#e53e3e",
+                  color: "#ffffff",
+                }}
+              >
+                Đăng xuất
+              </Button>
+            </Space>
           ) : (
             <Link to="/signin">
               <Button
