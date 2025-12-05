@@ -42,11 +42,21 @@ export const optionalAuth = (req, res, next) => {
 };
 
 // role hierarchy: customer < staff < manager < admin
+// Database role_id mapping: customer=1, staff=2, manager=3, admin=4
+// We use role_id - 1 for level comparison to match old behavior
 const ROLE_LEVEL = {
   customer: 0,
   staff: 1,
   manager: 2,
   admin: 3,
+};
+
+// Map role_id to level (role_id 1-4 maps to level 0-3)
+const roleIdToLevel = (roleId) => {
+  if (typeof roleId === "number" && roleId >= 1 && roleId <= 4) {
+    return roleId - 1; // role_id 1->0, 2->1, 3->2, 4->3
+  }
+  return -1;
 };
 
 // requireRole accepts one or more allowed roles and permits access if user's role level
@@ -63,14 +73,24 @@ export const requireRole = (...allowedRoles) => {
   return (req, res, next) => {
     const user = req.user;
     if (!user) return res.status(401).json({ message: "Not authenticated" });
-    // user.role can be name or role_id; prefer name
-    const userRoleName = (user.role || user.role_name || user.role_type || "")
-      .toString()
-      .toLowerCase();
-    const userLevel =
-      typeof ROLE_LEVEL[userRoleName] === "number"
-        ? ROLE_LEVEL[userRoleName]
-        : -1;
+    
+    // Try to get user level from role_id first (more reliable)
+    let userLevel = -1;
+    if (user.role_id !== undefined && user.role_id !== null) {
+      userLevel = roleIdToLevel(user.role_id);
+    }
+    
+    // Fallback to role name if role_id not available or invalid
+    if (userLevel === -1) {
+      const userRoleName = (user.role || user.role_name || user.role_type || "")
+        .toString()
+        .toLowerCase();
+      userLevel =
+        typeof ROLE_LEVEL[userRoleName] === "number"
+          ? ROLE_LEVEL[userRoleName]
+          : -1;
+    }
+    
     if (userLevel >= minLevel) return next();
     return res.status(403).json({ message: "Forbidden: insufficient role" });
   };
