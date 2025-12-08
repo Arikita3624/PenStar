@@ -13,11 +13,20 @@ import {
   Col,
 } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createRoomType } from "@/services/roomTypeApi";
 import { uploadRoomTypeImage } from "@/services/roomTypeImagesApi";
+import { getDevices } from "@/services/devicesApi";
 import type { RcFile } from "antd/lib/upload";
 type FileWithMeta = RcFile & { lastModified?: number };
+
+const formatPrice = (price?: number) => {
+  if (!price) return "0 ₫";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(price);
+};
 
 const RoomTypeAdd: React.FC = () => {
   const [form] = Form.useForm();
@@ -26,6 +35,12 @@ const RoomTypeAdd: React.FC = () => {
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Load danh sách thiết bị
+  const { data: devices = [] } = useQuery({
+    queryKey: ["devices"],
+    queryFn: getDevices,
+  });
 
   useEffect(() => {
     return () => {
@@ -76,13 +91,15 @@ const RoomTypeAdd: React.FC = () => {
               name: values.name ?? "",
               description: values.description ?? "",
               thumbnail: PLACEHOLDER_THUMBNAIL,
-              amenities: values.amenities || [],
+              devices_id: values.devices_id || [],
               capacity: values.capacity ? Number(values.capacity) : 2,
               max_adults: values.max_adults ? Number(values.max_adults) : 2,
               max_children: values.max_children
                 ? Number(values.max_children)
                 : 1,
               price: values.price ? Number(values.price) : 0,
+              adult_surcharge: values.adult_surcharge ? Number(values.adult_surcharge) : 0,
+              child_surcharge: values.child_surcharge ? Number(values.child_surcharge) : 0,
             };
 
             try {
@@ -149,14 +166,56 @@ const RoomTypeAdd: React.FC = () => {
                   rules={[{ required: true }]}
                   tooltip="Số trẻ em tối đa"
                 >
+                  <InputNumber min={0} style={{ width: "100%" }} />
+                </Form.Item>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item
+                  name="adult_surcharge"
+                  label="Phụ phí người lớn (VND)"
+                  tooltip="Phụ phí cho mỗi người lớn vượt quá max_adults"
+                >
                   <InputNumber
-                    style={{ width: "100%" }}
                     min={0}
-                    placeholder="1"
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                    parser={(value) => {
+                      const parsed = value?.replace(/\$\s?|(,*)/g, "") || "0";
+                      return Number(parsed) as any;
+                    }}
+                    style={{ width: "100%" }}
                   />
                 </Form.Item>
-                {/* Base Occupancy removed */}
+                <Form.Item
+                  name="child_surcharge"
+                  label="Phụ phí trẻ em (VND)"
+                  tooltip="Phụ phí cho mỗi trẻ em"
+                >
+                  <InputNumber
+                    min={0}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                    parser={(value) => {
+                      const parsed = value?.replace(/\$\s?|(,*)/g, "") || "0";
+                      return Number(parsed) as any;
+                    }}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
               </div>
+              <Form.Item
+                name="devices_id"
+                label="Thiết bị"
+                tooltip="Chọn các thiết bị có trong phòng"
+              >
+                <Select
+                  mode="multiple"
+                  placeholder="Chọn thiết bị"
+                  style={{ width: "100%" }}
+                  options={devices.map((device) => ({
+                    value: device.id,
+                    label: `${device.name}${device.fee ? ` (${formatPrice(device.fee)})` : ""}`,
+                  }))}
+                />
+              </Form.Item>
 
               <Form.Item
                 name="description"
@@ -166,21 +225,19 @@ const RoomTypeAdd: React.FC = () => {
                 <QuillEditor />
               </Form.Item>
 
-              <Form.Item name="amenities" label="Amenities & Services">
+              <Form.Item name="devices_id" label="Thiết bị trong phòng">
                 <Select
-                  mode="tags"
-                  placeholder="Type amenity and press Enter (e.g., WiFi, Air Conditioning, TV...)"
+                  mode="multiple"
+                  placeholder="Chọn thiết bị có trong loại phòng này"
                   style={{ width: "100%" }}
-                  options={[
-                    { label: "WiFi miễn phí", value: "WiFi miễn phí" },
-                    { label: "Điều hòa", value: "Điều hòa" },
-                    { label: "Tivi LCD", value: "Tivi LCD" },
-                    { label: "Minibar", value: "Minibar" },
-                    { label: "Phòng tắm riêng", value: "Phòng tắm riêng" },
-                    { label: "Bàn làm việc", value: "Bàn làm việc" },
-                    { label: "Két sắt", value: "Két sắt" },
-                    { label: "Máy sấy tóc", value: "Máy sấy tóc" },
-                  ]}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={devices.map((d) => ({
+                    label: `${d.name}${d.fee ? ` (${formatPrice(d.fee)})` : ""}`,
+                    value: d.id,
+                  }))}
                 />
               </Form.Item>
             </Col>

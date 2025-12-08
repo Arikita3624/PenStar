@@ -10,6 +10,10 @@ import {
   autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
 import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js";
+import {
+  getDamagesByBookingId,
+  replaceDamagesForBooking,
+} from "../models/bookingDamagesModel.js";
 import pool from "../db.js";
 
 export const getBookings = async (req, res) => {
@@ -53,6 +57,14 @@ export const getBookingById = async (req, res) => {
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
 
+    // Damages (thiết bị hỏng/mất)
+    const damages = await getDamagesByBookingId(id);
+    booking.damages = damages;
+    booking.damage_total = damages.reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0
+    );
+
     // Add check_in and check_out from first booking_item for convenience
     if (booking.items && booking.items.length > 0) {
       booking.check_in = booking.items[0].check_in;
@@ -70,8 +82,12 @@ export const getBookingById = async (req, res) => {
       (sum, service) => sum + Number(service.total_service_price || 0),
       0
     );
+    // Tính tổng phụ phí
+    booking.total_surcharge = booking.items.reduce((sum, item) => {
+      return sum + Number(item.adult_surcharge_total || 0) + Number(item.child_surcharge_total || 0);
+    }, 0);
     booking.total_amount =
-      booking.total_room_price + booking.total_service_price;
+      booking.total_room_price + booking.total_service_price + booking.total_surcharge;
     
     // Kiểm tra xem có mã giảm giá không (lưu trong notes)
     let discountInfo = null;
@@ -92,9 +108,11 @@ export const getBookingById = async (req, res) => {
     // Nếu có mã giảm giá, dùng total_price từ DB (đã được áp dụng giảm giá)
     // Nếu không có, tính lại từ total_amount
     if (!discountInfo) {
-      booking.total_price = booking.total_amount;
+      booking.total_price = booking.total_amount + booking.damage_total;
+    } else {
+      // Nếu có discountInfo, total_price đã áp dụng giảm giá trong DB, cộng thêm damage_total (nếu chưa được cộng)
+      booking.total_price = Number(booking.total_price || 0) + booking.damage_total;
     }
-    // Nếu có discountInfo, booking.total_price đã đúng từ DB (giá sau giảm)
 
     res.json({
       success: true,
@@ -488,6 +506,57 @@ export const confirmCheckout = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Internal error", error: err.message });
+  }
+};
+
+export const updateBookingDamages = async (req, res) => {
+  const { id } = req.params;
+  const { damages } = req.body || {};
+
+  if (!Array.isArray(damages)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Damages phải là một mảng" });
+  }
+
+  try {
+    const normalized = damages.map((d) => ({
+      booking_item_id: d.booking_item_id || null,
+      device_id: d.device_id || null,
+      device_name: d.device_name?.trim(),
+      description: d.description || null,
+      amount: Number(d.amount) || 0,
+    }));
+
+    // Validate device_name
+    if (normalized.some((d) => !d.device_name)) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiết bị phải có tên",
+      });
+    }
+
+    await replaceDamagesForBooking(Number(id), normalized);
+
+    const booking = await modelGetBookingById(id);
+    const damagesSaved = await getDamagesByBookingId(id);
+    booking.damages = damagesSaved;
+    booking.damage_total = damagesSaved.reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0
+    );
+
+    res.json({
+      success: true,
+      message: "Đã lưu thiết bị hỏng/mất",
+      data: booking,
+    });
+  } catch (err) {
+    console.error("updateBookingDamages error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Internal error",
+    });
   }
 };
 

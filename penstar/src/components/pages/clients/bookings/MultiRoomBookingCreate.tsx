@@ -13,6 +13,7 @@ import {
   Checkbox,
   InputNumber,
   Divider,
+  Modal,
 } from "antd";
 import {
   UserOutlined,
@@ -165,24 +166,52 @@ const MultiRoomBookingCreate = () => {
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [searchParams.check_in, searchParams.check_out]);
 
-  const totalRoomPrice = useMemo(() => {
-    // Tính tổng giá phòng từ items (payload truyền sang)
+  // Tính giá phòng cơ bản (chưa có phụ phí)
+  const baseRoomPrice = useMemo(() => {
     if (Array.isArray(location.state?.items)) {
-      // room_type_price trong items từ RoomBookingModal đã là tổng (đã nhân với số đêm)
-      // Không cần nhân thêm với nights nữa
+      // Tính giá cơ bản: room_type_price - phụ phí
       return location.state.items.reduce(
         (sum: number, item: any) => {
-          // room_type_price đã là tổng giá cho cả kỳ nghỉ
-          return sum + Number(item.room_type_price || 0);
+          const surcharge = Number(item.adult_surcharge_total || 0) + Number(item.child_surcharge_total || 0);
+          const basePrice = Number(item.room_type_price || 0) - surcharge;
+          return sum + basePrice;
         },
         0
       );
     }
     // Fallback: nếu không có items thì lấy từ roomPrice (autoAssign)
-    // roomPrice là giá mỗi đêm, cần nhân với số phòng và số đêm
     if (autoAssign) return Number(roomPrice) * numRooms * nights;
     return 0;
   }, [autoAssign, roomPrice, numRooms, nights, location.state]);
+
+  // Tính tổng giá phòng (bao gồm phụ phí)
+  const totalRoomPrice = useMemo(() => {
+    if (Array.isArray(location.state?.items)) {
+      // room_type_price trong items từ RoomBookingModal đã là tổng (đã nhân với số đêm + phụ phí)
+      return location.state.items.reduce(
+        (sum: number, item: any) => {
+          return sum + Number(item.room_type_price || 0);
+        },
+        0
+      );
+    }
+    // Fallback
+    if (autoAssign) return Number(roomPrice) * numRooms * nights;
+    return 0;
+  }, [autoAssign, roomPrice, numRooms, nights, location.state]);
+
+  // Tính tổng phụ phí từ items
+  const totalSurcharge = useMemo(() => {
+    if (Array.isArray(location.state?.items)) {
+      return location.state.items.reduce(
+        (sum: number, item: any) => {
+          return sum + Number(item.adult_surcharge_total || 0) + Number(item.child_surcharge_total || 0);
+        },
+        0
+      );
+    }
+    return 0;
+  }, [location.state]);
 
   // Tính tổng giá dịch vụ từ tất cả các phòng
   const totalServicePrice = useMemo(() => {
@@ -198,7 +227,7 @@ const MultiRoomBookingCreate = () => {
     return sum;
   }, [roomServices, services]);
 
-  // Tổng giá phòng + dịch vụ
+  // Tổng giá phòng + dịch vụ (phụ phí đã được tính trong room_type_price)
   const totalPrice = totalRoomPrice + totalServicePrice;
 
   const formatPrice = (price: number) =>
@@ -233,7 +262,38 @@ const MultiRoomBookingCreate = () => {
   };
 
   const handleNext = () => validateStep() && setCurrentStep((s) => s + 1);
-  const handlePrev = () => setCurrentStep((s) => s - 1);
+  
+  const handlePrev = () => {
+    if (currentStep === 0) {
+      // Ở bước 1 (điền thông tin), hỏi xác nhận trước khi quay lại và xóa dữ liệu
+      Modal.confirm({
+        title: "Xác nhận hủy đặt phòng",
+        content: "Bạn có chắc muốn quay lại? Dữ liệu phòng đã chọn sẽ bị xóa.",
+        okText: "Xác nhận",
+        cancelText: "Hủy",
+        onOk: () => {
+          // Xóa dữ liệu và quay về trang trước
+          navigate(-1);
+        },
+      });
+    } else {
+      // Ở các bước khác, chỉ quay lại bước trước
+      setCurrentStep((s) => s - 1);
+    }
+  };
+
+  const handleCancelBooking = () => {
+    Modal.confirm({
+      title: "Xác nhận hủy đặt phòng",
+      content: "Bạn có chắc muốn hủy đặt phòng? Tất cả dữ liệu đã nhập sẽ bị xóa.",
+      okText: "Xác nhận",
+      cancelText: "Hủy",
+      onOk: () => {
+        // Xóa dữ liệu và quay về trang trước
+        navigate(-1);
+      },
+    });
+  };
 
   const handleSubmit = () => {
     console.log("[MultiRoomBookingCreate] Submit button clicked", {
@@ -244,11 +304,74 @@ const MultiRoomBookingCreate = () => {
       customerInfo,
       totalPrice,
       searchParams,
+      hasItems: Array.isArray(location.state?.items) && location.state.items.length > 0,
     });
     if (!validateStep()) return;
 
     const checkin = searchParams.check_in!;
     const checkout = searchParams.check_out!;
+
+    // Ưu tiên items từ RoomBookingModal (đã chọn phòng cụ thể) hơn roomsConfig (autoAssign)
+    if (Array.isArray(location.state?.items) && location.state.items.length > 0) {
+      // Xử lý khi không autoAssign (có items từ RoomBookingModal)
+      // Khi có items, người dùng đã chọn phòng cụ thể, nên gửi items trực tiếp thay vì rooms_config
+      const items = location.state.items;
+      const bookingItems = items.map((item: any, idx: number) => {
+        // Lấy services của phòng này
+        const itemServices = roomServices[idx] || {};
+        const servicesArray = Object.entries(itemServices)
+          .filter(([, quantity]) => quantity > 0)
+          .map(([serviceId, quantity]) => {
+            const service = services.find((s) => s.id === Number(serviceId));
+            return {
+              service_id: Number(serviceId),
+              quantity: quantity,
+              total_service_price: service ? service.price * quantity : 0,
+            };
+          });
+
+        // Tính giá cơ bản (trừ phụ phí) để backend tính lại phụ phí
+        const surcharge = Number(item.adult_surcharge_total || 0) + Number(item.child_surcharge_total || 0);
+        const basePrice = Number(item.room_type_price || 0) - surcharge;
+
+        return {
+          room_id: item.room_id, // Gửi room_id trực tiếp vì đã chọn phòng cụ thể
+          room_type_id: item.room_type_id,
+          check_in: item.check_in,
+          check_out: item.check_out,
+          room_type_price: basePrice, // Giá cơ bản, backend sẽ tính lại phụ phí
+          num_adults: item.num_adults,
+          num_children: item.num_children,
+          services: servicesArray.length > 0 ? servicesArray : [],
+        };
+      });
+
+      const bookingData = {
+        customer_name: customerInfo.customer_name,
+        customer_email: customerInfo.customer_email,
+        customer_phone: customerInfo.customer_phone,
+        promo_code: searchParams.promo_code || undefined,
+        notes: notes || undefined,
+        total_price: totalPrice,
+        payment_status: "unpaid",
+        booking_method: "online",
+        stay_status_id: 1,
+        items: bookingItems, // Gửi items trực tiếp thay vì rooms_config
+      };
+
+      console.log(
+        "[MultiRoomBookingCreate] Chuyển sang PaymentMethodSelect (items):",
+        bookingData
+      );
+
+      navigate("/bookings/payment-method", {
+        state: {
+          bookingData,
+          shouldCreateBooking: true,
+        },
+      });
+      return;
+    }
 
     if (autoAssign && roomsConfig.length > 0) {
       // Lấy danh sách loại phòng từ API
@@ -288,7 +411,7 @@ const MultiRoomBookingCreate = () => {
                 quantity: 1, // Mỗi config = 1 phòng
                 check_in: checkin,
                 check_out: checkout,
-                room_type_price: price * nights,
+                room_type_price: price * nights, // Giá cơ bản, backend sẽ tính phụ phí
                 num_adults: room.num_adults,
                 num_children: room.num_children,
                 services: servicesArray.length > 0 ? servicesArray : [],
@@ -695,8 +818,38 @@ const MultiRoomBookingCreate = () => {
                 <div className="space-y-3 text-lg">
                   <div className="flex justify-between">
                     <span>Tiền phòng ({nights} đêm)</span>
-                    <strong>{formatPrice(totalRoomPrice)}</strong>
+                    <strong>{formatPrice(baseRoomPrice)}</strong>
                   </div>
+                  {totalSurcharge > 0 && (
+                    <>
+                      {location.state?.items?.some((item: any) => item.adult_surcharge_total > 0) && (
+                        <div className="flex justify-between text-orange-600">
+                          <span>Phụ phí người lớn</span>
+                          <strong>
+                            {formatPrice(
+                              location.state.items.reduce(
+                                (sum: number, item: any) => sum + Number(item.adult_surcharge_total || 0),
+                                0
+                              )
+                            )}
+                          </strong>
+                        </div>
+                      )}
+                      {location.state?.items?.some((item: any) => item.child_surcharge_total > 0) && (
+                        <div className="flex justify-between text-orange-600">
+                          <span>Phụ phí trẻ em</span>
+                          <strong>
+                            {formatPrice(
+                              location.state.items.reduce(
+                                (sum: number, item: any) => sum + Number(item.child_surcharge_total || 0),
+                                0
+                              )
+                            )}
+                          </strong>
+                        </div>
+                      )}
+                    </>
+                  )}
                   {totalServicePrice > 0 && (
                     <div className="flex justify-between">
                       <span>Dịch vụ</span>
@@ -715,7 +868,14 @@ const MultiRoomBookingCreate = () => {
           )}
 
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <Button onClick={handlePrev}>Quay lại</Button>
+            <div className="flex gap-2">
+              <Button onClick={handlePrev}>Quay lại</Button>
+              {currentStep > 0 && (
+                <Button danger onClick={handleCancelBooking}>
+                  Hủy đặt phòng
+                </Button>
+              )}
+            </div>
             {currentStep < 2 ? (
               <Button type="primary" onClick={handleNext}>
                 Tiếp theo

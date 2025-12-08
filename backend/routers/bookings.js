@@ -10,6 +10,7 @@ import {
   confirmCheckout,
   cancelBooking,
   changeRoomInBooking,
+  updateBookingDamages,
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
 import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
@@ -44,5 +45,11 @@ router.post(
 
 // Change room in booking - both customer and staff can use
 router.patch("/:id/change-room", requireAuth, changeRoomInBooking);
+router.put(
+  "/:id/damages",
+  requireAuth,
+  requireRole("staff"),
+  updateBookingDamages
+);
 
 export default router;

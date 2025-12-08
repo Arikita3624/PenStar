@@ -14,6 +14,9 @@ import FloorEdit from "@/components/pages/admin/floors/FloorEdit";
 import ServicesPage from "@/components/pages/admin/services/Services";
 import ServiceAdd from "@/components/pages/admin/services/ServiceAdd";
 import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
+import DevicesPage from "@/components/pages/admin/devices/Devices";
+import DeviceAdd from "@/components/pages/admin/devices/DeviceAdd";
+import DeviceEdit from "@/components/pages/admin/devices/DeviceEdit";
 import DiscountCodesPage from "@/components/pages/admin/discountcodes/DiscountCodes";
 import DiscountCodeAdd from "@/components/pages/admin/discountcodes/DiscountCodeAdd";
 import DiscountCodeEdit from "@/components/pages/admin/discountcodes/DiscountCodeEdit";
@@ -144,6 +147,9 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route path="devices/new" element={<DeviceAdd />} />
+          <Route path="devices/:id/edit" element={<DeviceEdit />} />
           <Route path="discount-codes" element={<DiscountCodesPage />} />
           <Route path="discount-codes/add" element={<DiscountCodeAdd />} />
           <Route

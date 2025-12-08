@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomTypeById, updateRoomType } from "@/services/roomTypeApi";
+import { getDevices } from "@/services/devicesApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { PlusOutlined } from "@ant-design/icons";
 import type { RcFile } from "antd/lib/upload";
@@ -53,6 +54,20 @@ const RoomTypeEdit = () => {
     enabled: !!id,
   });
 
+  // Load danh sách thiết bị
+  const { data: devices = [] } = useQuery({
+    queryKey: ["devices"],
+    queryFn: getDevices,
+  });
+
+  const formatPrice = (price?: number) => {
+    if (!price) return "0 ₫";
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+  };
+
   // Cleanup previews on unmount
   useEffect(() => {
     return () => {
@@ -74,18 +89,20 @@ const RoomTypeEdit = () => {
     form.setFieldsValue({
       name: data.name,
       description: data.description,
-      amenities: data.amenities || [],
+      devices_id: data.devices_id || (data.devices?.map((d) => d.id) || []),
       capacity: data.capacity,
       max_adults: data.max_adults,
       max_children: data.max_children,
       price: data.price,
+      adult_surcharge: data.adult_surcharge,
+      child_surcharge: data.child_surcharge,
     });
   }, [data, form]);
 
   const handleFinish = async (values: {
     name: string;
     description: string;
-    amenities?: string[];
+    devices_id?: number[];
     capacity?: number;
     max_adults?: number;
     max_children?: number;
@@ -97,13 +114,15 @@ const RoomTypeEdit = () => {
       await updateRoomType(id as string, {
         name: values.name,
         description: values.description,
-        amenities: values.amenities,
+        devices_id: values.devices_id || [],
         capacity: values.capacity ? Number(values.capacity) : undefined,
         max_adults: values.max_adults ? Number(values.max_adults) : undefined,
         max_children: values.max_children
           ? Number(values.max_children)
           : undefined,
         price: values.price ? Number(values.price) : undefined,
+        adult_surcharge: values.adult_surcharge ? Number(values.adult_surcharge) : undefined,
+        child_surcharge: values.child_surcharge ? Number(values.child_surcharge) : undefined,
       });
 
       // 2. Handle thumbnail
@@ -235,6 +254,32 @@ const RoomTypeEdit = () => {
                 </Form.Item>
                 {/* Base Occupancy removed */}
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item
+                  name="adult_surcharge"
+                  label="Phụ phí người lớn (VND)"
+                  tooltip="Phụ phí cho mỗi người lớn vượt quá max_adults"
+                >
+                  <InputNumber
+                    min={0}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                    parser={(value) => value!.replace(/\$\s?|(,*)/g, "")}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="child_surcharge"
+                  label="Phụ phí trẻ em (VND)"
+                  tooltip="Phụ phí cho mỗi trẻ em"
+                >
+                  <InputNumber
+                    min={0}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                    parser={(value) => value!.replace(/\$\s?|(,*)/g, "")}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+              </div>
 
               <Form.Item
                 name="description"
@@ -244,21 +289,19 @@ const RoomTypeEdit = () => {
                 <QuillEditor />
               </Form.Item>
 
-              <Form.Item name="amenities" label="Amenities & Services">
+              <Form.Item name="devices_id" label="Thiết bị trong phòng">
                 <Select
-                  mode="tags"
-                  placeholder="Type amenity and press Enter (e.g., WiFi, Air Conditioning, TV...)"
+                  mode="multiple"
+                  placeholder="Chọn thiết bị có trong loại phòng này"
                   style={{ width: "100%" }}
-                  options={[
-                    { label: "WiFi miễn phí", value: "WiFi miễn phí" },
-                    { label: "Điều hòa", value: "Điều hòa" },
-                    { label: "Tivi LCD", value: "Tivi LCD" },
-                    { label: "Minibar", value: "Minibar" },
-                    { label: "Phòng tắm riêng", value: "Phòng tắm riêng" },
-                    { label: "Bàn làm việc", value: "Bàn làm việc" },
-                    { label: "Két sắt", value: "Két sắt" },
-                    { label: "Máy sấy tóc", value: "Máy sấy tóc" },
-                  ]}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={devices.map((d) => ({
+                    label: `${d.name}${d.fee ? ` (${formatPrice(d.fee)})` : ""}`,
+                    value: d.id,
+                  }))}
                 />
               </Form.Item>
             </Col>

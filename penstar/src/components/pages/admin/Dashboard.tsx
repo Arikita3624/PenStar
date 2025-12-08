@@ -399,7 +399,7 @@ const Dashboard = () => {
                           <div className="text-sm">
                             {item.damage_items.slice(0, 3).map((damage, idx) => (
                               <Tag key={idx} color="red" className="mb-1">
-                                {damage.replace(/^-\s*/, "")}
+                                {damage}
                               </Tag>
                             ))}
                             {item.damage_items.length > 3 && (

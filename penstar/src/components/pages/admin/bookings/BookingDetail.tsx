@@ -4,6 +4,7 @@ import {
   updateBookingStatus,
   confirmCheckout,
   cancelBooking,
+  updateBookingDamages,
 } from "@/services/bookingsApi";
 import { getRoomID } from "@/services/roomsApi";
 import { getServiceById, getServices } from "@/services/servicesApi";
@@ -11,11 +12,12 @@ import {
   createBookingService,
   deleteBookingService,
 } from "@/services/bookingServicesApi";
+import { getDevices, type Device } from "@/services/devicesApi";
 import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -28,6 +30,8 @@ import {
   Row,
   Col,
   Divider,
+  Input,
+  InputNumber,
   Avatar,
   List,
   Button,
@@ -55,6 +59,7 @@ const { Title, Text } = Typography;
 const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     data: booking,
@@ -67,6 +72,62 @@ const BookingDetail = () => {
     enabled: !!id,
     retry: false,
   });
+  // Load tất cả devices để có thể chọn (nếu không có room type)
+  const { data: allDevices = [] } = useQuery<Device[]>({
+    queryKey: ["devices"],
+    queryFn: getDevices,
+  });
+
+  // Lấy room type từ booking để filter devices
+  const roomTypeIds = useMemo(() => {
+    if (!booking?.items) return [];
+    return Array.from(
+      new Set(
+        booking.items
+          .map((item: any) => item.room_type_id)
+          .filter((id: number | undefined): id is number => !!id)
+      )
+    );
+  }, [booking]);
+
+  // Load room types để lấy devices_id
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ["room_types", roomTypeIds],
+    queryFn: async () => {
+      const { getRoomTypes } = await import("@/services/roomTypeApi");
+      return getRoomTypes();
+    },
+    enabled: roomTypeIds.length > 0,
+  });
+
+  // Filter devices theo room type của booking
+  const devices = useMemo(() => {
+    if (!booking || roomTypeIds.length === 0) {
+      return allDevices; // Fallback: hiển thị tất cả nếu không có room type
+    }
+
+    // Lấy tất cả devices_id từ các room types của booking
+    const deviceIdsFromRoomTypes = new Set<number>();
+    roomTypes.forEach((rt: any) => {
+      if (roomTypeIds.includes(rt.id)) {
+        // Lấy từ devices_id array
+        if (rt.devices_id && Array.isArray(rt.devices_id)) {
+          rt.devices_id.forEach((id: number) => deviceIdsFromRoomTypes.add(id));
+        }
+        // Nếu có devices array (từ join), cũng lấy
+        if (rt.devices && Array.isArray(rt.devices)) {
+          rt.devices.forEach((d: any) => deviceIdsFromRoomTypes.add(d.id));
+        }
+      }
+    });
+
+    // Filter devices theo deviceIdsFromRoomTypes
+    if (deviceIdsFromRoomTypes.size === 0) {
+      return allDevices; // Fallback nếu room type không có devices
+    }
+
+    return allDevices.filter((d) => deviceIdsFromRoomTypes.has(d.id));
+  }, [allDevices, roomTypes, booking, roomTypeIds]);
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [services, setServices] = useState<Services[]>([]);
@@ -76,7 +137,68 @@ const BookingDetail = () => {
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null); // booking_item_id đang thêm dịch vụ
   const [deviceDamageModalVisible, setDeviceDamageModalVisible] = useState(false);
-  const [deviceDamage, setDeviceDamage] = useState<Array<{device_id: number; device_name: string; description: string}>>([]);
+  const [deviceDamage, setDeviceDamage] = useState<
+    Array<{
+      booking_item_id?: number | null;
+      device_id?: number | null;
+      device_name: string;
+      description?: string;
+      amount?: number;
+    }>
+  >([]);
+  const [newDamage, setNewDamage] = useState<{
+    device_id?: number | null;
+    device_name: string;
+    description: string;
+    amount?: number;
+  }>({ device_id: null, device_name: "", description: "", amount: undefined });
+
+  const handleCheckout = async () => {
+    if (!booking || !booking.id) return;
+    Modal.confirm({
+      title: "Xác nhận checkout khách",
+      content:
+        "Bạn chắc chắn checkout? Phòng sẽ chuyển sang trạng thái Checked-out để ghi nhận thiết bị hỏng và in hóa đơn.",
+      okText: "Checkout",
+      cancelText: "Hủy",
+      onOk: async () => {
+        setUpdating(true);
+        try {
+          await updateBookingStatus(Number(booking.id), { stay_status_id: 3 });
+          message.success("Đã checkout. Tiếp tục xác nhận để ghi nhận thiết bị/in hóa đơn.");
+          await refetch();
+        } catch (err) {
+          console.error("Lỗi checkout:", err);
+          message.error("Checkout thất bại");
+        } finally {
+          setUpdating(false);
+        }
+      },
+    });
+  };
+
+  const handleCheckin = async () => {
+    if (!booking || !booking.id) return;
+    Modal.confirm({
+      title: "Xác nhận check-in",
+      content: "Xác nhận khách đã nhận phòng? Trạng thái sẽ chuyển sang Đang ở.",
+      okText: "Check-in",
+      cancelText: "Hủy",
+      onOk: async () => {
+        setUpdating(true);
+        try {
+          await updateBookingStatus(Number(booking.id), { stay_status_id: 2 });
+          message.success("Đã check-in. Phòng chuyển sang trạng thái Đang ở.");
+          await refetch();
+        } catch (err) {
+          console.error("Lỗi check-in:", err);
+          message.error("Check-in thất bại");
+        } finally {
+          setUpdating(false);
+        }
+      },
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +209,9 @@ const BookingDetail = () => {
       console.log("📦 Booking data:", booking);
       console.log("🛎️ Booking services:", booking.services);
       console.log("🏨 Booking items:", booking.items);
+      console.log("🔧 Booking damages:", booking.damages);
+      console.log("💰 Booking damage_total:", booking.damage_total);
+      console.log("💵 Booking total_price:", booking.total_price);
 
       try {
         const roomIds: string[] = [];
@@ -362,51 +487,117 @@ const BookingDetail = () => {
     setDeviceDamageModalVisible(true);
   };
 
+  useEffect(() => {
+    if (booking?.damages) {
+      setDeviceDamage(
+        booking.damages.map((d: any) => ({
+          ...d,
+          amount: d.amount !== undefined ? Number(d.amount) : d.amount,
+        }))
+      );
+    }
+  }, [booking?.damages]);
+
+  // damageTotal không cần nữa vì dùng booking.damage_total trực tiếp
+
   const handleConfirmCheckoutWithDamage = async () => {
     if (!booking || !booking.id) return;
     
     setUpdating(true);
     try {
-      // Tạo notes về thiết bị hỏng nếu có
-      let damageNotes = "";
-      if (deviceDamage.length > 0) {
-        damageNotes = `\n[DEVICE_DAMAGE]\n${deviceDamage.map(d => `- ${d.device_name}: ${d.description}`).join('\n')}`;
-      }
-      
-      // Cập nhật notes của booking với thông tin thiết bị hỏng
-      if (damageNotes) {
-        const currentNotes = booking.notes || "";
-        await updateBookingStatus(booking.id, {
-          notes: currentNotes + damageNotes
+      // Kiểm tra nếu có thông tin trong newDamage nhưng chưa được thêm vào danh sách
+      const finalDeviceDamage = [...deviceDamage];
+      if (newDamage.device_name && newDamage.description) {
+        // Tự động thêm vào danh sách nếu có thông tin
+        finalDeviceDamage.push({
+          device_id: newDamage.device_id || null,
+          device_name: newDamage.device_name,
+          description: newDamage.description,
+          amount: newDamage.amount,
         });
+        console.log("⚠️ Auto-added newDamage to list:", newDamage);
       }
       
+      // Lưu danh sách thiết bị hỏng/mất vào DB (cập nhật total_price + damage_total)
+      console.log("💾 Device damage before save:", finalDeviceDamage);
+      
+      const normalizedDamages = finalDeviceDamage.map((d) => ({
+        booking_item_id: d.booking_item_id || null,
+        device_id: d.device_id || null,
+        device_name: d.device_name?.trim() || "",
+        description: d.description || undefined,
+        amount: d.amount ? Number(d.amount) : 0,
+      }));
+
+      console.log("💾 Normalized damages to save:", normalizedDamages);
+
+      // Validate
+      if (normalizedDamages.some((d) => !d.device_name)) {
+        message.error("Vui lòng nhập tên thiết bị cho tất cả các mục");
+        setUpdating(false);
+        return;
+      }
+
+      // Luôn gọi API để lưu (kể cả mảng rỗng để xóa damages cũ nếu có)
+      console.log("💾 Calling updateBookingDamages API with", normalizedDamages.length, "damages...");
+      await updateBookingDamages(Number(booking.id), normalizedDamages);
+      console.log("✅ updateBookingDamages API call completed");
+
       await confirmCheckout(booking.id!);
+      
+      // Invalidate cache và refetch để lấy dữ liệu mới nhất
+      await queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      
+      // Đợi một chút để đảm bảo DB transaction đã commit
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Refetch và đợi kết quả
+      const result = await refetch();
+      
+      console.log("✅ After checkout, updated booking:", result.data);
+      console.log("✅ Damages:", result.data?.damages);
+      console.log("✅ Damage total:", result.data?.damage_total);
+      console.log("✅ Total price:", result.data?.total_price);
+      
       setCheckoutConfirmed(true);
       setDeviceDamageModalVisible(false);
       setDeviceDamage([]);
+      setNewDamage({ device_id: null, device_name: "", description: "", amount: undefined });
       message.success(
         "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning"
       );
-      await refetch();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi xác nhận checkout:", err);
-      message.error("Lỗi xác nhận checkout");
+      const errorMsg = err?.response?.data?.message || err?.message || "Lỗi xác nhận checkout";
+      message.error(errorMsg);
     } finally {
       setUpdating(false);
     }
   };
 
-  const handlePrintBill = () => {
-    if (!booking) return;
+  const handlePrintBill = async () => {
+    if (!booking || !booking.id) return;
     
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      message.error("Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt.");
-      return;
-    }
+    // Refetch booking để đảm bảo có dữ liệu mới nhất (bao gồm damages)
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      const result = await refetch();
+      const latestBooking = result.data || booking;
+      
+      // Debug: log booking data để kiểm tra
+      console.log("📄 Printing bill for booking:", latestBooking.id);
+      console.log("📄 Booking damages:", latestBooking.damages);
+      console.log("📄 Booking damage_total:", latestBooking.damage_total);
+      console.log("📄 Booking total_price:", latestBooking.total_price);
+      
+      // Sử dụng latestBooking thay vì booking
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        message.error("Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt.");
+        return;
+      }
 
-    const groupedServices = booking.services?.reduce((acc: any[], curr: any) => {
+    const groupedServices = latestBooking.services?.reduce((acc: any[], curr: any) => {
       const existing = acc.find(
         (s) => s.service_id === curr.service_id && s.booking_item_id === curr.booking_item_id
       );
@@ -430,7 +621,7 @@ const BookingDetail = () => {
       <html>
         <head>
           <meta charset="UTF-8">
-          <title>Hóa đơn #${booking.id}</title>
+          <title>Hóa đơn #${latestBooking.id}</title>
           <style>
             @media print {
               @page { margin: 1cm; }
@@ -519,35 +710,35 @@ const BookingDetail = () => {
           <div class="header">
             <h1>PENSTAR HOTEL</h1>
             <p>Hóa đơn thanh toán</p>
-            <p>Mã đơn: #${booking.id}</p>
+            <p>Mã đơn: #${latestBooking.id}</p>
           </div>
 
           <div class="info-section">
             <div class="info-row">
               <span class="info-label">Khách hàng:</span>
-              <span class="info-value">${booking.customer_name || "—"}</span>
+              <span class="info-value">${latestBooking.customer_name || "—"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Ngày tạo:</span>
-              <span class="info-value">${booking.created_at ? formatDate(booking.created_at) : "—"}</span>
+              <span class="info-value">${latestBooking.created_at ? formatDate(latestBooking.created_at) : "—"}</span>
             </div>
-            ${booking.items && booking.items.length > 0 ? `
+            ${latestBooking.items && latestBooking.items.length > 0 ? `
             <div class="info-row">
               <span class="info-label">Ngày nhận phòng:</span>
-              <span class="info-value">${formatDate(booking.items[0].check_in)}</span>
+              <span class="info-value">${formatDate(latestBooking.items[0].check_in)}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Ngày trả phòng:</span>
-              <span class="info-value">${formatDate(booking.items[0].check_out)}</span>
+              <span class="info-value">${formatDate(latestBooking.items[0].check_out)}</span>
             </div>
             ` : ""}
             <div class="info-row">
               <span class="info-label">Phương thức thanh toán:</span>
-              <span class="info-value">${booking.payment_method?.toUpperCase() || "—"}</span>
+              <span class="info-value">${latestBooking.payment_method?.toUpperCase() || "—"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Trạng thái:</span>
-              <span class="info-value">${booking.payment_status?.toUpperCase() || "—"}</span>
+              <span class="info-value">${latestBooking.payment_status?.toUpperCase() || "—"}</span>
             </div>
           </div>
 
@@ -560,7 +751,7 @@ const BookingDetail = () => {
               </tr>
             </thead>
             <tbody>
-              ${booking.items?.map((item: any, idx: number) => {
+              ${latestBooking.items?.map((item: any, idx: number) => {
                 const room = rooms.find((r) => r.id === item.room_id);
                 return `
                   <tr>
@@ -599,31 +790,73 @@ const BookingDetail = () => {
           </table>
           ` : ""}
 
+          ${(latestBooking.damages && Array.isArray(latestBooking.damages) && latestBooking.damages.length > 0) ? `
+          <h3 style="margin-top: 20px; margin-bottom: 10px; color: #333;">Thiết bị hỏng/mất</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Thiết bị hỏng/mất</th>
+                <th>Mô tả</th>
+                <th class="text-right">Chi phí bồi thường</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${latestBooking.damages.map((damage: any, idx: number) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${damage.device_name || "—"}</td>
+                  <td>${damage.description || "—"}</td>
+                  <td class="text-right">${formatPrice(damage.amount || 0)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+          ` : ""}
+
           <div class="total-section">
             <div class="total-row">
               <span>Tiền phòng:</span>
-              <span>${formatPrice(booking.total_room_price || 0)}</span>
+              <span>${formatPrice(latestBooking.total_room_price || 0)}</span>
             </div>
-            ${booking.total_service_price ? `
+            ${latestBooking.total_service_price ? `
             <div class="total-row">
               <span>Dịch vụ bổ sung:</span>
-              <span>${formatPrice(booking.total_service_price)}</span>
+              <span>${formatPrice(latestBooking.total_service_price)}</span>
             </div>
             ` : ""}
-            ${booking.promo_code && booking.discount_amount ? `
+            ${latestBooking.promo_code && latestBooking.discount_amount ? `
             <div class="total-row">
               <span>Tổng tiền gốc:</span>
-              <span style="text-decoration: line-through; color: #999;">${formatPrice(booking.original_total || booking.total_amount || 0)}</span>
+              <span style="text-decoration: line-through; color: #999;">${formatPrice(latestBooking.original_total || 0)}</span>
             </div>
             <div class="total-row">
-              <span>Mã giảm giá (${booking.promo_code}):</span>
-              <span style="color: #52c41a;">-${formatPrice(booking.discount_amount)}</span>
+              <span>Mã giảm giá (${latestBooking.promo_code}):</span>
+              <span style="color: #52c41a;">-${formatPrice(latestBooking.discount_amount)}</span>
             </div>
             ` : ""}
-            <div class="total-row total-final">
-              <span>TỔNG CỘNG:</span>
-              <span>${formatPrice(booking.total_price || booking.total_amount || 0)}</span>
+            ${(latestBooking.damage_total !== undefined && latestBooking.damage_total !== null && Number(latestBooking.damage_total) > 0) ? `
+            <div class="total-row">
+              <span>Phí thiết bị hỏng/mất:</span>
+              <span style="color: #ff4d4f;">${formatPrice(Number(latestBooking.damage_total))}</span>
             </div>
+            ${latestBooking.payment_status === "paid" ? `
+            <div class="total-row" style="font-size: 12px; color: #999;">
+              <span>(Đã thanh toán: ${formatPrice(Number(latestBooking.total_price || 0) - Number(latestBooking.damage_total || 0))})</span>
+            </div>
+            ` : ""}
+            ` : ""}
+            <div class="total-row total-final">
+              <span>${latestBooking.payment_status === "paid" && latestBooking.damage_total && Number(latestBooking.damage_total) > 0 ? "SỐ TIỀN CẦN TRẢ THÊM:" : "TỔNG CỘNG:"}</span>
+              <span>${latestBooking.payment_status === "paid" && latestBooking.damage_total && Number(latestBooking.damage_total) > 0 
+                ? formatPrice(Number(latestBooking.damage_total))
+                : formatPrice(latestBooking.total_price || 0)}</span>
+            </div>
+            ${latestBooking.payment_status === "paid" && latestBooking.damage_total && Number(latestBooking.damage_total) > 0 ? `
+            <div class="total-row" style="font-size: 12px; color: #999; margin-top: 8px;">
+              <span>Tổng cộng (đã thanh toán + thiết bị hỏng): ${formatPrice(latestBooking.total_price || 0)}</span>
+            </div>
+            ` : ""}
           </div>
 
           <div class="footer">
@@ -634,14 +867,18 @@ const BookingDetail = () => {
       </html>
     `;
 
-    printWindow.document.write(billHTML);
-    printWindow.document.close();
-    printWindow.focus();
-    
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+      printWindow.document.write(billHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    } catch (err: any) {
+      console.error("Lỗi khi in hóa đơn:", err);
+      message.error("Không thể tải dữ liệu booking mới nhất. Vui lòng thử lại.");
+    }
   };
 
   if (isLoading) {
@@ -1368,15 +1605,76 @@ const BookingDetail = () => {
                 </Row>
               </>
             ) : null}
+            {(booking.damages && booking.damages.length > 0) && (
+              <>
+                <Divider style={{ margin: "12px 0" }} />
+                <Title level={5} style={{ margin: 0 }}>
+                  Thiết bị hỏng/mất
+                </Title>
+                <List
+                  dataSource={booking.damages}
+                  renderItem={(d: any) => (
+                    <List.Item style={{ padding: "6px 0" }}>
+                      <div style={{ width: "100%" }}>
+                        <div className="flex justify-between">
+                          <Text strong>{d.device_name}</Text>
+                          {d.amount && (
+                            <Text type="danger">{formatPrice(Number(d.amount))}</Text>
+                          )}
+                        </div>
+                        {d.description && (
+                          <Text type="secondary">{d.description}</Text>
+                        )}
+                      </div>
+                    </List.Item>
+                  )}
+                />
+                {booking.damage_total && Number(booking.damage_total) > 0 && (
+                  <Row justify="space-between" style={{ marginTop: 8 }}>
+                    <Text strong>Tổng phí thiết bị</Text>
+                    <Text strong type="danger">{formatPrice(Number(booking.damage_total))}</Text>
+                  </Row>
+                )}
+              </>
+            )}
+            <Divider style={{ margin: "12px 0" }} />
+            {booking.damage_total && Number(booking.damage_total) > 0 && (
+              <>
+                <Row justify="space-between" style={{ marginTop: 8 }}>
+                  <Text>Phí thiết bị hỏng/mất</Text>
+                  <Text strong style={{ color: "#ff4d4f" }}>
+                    {formatPrice(Number(booking.damage_total))}
+                  </Text>
+                </Row>
+                {booking.payment_status === "paid" && (
+                  <Row justify="space-between" style={{ marginTop: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      (Đã thanh toán: {formatPrice((Number(booking.total_price || 0) - Number(booking.damage_total || 0)))})
+                    </Text>
+                  </Row>
+                )}
+              </>
+            )}
             <Divider style={{ margin: "12px 0" }} />
             <Row justify="space-between">
               <Title level={4} style={{ margin: 0 }}>
-                Tổng cộng
+                {booking.payment_status === "paid" && booking.damage_total && Number(booking.damage_total) > 0
+                  ? "Số tiền cần trả thêm"
+                  : "Tổng cộng"}
               </Title>
               <Title level={4} type="danger" style={{ margin: 0 }}>
-                {formatPrice(booking.total_price || booking.total_amount || 0)}
+                {booking.payment_status === "paid" && booking.damage_total && Number(booking.damage_total) > 0
+                  ? formatPrice(Number(booking.damage_total))
+                  : formatPrice(booking.total_price || 0)}
               </Title>
             </Row>
+            {booking.payment_status === "paid" && booking.damage_total && Number(booking.damage_total) > 0 && (
+              <Row justify="space-between" style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Tổng cộng (đã thanh toán + thiết bị hỏng): {formatPrice(booking.total_price || 0)}
+                </Text>
+              </Row>
+            )}
           </Space>
         </Card>
 
@@ -1434,6 +1732,29 @@ const BookingDetail = () => {
                 Duyệt
               </Button>
             )}
+            {/* Nút Check-in: xuất hiện khi đã duyệt và đang ở trạng thái reserved (1) */}
+            {booking.stay_status_id === 1 && (
+              <Button
+                type="primary"
+                onClick={handleCheckin}
+                loading={updating}
+                disabled={updating}
+              >
+                Check-in
+              </Button>
+            )}
+            {/* Nút Checkout: xuất hiện khi khách đang ở (stay_status_id === 2) */}
+            {booking.stay_status_id === 2 && (
+              <Button
+                type="primary"
+                danger
+                onClick={handleCheckout}
+                loading={updating}
+                disabled={updating}
+              >
+                Checkout khách
+              </Button>
+            )}
             {/* Hiện nút Hủy khi booking chưa bị hủy (stay_status_id !== 4) và chưa checked_out */}
             {booking.stay_status_id !== 4 && booking.stay_status_id !== 3 && (
               <Button
@@ -1456,8 +1777,10 @@ const BookingDetail = () => {
                 Xác nhận checkout
               </Button>
             )}
-            {/* Hiện nút In hóa đơn khi đã thanh toán (có thể in bất cứ lúc nào sau khi thanh toán) */}
-            {booking.payment_status === "paid" && (
+            {/* Hiện nút In hóa đơn sau khi thanh toán hoặc đã checkout xong */}
+            {(booking.payment_status === "paid" ||
+              booking.stay_status_id === 3 ||
+              checkoutConfirmed) && (
               <Button
                 type="default"
                 icon={<PrinterOutlined />}
@@ -1477,6 +1800,7 @@ const BookingDetail = () => {
           onCancel={() => {
             setDeviceDamageModalVisible(false);
             setDeviceDamage([]);
+            setNewDamage({ device_id: null, device_name: "", description: "", amount: undefined });
           }}
           okText="Xác nhận checkout"
           cancelText="Hủy"
@@ -1487,54 +1811,121 @@ const BookingDetail = () => {
               Xác nhận khách đã checkout? Phòng sẽ chuyển sang trạng thái Cleaning.
             </Text>
             <Divider />
-            <Title level={5}>Thiết bị hỏng (nếu có)</Title>
+            <Title level={5}>Thiết bị hỏng/mất</Title>
             <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 12 }}>
-              Ghi nhận các thiết bị bị hỏng trong phòng khi khách checkout
+              Ghi nhận các thiết bị bị hỏng/mất khi khách checkout (sẽ hiển thị trên hóa đơn)
             </Text>
-            {deviceDamage.map((damage, index) => (
-              <Card key={index} size="small" style={{ marginBottom: 8 }}>
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  <div>
-                    <Text strong>{damage.device_name}</Text>
-                    <Button
-                      danger
-                      size="small"
-                      onClick={() => {
-                        const newDamage = deviceDamage.filter((_, i) => i !== index);
-                        setDeviceDamage(newDamage);
-                      }}
-                      style={{ float: "right" }}
-                    >
-                      Xóa
-                    </Button>
-                  </div>
-                  <Text>{damage.description}</Text>
-                </Space>
-              </Card>
-            ))}
-            <Button
-              type="dashed"
-              onClick={() => {
-                const deviceName = prompt("Tên thiết bị:");
-                if (deviceName) {
-                  const description = prompt("Mô tả tình trạng hỏng:");
-                  if (description) {
-                    setDeviceDamage([
-                      ...deviceDamage,
-                      {
-                        device_id: deviceDamage.length + 1,
-                        device_name: deviceName,
-                        description: description,
-                      },
-                    ]);
+
+            {devices.length > 0 && (
+              <Select
+                style={{ width: "100%", marginBottom: 12 }}
+                placeholder="Chọn nhanh thiết bị"
+                allowClear
+                onChange={(value) => {
+                  const dev = devices.find((d) => d.id === value);
+                  if (dev) {
+                    setNewDamage((p) => ({
+                      ...p,
+                      device_id: dev.id,
+                      device_name: dev.name,
+                      amount: dev.fee ?? p.amount,
+                      description: p.description,
+                    }));
                   }
-                }
-              }}
-              block
-              style={{ marginTop: 8 }}
-            >
-              + Thêm thiết bị hỏng
-            </Button>
+                }}
+              >
+                {devices.map((d) => (
+                  <Select.Option key={d.id} value={d.id}>
+                    {d.name} {d.fee ? `(${formatPrice(d.fee)})` : ""}
+                  </Select.Option>
+                ))}
+              </Select>
+            )}
+
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <div className="grid grid-cols-3 gap-8">
+                <Input
+                  placeholder="Tên thiết bị"
+                  value={newDamage.device_name}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewDamage((p) => ({ ...p, device_name: e.target.value }))
+                  }
+                />
+                <Input
+                  placeholder="Mô tả tình trạng"
+                  value={newDamage.description}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewDamage((p) => ({ ...p, description: e.target.value }))
+                  }
+                />
+                <InputNumber
+                  style={{ width: "100%" }}
+                  placeholder="Chi phí bồi thường (VND)"
+                  value={newDamage.amount}
+                  onChange={(value) =>
+                    setNewDamage((p) => ({
+                      ...p,
+                      amount: value ? Number(value) : undefined,
+                    }))
+                  }
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => {
+                    const parsed = value!.replace(/\$\s?|(,*)/g, "");
+                    return parsed ? Number(parsed) : 0;
+                  }}
+                  min={0}
+                />
+              </div>
+              <Button
+                type="dashed"
+                onClick={() => {
+                  if (!newDamage.device_name || !newDamage.description) {
+                    message.warning("Nhập đầy đủ tên thiết bị và mô tả");
+                    return;
+                  }
+                  setDeviceDamage([
+                    ...deviceDamage,
+                    {
+                      device_id: newDamage.device_id || null,
+                      device_name: newDamage.device_name,
+                      description: newDamage.description,
+                      amount: newDamage.amount,
+                    },
+                  ]);
+                  setNewDamage({ device_id: null, device_name: "", description: "", amount: undefined });
+                }}
+              >
+                + Thêm thiết bị hỏng/mất
+              </Button>
+
+              {deviceDamage.map((damage, index) => (
+                <Card key={index} size="small" style={{ marginBottom: 8 }}>
+                  <Space direction="vertical" style={{ width: "100%" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <Text strong>{damage.device_name}</Text>
+                      <Space>
+                        {typeof damage.amount === "number" && (
+                          <Text type="danger">{formatPrice(damage.amount)}</Text>
+                        )}
+                        <Button
+                          danger
+                          size="small"
+                          onClick={() => {
+                            const newDamageList = deviceDamage.filter((_, i) => i !== index);
+                            setDeviceDamage(newDamageList);
+                          }}
+                        >
+                          Xóa
+                        </Button>
+                      </Space>
+                    </div>
+                    <Text>{damage.description}</Text>
+                  </Space>
+                </Card>
+              ))}
+            </Space>
           </div>
         </Modal>
       </div>
@@ -1543,3 +1934,4 @@ const BookingDetail = () => {
 };
 
 export default BookingDetail;
+

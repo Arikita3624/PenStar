@@ -22,6 +22,9 @@ export const getMyBookings = async (): Promise<BookingShort[]> => {
 
 export const getBookingById = async (id: number): Promise<Booking> => {
   const { data } = await instance.get(`/bookings/${id}`);
+  console.log("📡 API Response for booking:", id, data);
+  console.log("📡 Booking damages from API:", data?.data?.damages);
+  console.log("📡 Booking damage_total from API:", data?.data?.damage_total);
   return data.data;
 };
 
@@ -50,5 +53,19 @@ export const updateMyBooking = async (
 
 export const confirmCheckout = async (id: number): Promise<Booking> => {
   const { data } = await instance.post(`/bookings/${id}/confirm-checkout`);
+  return data.data;
+};
+
+export const updateBookingDamages = async (
+  id: number,
+  damages: Array<{
+    booking_item_id?: number | null;
+    device_id?: number | null;
+    device_name: string;
+    description?: string;
+    amount?: number;
+  }>
+): Promise<Booking> => {
+  const { data } = await instance.put(`/bookings/${id}/damages`, { damages });
   return data.data;
 };
