@@ -124,51 +124,73 @@ export const getStatistics = async (req, res) => {
     const occupancyRate =
       totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(2) : 0;
 
-    // Device Damage Statistics
+    // Device Damage Statistics - Query from booking_device_damages table
     const deviceDamageParams = dateFilter ? [...params] : [];
-    const deviceDamageWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
+    // Fix dateFilter to use booking alias 'b'
+    const deviceDamageDateFilter = dateFilter ? dateFilter.replace("created_at", "b.created_at") : "";
+    const deviceDamageWhereClause = deviceDamageDateFilter 
+      ? `${deviceDamageDateFilter} AND b.stay_status_id = 3`
+      : `WHERE b.stay_status_id = 3`;
+    
     const deviceDamageRes = await pool.query(
       `SELECT 
         COUNT(*) as total_damage_cases,
-        COUNT(DISTINCT b.id) as bookings_with_damage
-       FROM bookings b
-       ${deviceDamageWhereClause}
-       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
-       AND b.stay_status_id = 3`, // checked_out
+        COUNT(DISTINCT bdd.booking_id) as bookings_with_damage
+       FROM booking_device_damages bdd
+       JOIN bookings b ON bdd.booking_id = b.id
+       ${deviceDamageWhereClause}`,
       deviceDamageParams
     );
 
-    // Extract device damage details from notes
-    const deviceDamageDetailsWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
+    // Extract device damage details from booking_device_damages table
     const deviceDamageDetailsParams = dateFilter ? [...params] : [];
+    const deviceDamageDetailsDateFilter = dateFilter ? dateFilter.replace("created_at", "b.created_at") : "";
+    const deviceDamageDetailsWhereClause = deviceDamageDetailsDateFilter
+      ? `${deviceDamageDetailsDateFilter} AND b.stay_status_id = 3`
+      : `WHERE b.stay_status_id = 3`;
+    
     const deviceDamageDetailsRes = await pool.query(
       `SELECT 
-        b.id as booking_id,
+        bdd.booking_id,
         b.customer_name,
-        b.created_at,
-        b.notes
-       FROM bookings b
+        bdd.created_at,
+        bdd.device_name,
+        bdd.description,
+        bdd.amount
+       FROM booking_device_damages bdd
+       JOIN bookings b ON bdd.booking_id = b.id
        ${deviceDamageDetailsWhereClause}
-       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
-       AND b.stay_status_id = 3
-       ORDER BY b.created_at DESC
-       LIMIT 20`,
+       ORDER BY bdd.created_at DESC
+       LIMIT 50`,
       deviceDamageDetailsParams
     );
 
-    const deviceDamageDetails = deviceDamageDetailsRes.rows.map((row) => {
-      const damageMatch = row.notes.match(/\[DEVICE_DAMAGE\]([\s\S]*?)(?=\n\[|$)/);
-      const damageText = damageMatch ? damageMatch[1].trim() : "";
-      const damageItems = damageText.split('\n').filter(line => line.trim().startsWith('-'));
-      
-      return {
-        booking_id: row.booking_id,
-        customer_name: row.customer_name,
-        created_at: row.created_at,
-        damage_count: damageItems.length,
-        damage_items: damageItems,
-      };
+    // Group damages by booking_id
+    const damagesByBooking = {};
+    deviceDamageDetailsRes.rows.forEach((row) => {
+      if (!damagesByBooking[row.booking_id]) {
+        damagesByBooking[row.booking_id] = {
+          booking_id: row.booking_id,
+          customer_name: row.customer_name,
+          created_at: row.created_at,
+          damage_items: [],
+        };
+      }
+      const amountStr = row.amount 
+        ? ` (${Number(row.amount).toLocaleString('vi-VN')} ₫)` 
+        : "";
+      damagesByBooking[row.booking_id].damage_items.push(
+        `${row.device_name}${row.description ? ` - ${row.description}` : ""}${amountStr}`
+      );
     });
+
+    const deviceDamageDetails = Object.values(damagesByBooking).map((item) => ({
+      booking_id: item.booking_id,
+      customer_name: item.customer_name,
+      created_at: item.created_at,
+      damage_count: item.damage_items.length,
+      damage_items: item.damage_items,
+    }));
 
     res.json({
       success: true,

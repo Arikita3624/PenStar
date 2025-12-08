@@ -26,7 +26,6 @@ const RoomBookingModal = ({
   const [bookingDates, setBookingDates] = useState<[Dayjs, Dayjs] | null>(null);
   const [numAdults, setNumAdults] = useState(1);
   const [numChildren, setNumChildren] = useState(0);
-  const [numBabies, setNumBabies] = useState(0); // Em bé (0-5 tuổi) - optional, không tính vào giới hạn
   const [dateError, setDateError] = useState<string | null>(null); // Lỗi validation ngày
 
   // Giới hạn tối đa 4 người (không tính em bé) - mặc định
@@ -42,7 +41,6 @@ const RoomBookingModal = ({
     setBookingDates(null);
     setNumAdults(1);
     setNumChildren(0);
-    setNumBabies(0);
     onCancel();
   };
 
@@ -57,28 +55,9 @@ const RoomBookingModal = ({
       return;
     }
 
-    // Validate thời điểm check-in: từ 14:00
     const checkInDate = bookingDates[0];
-    const now = dayjs();
-    const isToday = checkInDate.isSame(now, "day");
-    const currentHour = now.hour();
-    
-    // Nếu check-in là hôm nay và chưa đến 14:00 thì không cho phép
-    if (isToday && currentHour < 14) {
-      message.warning("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
-      return;
-    }
-
-    // Validate thời điểm check-out: trước 12:00
     const checkOutDate = bookingDates[1];
-    const isCheckOutToday = checkOutDate.isSame(now, "day");
-    
-    // Nếu check-out là hôm nay và đã quá 12:00 thì không cho phép
-    if (isCheckOutToday && currentHour >= 12) {
-      message.warning("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
-      return;
-    }
-    
+
     // Kiểm tra check-out phải sau check-in
     if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
       message.warning("Ngày check-out phải sau ngày check-in.");
@@ -96,22 +75,16 @@ const RoomBookingModal = ({
       return;
     }
 
-    // Validate số người lớn không vượt quá max_adults
-    if (numAdults > maxAdults) {
-      message.error(`Số người lớn (${numAdults}) không được vượt quá ${maxAdults} người`);
+    // Validate số người lớn có thể vượt quá tối đa 1 người (max_adults + 1)
+    const maxAllowedAdults = maxAdults + 1;
+    if (numAdults > maxAllowedAdults) {
+      message.error(`Số người lớn (${numAdults}) vượt quá giới hạn cho phép (tối đa ${maxAllowedAdults} người, trong đó ${maxAdults} người tiêu chuẩn + 1 người vượt quá)`);
       return;
     }
 
-    // Validate số trẻ em không vượt quá max_children
-    if (numChildren > maxChildren) {
+    // Validate số trẻ em không vượt quá max_children (nếu max_children > 0)
+    if (maxChildren > 0 && numChildren > maxChildren) {
       message.error(`Số trẻ em (${numChildren}) không được vượt quá ${maxChildren} người`);
-      return;
-    }
-
-    // Validate số em bé tối đa 2
-    const MAX_BABIES = 2;
-    if (numBabies > MAX_BABIES) {
-      message.error(`Số em bé (${numBabies}) không được vượt quá ${MAX_BABIES} em bé`);
       return;
     }
 
@@ -120,6 +93,15 @@ const RoomBookingModal = ({
       1,
       bookingDates[1].diff(bookingDates[0], "day")
     );
+
+    // Tính phụ phí
+    const excessAdults = Math.max(0, numAdults - (roomType.max_adults || 0));
+    const excessChildren = Math.max(0, numChildren - (roomType.max_children || 0));
+    const adultSurcharge = excessAdults * (roomType.adult_surcharge || 0);
+    const childSurcharge = excessChildren * (roomType.child_surcharge || 0);
+    const totalSurcharge = adultSurcharge + childSurcharge;
+    const baseRoomPrice = (roomType.price || 0) * nights;
+    const totalRoomPriceWithSurcharge = baseRoomPrice + totalSurcharge;
 
     // Chuẩn bị dữ liệu để chuyển đến trang đặt phòng
     const searchParams = {
@@ -133,7 +115,7 @@ const RoomBookingModal = ({
         room_type_id: room.type_id,
         num_adults: numAdults,
         num_children: numChildren,
-        price: (roomType.price || 0) * nights,
+        price: totalRoomPriceWithSurcharge,
       },
     ];
 
@@ -153,7 +135,9 @@ const RoomBookingModal = ({
             room_type_name: roomType.name || "",
             num_adults: numAdults,
             num_children: numChildren,
-            room_type_price: (roomType.price || 0) * nights,
+            room_type_price: totalRoomPriceWithSurcharge,
+            adult_surcharge_total: adultSurcharge,
+            child_surcharge_total: childSurcharge,
             check_in: searchParams.check_in,
             check_out: searchParams.check_out,
           },
@@ -194,35 +178,12 @@ const RoomBookingModal = ({
               if (values && values[0] && values[1]) {
                 setBookingDates([values[0], values[1]]);
                 
-                // Validate ngay khi chọn ngày
-                const now = dayjs();
-                const checkInDate = values[0];
-                const checkOutDate = values[1];
-                const isToday = checkInDate.isSame(now, "day");
-                const currentHour = now.hour();
-                const currentMinute = now.minute();
-                
                 // Reset error
                 setDateError(null);
                 
-                // Validate check-in: từ 14:00
-                if (isToday) {
-                  if (currentHour < 14 || (currentHour === 14 && currentMinute < 0)) {
-                    setDateError("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
-                    return;
-                  }
-                }
-                
-                // Validate check-out: trước 12:00
-                const isCheckOutToday = checkOutDate.isSame(now, "day");
-                if (isCheckOutToday) {
-                  if (currentHour >= 12) {
-                    setDateError("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
-                    return;
-                  }
-                }
-                
                 // Kiểm tra check-out phải sau check-in
+                const checkInDate = values[0];
+                const checkOutDate = values[1];
                 if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
                   setDateError("Ngày check-out phải sau ngày check-in.");
                   return;
@@ -239,24 +200,11 @@ const RoomBookingModal = ({
               ⚠️ {dateError}
             </div>
           )}
-          {/* Hiển thị thông tin quy định check-in/check-out */}
-          {bookingDates && bookingDates[0] && bookingDates[1] && !dateError && (
-            <div className="mt-2 text-xs text-blue-700 bg-blue-50 p-2 rounded border border-blue-300">
-              <div className="flex items-start gap-2">
-                <span className="text-base">ℹ️</span>
-                <div>
-                  <strong className="block mb-1">Quy định thời gian:</strong>
-                  <div>• Check-in: Từ 14:00</div>
-                  <div>• Check-out: Trước 12:00</div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Number of guests */}
         <div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Số người lớn *
@@ -264,7 +212,7 @@ const RoomBookingModal = ({
               <InputNumber
                 size="large"
                 min={1}
-                max={Math.min(maxAdults, maxCapacity - numChildren)}
+                max={Math.min(maxAdults + 1, maxCapacity - numChildren)}
                 value={numAdults}
                 onChange={(value) => {
                   const newAdults = value || 1;
@@ -300,72 +248,86 @@ const RoomBookingModal = ({
                 className="w-full"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Em bé (0-5t) <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <InputNumber
-                size="large"
-                min={0}
-                max={2}
-                value={numBabies}
-                onChange={(value) => setNumBabies(value || 0)}
-                className="w-full"
-                placeholder="0"
-              />
-              <div className="text-xs text-gray-400 mt-1">
-                Tối đa 2 em bé
-              </div>
-            </div>
           </div>
           {/* Thông tin capacity */}
           <div className="mt-2">
             <div className="text-xs text-gray-500">
               Tối đa: {maxCapacity} người (không bao gồm em bé) - Đã chọn: {numAdults + numChildren}/{maxCapacity}
             </div>
-            {numBabies > 0 && (
-              <div className="text-xs text-blue-600 mt-1">
-                ✓ Em bé: {numBabies} (không tính vào giới hạn số người)
-              </div>
-            )}
-            {numAdults >= maxCapacity && (
+            {numAdults > maxAdults && roomType && (
               <div className="text-xs text-orange-600 mt-1">
-                Đã đạt tối đa {maxCapacity} người, không thể thêm trẻ em
+                ⚠️ Vượt quá {maxAdults} người lớn tiêu chuẩn. Sẽ tính thêm phụ phí: {((numAdults - maxAdults) * (roomType.adult_surcharge || 0)).toLocaleString('vi-VN')} ₫
               </div>
             )}
-            <div className="text-xs text-gray-400 mt-1">
-              💡 Em bé (0-5 tuổi) không tính vào giới hạn số người và không tính phí
-            </div>
+            {numAdults + numChildren >= maxCapacity && (
+              <div className="text-xs text-orange-600 mt-1">
+                Đã đạt tối đa {maxCapacity} người, không thể thêm khách
+              </div>
+            )}
           </div>
         </div>
 
         {/* Price preview */}
-        {bookingDates && roomType && (
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Số đêm:</span>
-              <span className="font-semibold">
-                {Math.max(
-                  1,
-                  bookingDates[1].diff(bookingDates[0], "day")
-                )}{" "}
-                đêm
-              </span>
+        {bookingDates && roomType && (() => {
+          const nights = Math.max(1, bookingDates[1].diff(bookingDates[0], "day"));
+          const basePrice = (roomType.price || 0) * nights;
+          const excessAdults = Math.max(0, numAdults - (roomType.max_adults || 0));
+          const adultSurcharge = excessAdults * (roomType.adult_surcharge || 0);
+          // Phụ phí trẻ em chỉ tính khi vượt quá max_children
+          const excessChildren = Math.max(0, numChildren - (roomType.max_children || 0));
+          const childSurcharge = excessChildren * (roomType.child_surcharge || 0);
+          const totalSurcharge = adultSurcharge + childSurcharge;
+          const totalPrice = basePrice + totalSurcharge;
+          
+          return (
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">Số đêm:</span>
+                <span className="font-semibold">{nights} đêm</span>
+              </div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-sm text-gray-600">Giá phòng:</span>
+                <span className="font-semibold">
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(basePrice)}
+                </span>
+              </div>
+              {adultSurcharge > 0 && (
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-orange-600">Phụ phí người lớn ({excessAdults} người):</span>
+                  <span className="font-semibold text-orange-600">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(adultSurcharge)}
+                  </span>
+                </div>
+              )}
+              {childSurcharge > 0 && (
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-orange-600">Phụ phí trẻ em ({excessChildren} trẻ vượt quá):</span>
+                  <span className="font-semibold text-orange-600">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(childSurcharge)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                <span className="text-sm font-semibold text-gray-700">Tổng tiền:</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(totalPrice)}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Tổng tiền:</span>
-              <span className="text-lg font-bold text-blue-600">
-                {new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                }).format(
-                  (roomType.price || 0) *
-                    Math.max(1, bookingDates[1].diff(bookingDates[0], "day"))
-                )}
-              </span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Submit button */}
         <div className="pt-4 flex gap-3">

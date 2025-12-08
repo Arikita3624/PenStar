@@ -83,10 +83,11 @@ export const autoAssignRooms = async (
       );
     }
 
-    // Kiểm tra 3: Số người lớn không vượt quy định (an toàn, tuân thủ)
-    if (numAdults > roomType.max_adults) {
+    // Kiểm tra 3: Số người lớn có thể vượt quá tối đa 1 người (max_adults + 1)
+    const maxAllowedAdults = roomType.max_adults + 1;
+    if (numAdults > maxAllowedAdults) {
       throw new Error(
-        `Số người lớn (${numAdults}) vượt quá quy định (${roomType.max_adults}) cho loại phòng "${roomType.name}".`
+        `Số người lớn (${numAdults}) vượt quá giới hạn cho phép (tối đa ${maxAllowedAdults} người, trong đó ${roomType.max_adults} người tiêu chuẩn + 1 người vượt quá) cho loại phòng "${roomType.name}".`
       );
     }
 
@@ -280,7 +281,7 @@ export const createBooking = async (data) => {
 
         // Check 2: Validate guest numbers against room type
         const typeRes = await client.query(
-          `SELECT max_adults, max_children, name FROM room_types WHERE id = $1`,
+          `SELECT max_adults, max_children, capacity, name, adult_surcharge, child_surcharge FROM room_types WHERE id = $1`,
           [room.type_id]
         );
         if (typeRes.rows.length === 0) {
@@ -305,15 +306,36 @@ export const createBooking = async (data) => {
           );
         }
 
-        // Kiểm tra 3: Số người lớn <= max_adults
-        if (num_adults > type.max_adults) {
+        // Kiểm tra 3: Số người lớn có thể vượt quá tối đa 1 người (max_adults + 1)
+        const maxAllowedAdults = type.max_adults + 1;
+        if (num_adults > maxAllowedAdults) {
           throw new Error(
-            `Số người lớn (${num_adults}) vượt quá quy định (${type.max_adults}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+            `Số người lớn (${num_adults}) vượt quá giới hạn cho phép (tối đa ${maxAllowedAdults} người, trong đó ${type.max_adults} người tiêu chuẩn + 1 người vượt quá) cho loại phòng "${type.name}". Vui lòng chọn lại.`
           );
         }
 
         // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình
         // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
+
+        // Tính phụ phí nếu vượt quá
+        let adultSurchargeTotal = 0;
+        let childSurchargeTotal = 0;
+        
+        // Tính phụ phí người lớn vượt quá (nếu có)
+        if (num_adults > type.max_adults) {
+          const excessAdults = num_adults - type.max_adults;
+          adultSurchargeTotal = (type.adult_surcharge || 0) * excessAdults;
+        }
+        
+        // Tính phụ phí trẻ em chỉ khi vượt quá max_children
+        const excessChildren = Math.max(0, num_children - (type.max_children || 0));
+        if (excessChildren > 0 && type.child_surcharge) {
+          childSurchargeTotal = (type.child_surcharge || 0) * excessChildren;
+        }
+        
+        // Lưu phụ phí vào item để insert sau
+        item.adult_surcharge_total = adultSurchargeTotal;
+        item.child_surcharge_total = childSurchargeTotal;
 
         // Check 3: Room availability in booking time range
         // Logic: Conflict khi khoảng thời gian CHỒNG LẤN
@@ -379,7 +401,7 @@ export const createBooking = async (data) => {
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
       console.log("[DEBUG] data.items:", JSON.stringify(data.items, null, 2));
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children, adult_surcharge_total, child_surcharge_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`;
       for (const item of data.items) {
         console.log("[DEBUG] Processing item:", item);
         const {
@@ -391,8 +413,11 @@ export const createBooking = async (data) => {
           num_adults,
           num_children,
           services,
+          adult_surcharge_total = 0,
+          child_surcharge_total = 0,
         } = item;
         console.log("[DEBUG] Extracted services from item:", services);
+        console.log("[DEBUG] Surcharges - Adult:", adult_surcharge_total, "Child:", child_surcharge_total);
         // Không validate hay insert room_price nữa
         const itemResult = await client.query(insertItemText, [
           booking.id,
@@ -403,6 +428,8 @@ export const createBooking = async (data) => {
           room_type_price,
           num_adults || 1,
           num_children || 0,
+          adult_surcharge_total,
+          child_surcharge_total,
         ]);
 
         const booking_item_id = itemResult.rows[0].id;
@@ -438,6 +465,28 @@ export const createBooking = async (data) => {
           "pending",
           room_id,
         ]);
+      }
+      
+      // Tính lại total_price bao gồm phụ phí
+      const surchargeSumRes = await client.query(
+        `SELECT 
+          COALESCE(SUM(adult_surcharge_total), 0) as total_adult_surcharge,
+          COALESCE(SUM(child_surcharge_total), 0) as total_child_surcharge
+         FROM booking_items 
+         WHERE booking_id = $1`,
+        [booking.id]
+      );
+      const totalSurcharge = 
+        Number(surchargeSumRes.rows[0]?.total_adult_surcharge || 0) +
+        Number(surchargeSumRes.rows[0]?.total_child_surcharge || 0);
+      
+      // Cập nhật total_price của booking để bao gồm phụ phí
+      if (totalSurcharge > 0) {
+        await client.query(
+          "UPDATE bookings SET total_price = total_price + $1 WHERE id = $2",
+          [totalSurcharge, booking.id]
+        );
+        console.log(`[DEBUG] Added surcharge ${totalSurcharge} to booking ${booking.id}`);
       }
     }
 

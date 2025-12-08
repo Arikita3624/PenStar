@@ -119,7 +119,10 @@ const PaymentResult: React.FC = () => {
     (async () => {
       try {
         const { updateMyBooking } = await import("@/services/bookingsApi");
-        await updateMyBooking(Number(bookingId), { payment_status: "paid" });
+        await updateMyBooking(Number(bookingId), {
+          payment_status: "paid",
+          stay_status_id: 1, // Đặt phòng sang trạng thái reserved/booked sau khi thanh toán thành công
+        });
       } catch (err: any) {
         console.error(" Lỗi cập nhật trạng thái booking (background):", err);
       } finally {

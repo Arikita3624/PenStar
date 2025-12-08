@@ -24,6 +24,7 @@ export type Booking = {
   phone?: string;
   notes?: string;
   total_price: number;
+  damage_total?: number;
   payment_status: string;
   payment_method?: string;
   booking_method: string;
@@ -33,6 +34,7 @@ export type Booking = {
   change_count?: number;
   items: BookingItem[];
   services?: BookingService[];
+  damages?: BookingDamage[];
   created_at?: string;
   stay_status_name?: string;
   promo_code?: string;
@@ -61,6 +63,16 @@ export type BookingDetails = Booking & {
   total_amount?: number;
   status?: string;
   is_refunded?: boolean;
+};
+
+export type BookingDamage = {
+  id?: number;
+  booking_id?: number;
+  booking_item_id?: number | null;
+  device_id?: number | null;
+  device_name: string;
+  description?: string;
+  amount?: number;
 };
 
 export type BookingUpdatePayload = {

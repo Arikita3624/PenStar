@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { login } from "@/services/usersApi";
 import { useMutation } from "@tanstack/react-query";
 import { message } from "antd";
@@ -63,6 +64,19 @@ const SignIn = () => {
         localStorage.setItem("penstar_token", token);
       }
       message.success("Đăng nhập thành công");
+
+      // Xác định role để điều hướng đúng trang
+      let isCustomer = true;
+      try {
+        const decoded = jwtDecode<{ role?: string; role_id?: number }>(token);
+        const roleName = (decoded?.role ?? "").toString().toLowerCase();
+        const roleId = decoded?.role_id;
+        isCustomer =
+          roleName === "customer" || (typeof roleId === "number" && roleId === 1);
+      } catch (e) {
+        console.debug("[SignIn] decode token failed", e);
+      }
+
       // Ensure token is persisted and app re-initializes auth state
       try {
         console.debug(
@@ -72,8 +86,10 @@ const SignIn = () => {
       } catch (e) {
         console.debug("[SignIn] localStorage read failed", e);
       }
-      navigate("/");
-      // Reload to ensure AuthProvider re-initializes and picks up token
+
+      // Admin/staff/manager -> /admin; Customer -> home
+      navigate(isCustomer ? "/" : "/admin");
+      // Reload để AuthProvider pick token và layout theo role hiện tại
       setTimeout(() => window.location.reload(), 200);
     },
     onError: (err) => {

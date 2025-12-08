@@ -12,6 +12,8 @@ export const getRoomTypes = async () => {
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
+      rt.adult_surcharge,
+      rt.child_surcharge,
       rt.devices_id,
       d.id as device_id,
       d.name as device_name,
@@ -37,6 +39,8 @@ export const getRoomTypes = async () => {
         capacity: row.capacity,
         thumbnail: row.thumbnail,
         price: row.price,
+        adult_surcharge: row.adult_surcharge,
+        child_surcharge: row.child_surcharge,
         devices_id: row.devices_id,
         devices: [],
       };
@@ -64,10 +68,12 @@ export const createRoomType = async (data) => {
     max_adults,
     max_children,
     price,
+    adult_surcharge,
+    child_surcharge,
     devices_id,
   } = data;
   const result = await pool.query(
-    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price, devices_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price, adult_surcharge, child_surcharge, devices_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
     [
       name,
       description,
@@ -77,6 +83,8 @@ export const createRoomType = async (data) => {
       max_adults,
       max_children,
       price,
+      adult_surcharge || 0,
+      child_surcharge || 0,
       devices_id || [],
     ]
   );
@@ -95,6 +103,8 @@ export const getRoomTypeById = async (id) => {
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
+      rt.adult_surcharge,
+      rt.child_surcharge,
       rt.devices_id,
       d.id as device_id,
       d.name as device_name,
@@ -138,10 +148,12 @@ export const updateRoomType = async (id, data) => {
     max_adults,
     max_children,
     price,
+    adult_surcharge,
+    child_surcharge,
     devices_id,
   } = data;
   const result = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6, devices_id = $7 WHERE id = $8 RETURNING *",
+    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6, adult_surcharge = $7, child_surcharge = $8, devices_id = $9 WHERE id = $10 RETURNING *",
     [
       name,
       description,
@@ -149,6 +161,8 @@ export const updateRoomType = async (id, data) => {
       max_adults,
       max_children,
       price,
+      adult_surcharge !== undefined ? adult_surcharge : null,
+      child_surcharge !== undefined ? child_surcharge : null,
       devices_id || [],
       id,
     ]
@@ -166,6 +180,8 @@ export const updateRoomType = async (id, data) => {
       rt.capacity,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
+      rt.adult_surcharge,
+      rt.child_surcharge,
       rt.devices_id,
       d.id as device_id,
       d.name as device_name,

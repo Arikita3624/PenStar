@@ -113,31 +113,12 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
                 if (values && values[0] && values[1]) {
                   setDates([values[0], values[1]]);
                   
-                  // Validate ngay khi chọn ngày
-                  const now = dayjs();
-                  const checkInDate = values[0];
-                  const checkOutDate = values[1];
-                  const isToday = checkInDate.isSame(now, "day");
-                  const currentHour = now.hour();
-                  const currentMinute = now.minute();
-                  
                   // Reset error
                   setDateError(null);
                   
-                  // Validate check-in: từ 14:00
-                  if (isToday && (currentHour < 14 || (currentHour === 14 && currentMinute < 0))) {
-                    setDateError("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
-                    return;
-                  }
-                  
-                  // Validate check-out: trước 12:00
-                  const isCheckOutToday = checkOutDate.isSame(now, "day");
-                  if (isCheckOutToday && (currentHour >= 12)) {
-                    setDateError("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
-                    return;
-                  }
-                  
                   // Kiểm tra check-out phải sau check-in
+                  const checkInDate = values[0];
+                  const checkOutDate = values[1];
                   if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
                     setDateError("Ngày check-out phải sau ngày check-in.");
                     return;

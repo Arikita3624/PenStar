@@ -38,9 +38,9 @@ const RequireCustomerOnly: React.FC<{ children: React.ReactNode }> = ({
       roleName === "customer" ||
       (typeof roleId === "number" && roleId === 1); // role_id = 1 là customer
 
-    // Nếu không phải customer (là admin/staff/manager), redirect về admin
+    // Theo yêu cầu: Cho phép admin/staff/manager truy cập trang khách mà không bị chặn
     if (!isCustomer) {
-      return <Navigate to="/admin" replace state={{ from: location }} />;
+      return <>{children}</>;
     }
 
     // Chỉ customer được phép vào
