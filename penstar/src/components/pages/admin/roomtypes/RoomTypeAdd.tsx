@@ -83,6 +83,14 @@ const RoomTypeAdd: React.FC = () => {
                 ? Number(values.max_children)
                 : 1,
               price: values.price ? Number(values.price) : 0,
+              bed_type: values.bed_type,
+              view_direction: values.view_direction,
+              safety_info: values.safety_info,
+              room_size: values.room_size
+                ? Number(values.room_size)
+                : undefined,
+              floor_material: values.floor_material,
+              devices: values.devices || [],
             };
 
             try {
@@ -180,6 +188,73 @@ const RoomTypeAdd: React.FC = () => {
                     { label: "Bàn làm việc", value: "Bàn làm việc" },
                     { label: "Két sắt", value: "Két sắt" },
                     { label: "Máy sấy tóc", value: "Máy sấy tóc" },
+                  ]}
+                />
+              </Form.Item>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item name="bed_type" label="Bed Type">
+                  <Select placeholder="Select bed type">
+                    <Select.Option value="single">Single Bed</Select.Option>
+                    <Select.Option value="double">Double Bed</Select.Option>
+                    <Select.Option value="queen">Queen Bed</Select.Option>
+                    <Select.Option value="king">King Bed</Select.Option>
+                    <Select.Option value="twin">Twin Beds</Select.Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item name="view_direction" label="View Direction">
+                  <Select placeholder="Select view">
+                    <Select.Option value="sea">Sea View</Select.Option>
+                    <Select.Option value="city">City View</Select.Option>
+                    <Select.Option value="mountain">
+                      Mountain View
+                    </Select.Option>
+                    <Select.Option value="garden">Garden View</Select.Option>
+                    <Select.Option value="pool">Pool View</Select.Option>
+                  </Select>
+                </Form.Item>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item name="room_size" label="Room Size (m²)">
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    min={0}
+                    placeholder="25"
+                  />
+                </Form.Item>
+
+                <Form.Item name="floor_material" label="Floor Material">
+                  <Select placeholder="Select floor material">
+                    <Select.Option value="carpet">Carpet</Select.Option>
+                    <Select.Option value="wood">Wooden Floor</Select.Option>
+                    <Select.Option value="tile">Tile</Select.Option>
+                    <Select.Option value="marble">Marble</Select.Option>
+                  </Select>
+                </Form.Item>
+              </div>
+
+              <Form.Item name="safety_info" label="Safety Information">
+                <Input.TextArea
+                  rows={2}
+                  placeholder="Fire extinguisher, smoke detector, first aid kit..."
+                />
+              </Form.Item>
+
+              <Form.Item name="devices" label="Devices & Equipment">
+                <Select
+                  mode="tags"
+                  placeholder="Type device name and press Enter"
+                  style={{ width: "100%" }}
+                  options={[
+                    { label: "TV", value: "TV" },
+                    { label: "Air Conditioner", value: "Air Conditioner" },
+                    { label: "Refrigerator", value: "Refrigerator" },
+                    { label: "Electric Kettle", value: "Electric Kettle" },
+                    { label: "Hair Dryer", value: "Hair Dryer" },
+                    { label: "Safe Box", value: "Safe Box" },
+                    { label: "Telephone", value: "Telephone" },
                   ]}
                 />
               </Form.Item>

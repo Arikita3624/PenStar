@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
-import { DatePicker, Select, Input, Button, message } from "antd";
+import { DatePicker, Input, Button, message } from "antd";
 import {
   SearchOutlined,
   CalendarOutlined,
-  HomeOutlined,
   GiftOutlined,
 } from "@ant-design/icons";
 import type { RoomSearchParams } from "@/types/room";
@@ -49,25 +48,32 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
     const now = dayjs();
     const isToday = checkInDate.isSame(now, "day");
     const currentHour = now.hour();
-    
+
     // Nếu check-in là hôm nay và chưa đến 14:00 thì không cho phép
     if (isToday && currentHour < 14) {
-      message.warning("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
+      message.warning(
+        "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
+      );
       return;
     }
 
     // Validate thời điểm check-out: trước 12:00
     const checkOutDate = dates[1];
     const isCheckOutToday = checkOutDate.isSame(now, "day");
-    
+
     // Nếu check-out là hôm nay và đã quá 12:00 thì không cho phép
     if (isCheckOutToday && currentHour >= 12) {
-      message.warning("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
+      message.warning(
+        "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
+      );
       return;
     }
-    
+
     // Kiểm tra check-out phải sau check-in
-    if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
+    if (
+      checkOutDate.isBefore(checkInDate) ||
+      checkOutDate.isSame(checkInDate)
+    ) {
       message.warning("Ngày check-out phải sau ngày check-in.");
       return;
     }
@@ -87,12 +93,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
 
   return (
     <div className={containerClass}>
-      <div
-        className="bg-white p-6"
-        style={{
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-        }}
-      >
+      <div className="bg-white p-6">
         <div className="flex flex-wrap gap-3 items-center">
           {/* Dates */}
           <div className="flex-1 min-w-[250px]">
@@ -112,7 +113,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               onChange={(values) => {
                 if (values && values[0] && values[1]) {
                   setDates([values[0], values[1]]);
-                  
+
                   // Validate ngay khi chọn ngày
                   const now = dayjs();
                   const checkInDate = values[0];
@@ -120,25 +121,36 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
                   const isToday = checkInDate.isSame(now, "day");
                   const currentHour = now.hour();
                   const currentMinute = now.minute();
-                  
+
                   // Reset error
                   setDateError(null);
-                  
+
                   // Validate check-in: từ 14:00
-                  if (isToday && (currentHour < 14 || (currentHour === 14 && currentMinute < 0))) {
-                    setDateError("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
+                  if (
+                    isToday &&
+                    (currentHour < 14 ||
+                      (currentHour === 14 && currentMinute < 0))
+                  ) {
+                    setDateError(
+                      "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
+                    );
                     return;
                   }
-                  
+
                   // Validate check-out: trước 12:00
                   const isCheckOutToday = checkOutDate.isSame(now, "day");
-                  if (isCheckOutToday && (currentHour >= 12)) {
-                    setDateError("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
+                  if (isCheckOutToday && currentHour >= 12) {
+                    setDateError(
+                      "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
+                    );
                     return;
                   }
-                  
+
                   // Kiểm tra check-out phải sau check-in
-                  if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
+                  if (
+                    checkOutDate.isBefore(checkInDate) ||
+                    checkOutDate.isSame(checkInDate)
+                  ) {
                     setDateError("Ngày check-out phải sau ngày check-in.");
                     return;
                   }

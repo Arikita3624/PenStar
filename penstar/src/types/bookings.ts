@@ -10,6 +10,32 @@ export type BookingItem = {
   special_requests?: string;
 };
 
+export interface BookingRoom {
+  id: number;
+  name: string;
+  type_name: string;
+  price: number;
+  num_adults: number;
+  num_children: number;
+  num_babies?: number;
+  extra_fees?: number; // Tổng phụ phí
+  base_price?: number; // Giá gốc (trước khi cộng phụ phí)
+  extra_adult_fees?: number; // Phụ phí người lớn
+  extra_child_fees?: number; // Phụ phí trẻ em
+  extra_adults_count?: number; // Số người lớn thêm
+  extra_children_count?: number; // Số trẻ em thêm
+}
+
+export interface BookingSidebarProps {
+  checkIn: string;
+  checkOut: string;
+  rooms: BookingRoom[];
+  promoCode?: string;
+  onCheckout: () => void;
+  onRemoveRoom?: (index: number) => void;
+  loading: boolean;
+}
+
 export type BookingService = {
   service_id: number;
   booking_item_id?: number;
@@ -24,6 +50,10 @@ export type Booking = {
   phone?: string;
   notes?: string;
   total_price: number;
+  total_room_price?: number;
+  total_service_price?: number;
+  discount_amount?: number;
+  original_total?: number;
   payment_status: string;
   payment_method?: string;
   booking_method: string;
@@ -31,13 +61,11 @@ export type Booking = {
   user_id?: number;
   is_refunded?: boolean;
   change_count?: number;
+  promo_code?: string;
   items: BookingItem[];
   services?: BookingService[];
   created_at?: string;
   stay_status_name?: string;
-  promo_code?: string;
-  discount_amount?: number;
-  original_total?: number;
 };
 
 // For listing bookings

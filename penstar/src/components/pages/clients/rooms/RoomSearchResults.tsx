@@ -1,13 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { message, Spin, Empty, Button, Tag, Row, Col, Select } from "antd";
+import { message, Spin, Empty, Button, Tag, Row, Col } from "antd";
 import { searchAvailableRooms } from "@/services/roomsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
-import { getFloors } from "@/services/floorsApi";
 import type { Room, RoomSearchParams } from "@/types/room";
 import type { RoomType } from "@/types/roomtypes";
-import type { Floors } from "@/types/floors";
 import type { RoomBookingConfig } from "@/types/roomBooking";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarOutlined } from "@ant-design/icons";
@@ -24,18 +21,10 @@ const RoomSearchResults = () => {
     location.state?.searchParams || null
   );
 
-  // Filter state
-  const [floorFilter, setFloorFilter] = useState<number | null>(null);
-
-  // Fetch room types and floors
+  // Fetch room types
   const { data: roomTypes = [] } = useQuery<RoomType[]>({
     queryKey: ["roomtypes"],
     queryFn: getRoomTypes,
-  });
-
-  const { data: floors = [] } = useQuery<Floors[]>({
-    queryKey: ["floors"],
-    queryFn: getFloors,
   });
 
   // State cho multi-room selection (giữ lại cho RoomTypeCard, nhưng không dùng cho booking payload nữa)
@@ -139,19 +128,10 @@ const RoomSearchResults = () => {
 
   // Đã chuyển toàn bộ logic booking sang confirmedBookings và sidebar checkout
 
-  // Filter rooms by floor
-  const filteredRooms = useMemo(
-    () =>
-      floorFilter
-        ? rooms.filter((room) => room.floor_id === floorFilter)
-        : rooms,
-    [floorFilter, rooms]
-  );
-
   // Group rooms by room type
   const roomsByType = useMemo(
     () =>
-      filteredRooms.reduce(
+      rooms.reduce(
         (acc, room) => {
           if (!acc[room.type_id]) {
             acc[room.type_id] = [];
@@ -161,96 +141,55 @@ const RoomSearchResults = () => {
         },
         {} as Record<number, Room[]>
       ),
-    [filteredRooms]
+    [rooms]
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "#f5f5f5" }}>
       {/* Search Bar Section */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(135deg, #0a4f86 0%, #0d6eab 50%, #115e9c 100%)",
-          padding: "2rem 0 3rem 0",
-          boxShadow: "0 4px 20px rgba(10, 79, 134, 0.3)",
-        }}
-      >
-        {/* Decorative overlay */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              'url(\'data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\')',
-          }}
-        />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="bg-white">
+        <div className="max-w-6xl mx-auto px-4 py-4">
           <RoomSearchBar onSearch={handleSearch} loading={loading} />
         </div>
       </div>
 
-      {/* Results Section - With container */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Results Section */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
         {searchParams && (
           <div
-            className="bg-white p-6 mb-8 relative overflow-hidden"
+            className="bg-white p-4 mb-6"
             style={{
-              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.08)",
-              border: "1px solid rgba(10, 79, 134, 0.1)",
+              border: "1px solid #e0e0e0",
             }}
           >
-            {/* Decorative accent bar */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1"
-              style={{
-                background:
-                  "linear-gradient(90deg, #0a4f86 0%, #0d6eab 50%, #0a4f86 100%)",
-              }}
-            />
-
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-4 items-center text-gray-700">
-                <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2">
-                  <CalendarOutlined className="text-[#0a4f86] text-lg" />
-                  <span className="font-semibold">
-                    {searchParams.check_in} → {searchParams.check_out}
-                  </span>
-                </div>
-                {searchParams.promo_code && (
-                  <Tag
-                    color="gold"
-                    className="font-semibold px-3 py-1"
-                    style={{ fontSize: "14px" }}
-                  >
-                    🎫 {searchParams.promo_code}
-                  </Tag>
-                )}
-              </div>
-
-              {/* Filter by Floor */}
-              <div className="flex items-center gap-3">
-                <span className="text-gray-700 font-semibold">
-                  Lọc theo tầng:
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <CalendarOutlined className="text-blue-600" />
+                <span className="font-medium">
+                  {searchParams.check_in} - {searchParams.check_out}
                 </span>
-                <Select
-                  placeholder="Tất cả tầng"
-                  allowClear
-                  style={{ width: 200, borderRadius: 0 }}
-                  value={floorFilter}
-                  onChange={(value) => setFloorFilter(value || null)}
-                  size="large"
-                >
-                  {Array.isArray(floors) &&
-                    floors.map((floor) => (
-                      <Select.Option key={floor.id} value={floor.id}>
-                        {floor.name}
-                      </Select.Option>
-                    ))}
-                </Select>
+                <span className="text-gray-600">
+                  ({numRooms} phòng, {searchParams.num_adults || 1} người lớn
+                  {searchParams.num_children
+                    ? `, ${searchParams.num_children} trẻ em`
+                    : ""}
+                  )
+                </span>
               </div>
+              {searchParams.promo_code && (
+                <Tag color="gold">Mã khuyến mãi: {searchParams.promo_code}</Tag>
+              )}
             </div>
           </div>
         )}
+
+        {/* Room count info */}
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">
+            Vui lòng chọn phòng ({Object.keys(roomsByType).length} loại phòng
+            tìm thấy)
+          </h2>
+        </div>
 
         {loading ? (
           <div className="text-center py-20">
@@ -270,12 +209,29 @@ const RoomSearchResults = () => {
           <Row gutter={24}>
             {/* Left Column: Room Type Cards with Collapse */}
             <Col xs={24} lg={16}>
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {Object.entries(roomsByType).map(([typeId, roomsInType]) => {
                   const roomType = roomTypes.find(
                     (rt) => rt.id === Number(typeId)
                   );
                   // Nếu số phòng trống < numRooms, chỉ hiện thông báo
+
+                  // Lấy roomsConfig từ confirmedBookings cho room type này
+                  const currentBooking = confirmedBookings.find(
+                    (b) => b.roomTypeId === Number(typeId)
+                  );
+                  const currentRoomsConfig = currentBooking?.roomsConfig || [];
+
+                  console.log("📦 RoomTypeCard config:", roomType?.name, {
+                    typeId,
+                    currentRoomsConfig,
+                    allBookings: confirmedBookings.map((b) => ({
+                      id: b.roomTypeId,
+                      name: b.roomTypeName,
+                      count: b.roomsConfig.length,
+                    })),
+                  });
+
                   return (
                     <RoomTypeCard
                       key={typeId}
@@ -283,7 +239,7 @@ const RoomSearchResults = () => {
                       roomsInType={roomsInType}
                       numRooms={numRooms}
                       selectedRoomIds={selectedRoomIds}
-                      roomsConfig={roomsConfig}
+                      roomsConfig={currentRoomsConfig}
                       disabled={roomsInType.length < numRooms}
                       onSelectRoomType={(selectedRooms, newRoomsConfig) => {
                         setRoomsConfig(newRoomsConfig);
@@ -333,13 +289,52 @@ const RoomSearchResults = () => {
                           id: room?.id || 0,
                           name: room?.name || `Phòng ${idx + 1}`,
                           type_name: booking.roomTypeName,
-                          price: booking.roomPrice,
+                          price: config.price || booking.roomPrice,
                           num_adults: config.num_adults,
                           num_children: config.num_children,
+                          num_babies: config.num_babies || 0,
+                          extra_fees: config.extra_fees || 0,
+                          base_price: config.base_price,
+                          extra_adult_fees: config.extra_adult_fees || 0,
+                          extra_child_fees: config.extra_child_fees || 0,
+                          extra_adults_count: config.extra_adults_count || 0,
+                          extra_children_count:
+                            config.extra_children_count || 0,
                         };
                       })
                     )}
                     promoCode={searchParams.promo_code}
+                    onRemoveRoom={(index) => {
+                      // Tìm phòng cần xóa trong confirmedBookings
+                      let currentIndex = 0;
+                      for (let i = 0; i < confirmedBookings.length; i++) {
+                        const booking = confirmedBookings[i];
+                        if (currentIndex + booking.roomsConfig.length > index) {
+                          const roomIndexInBooking = index - currentIndex;
+                          const updatedRoomsConfig = [...booking.roomsConfig];
+                          updatedRoomsConfig.splice(roomIndexInBooking, 1);
+
+                          if (updatedRoomsConfig.length === 0) {
+                            // Xóa toàn bộ booking nếu không còn phòng
+                            setConfirmedBookings((prev) =>
+                              prev.filter((_, idx) => idx !== i)
+                            );
+                          } else {
+                            // Cập nhật lại roomsConfig
+                            setConfirmedBookings((prev) => {
+                              const newBookings = [...prev];
+                              newBookings[i] = {
+                                ...newBookings[i],
+                                roomsConfig: updatedRoomsConfig,
+                              };
+                              return newBookings;
+                            });
+                          }
+                          break;
+                        }
+                        currentIndex += booking.roomsConfig.length;
+                      }
+                    }}
                     onCheckout={() => {
                       // Gộp toàn bộ roomsConfig của các loại phòng
                       const allRoomsConfig = confirmedBookings.flatMap(
@@ -380,8 +375,10 @@ const RoomSearchResults = () => {
                   />
                 ) : (
                   <div
-                    className="bg-white p-6 shadow-lg"
-                    style={{ borderRadius: 0 }}
+                    className="bg-white p-6"
+                    style={{
+                      border: "1px solid #e0e0e0",
+                    }}
                   >
                     <div className="text-center text-gray-500">
                       <div className="mb-4">

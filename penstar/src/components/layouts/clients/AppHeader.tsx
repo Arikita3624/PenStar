@@ -41,34 +41,48 @@ const AppHeader = () => {
 
   return (
     <header
-      className={`bg-[#0a4f86] text-white sticky top-0 z-50 transition-all duration-300 ${
-        scrolled ? "shadow-xl py-1" : "py-2"
+      className={`bg-white text-gray-800 sticky top-0 z-50 transition-all duration-300 border-b border-gray-200 ${
+        scrolled ? "shadow-md py-2" : "py-3"
       }`}
     >
       <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center text-white font-bold">
+          <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
             PS
           </div>
           <div>
-            <div className="text-lg font-semibold">Khách sạn Penstar</div>
-            <div className="text-xs text-white/80">
+            <div className="text-xl font-bold text-gray-800">
+              Khách sạn Penstar
+            </div>
+            <div className="text-xs text-gray-600">
               Trải nghiệm thoải mái, tiện nghi hiện đại
             </div>
           </div>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6">
-          <Link to="/" className="text-white/90 hover:text-white">
+        <nav className="hidden md:flex items-center gap-8">
+          <Link
+            to="/"
+            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
+          >
             Trang chủ
           </Link>
-          <Link to="/rooms" className="text-white/90 hover:text-white">
+          <Link
+            to="/rooms"
+            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
+          >
             Phòng
           </Link>
-          <Link to="/bookings" className="text-white/90 hover:text-white">
+          <Link
+            to="/bookings"
+            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
+          >
             Đặt phòng
           </Link>
-          <Link to="/contact" className="text-white/90 hover:text-white">
+          <Link
+            to="/contact"
+            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
+          >
             Liên hệ
           </Link>
         </nav>
@@ -76,7 +90,7 @@ const AppHeader = () => {
         <div className="flex items-center gap-3">
           <a
             href="tel:+84 394879813"
-            className="hidden md:flex items-center gap-2 text-sm text-white/90"
+            className="hidden md:flex items-center gap-2 text-sm text-gray-700 hover:text-[#0a4f86] transition"
           >
             <PhoneOutlined className="text-base" /> <span>+84 394879813</span>
           </a>
@@ -85,8 +99,8 @@ const AppHeader = () => {
               <Link to="/profile">
                 <Button
                   style={{
-                    backgroundColor: "#0a66a3",
-                    borderColor: "#0a66a3",
+                    backgroundColor: "#0a4f86",
+                    borderColor: "#0a4f86",
                     color: "#ffffff",
                   }}
                 >
@@ -96,8 +110,8 @@ const AppHeader = () => {
               <Button
                 onClick={handleLogout}
                 style={{
-                  backgroundColor: "#e53e3e",
-                  borderColor: "#e53e3e",
+                  backgroundColor: "#dc2626",
+                  borderColor: "#dc2626",
                   color: "#ffffff",
                 }}
               >
@@ -108,12 +122,13 @@ const AppHeader = () => {
             <Link to="/signin">
               <Button
                 style={{
-                  backgroundColor: "#0a66a3",
-                  borderColor: "#0a66a3",
+                  backgroundColor: "#dc2626",
+                  borderColor: "#dc2626",
                   color: "#ffffff",
+                  fontWeight: "500",
                 }}
               >
-                Đăng nhập
+                Đăng xuất
               </Button>
             </Link>
           )}

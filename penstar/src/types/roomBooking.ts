@@ -10,6 +10,12 @@ export interface RoomBookingConfig {
   num_babies?: number; // Em bé (0-5 tuổi) - optional, tối đa 2, không tính vào giới hạn
   special_requests?: string;
   price: number;
+  base_price?: number; // Giá gốc (trước khi cộng phụ phí)
+  extra_fees?: number; // Tổng phụ phí
+  extra_adult_fees?: number; // Phụ phí người lớn
+  extra_child_fees?: number; // Phụ phí trẻ em
+  extra_adults_count?: number; // Số người lớn thêm
+  extra_children_count?: number; // Số trẻ em thêm
 }
 
 // Props for RoomTypeCard component

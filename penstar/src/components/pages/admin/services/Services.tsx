@@ -1,11 +1,22 @@
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { Button, Card, Input, Popconfirm, Table, message, Space } from "antd";
+import {
+  Button,
+  Card,
+  Input,
+  Popconfirm,
+  Table,
+  message,
+  Space,
+  Tag,
+  Avatar,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
+import { getServiceTypes } from "@/services/serviceTypesApi";
 
 const ServicesPage = () => {
   const queryClient = useQueryClient();
@@ -17,6 +28,11 @@ const ServicesPage = () => {
   const { data: services = [], isLoading } = useQuery({
     queryKey: ["services"],
     queryFn: getServices,
+  });
+
+  const { data: serviceTypes = [] } = useQuery({
+    queryKey: ["service-types"],
+    queryFn: getServiceTypes,
   });
 
   const filteredServices = services.filter((s: Services) => {
@@ -45,12 +61,44 @@ const ServicesPage = () => {
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
       width: 80,
     },
-    { title: "ID", dataIndex: "id", key: "id" },
+    {
+      title: "Image",
+      key: "thumbnail",
+      width: 80,
+      render: (_v, record) =>
+        record.thumbnail ? (
+          <Avatar shape="square" size={50} src={record.thumbnail} />
+        ) : null,
+    },
     { title: "Name", dataIndex: "name", key: "name" },
+    {
+      title: "Type",
+      key: "service_type_code",
+      width: 120,
+      render: (_v, record) => {
+        const type = serviceTypes.find(
+          (t) => t.code === record.service_type_code
+        );
+        return type ? (
+          <Tag
+            color={
+              type.code === "mandatory"
+                ? "red"
+                : type.code === "optional"
+                  ? "blue"
+                  : "green"
+            }
+          >
+            {type.name}
+          </Tag>
+        ) : null;
+      },
+    },
     {
       title: "Price",
       dataIndex: "price",
       key: "price",
+      width: 120,
       render: (p) =>
         new Intl.NumberFormat("vi-VN", {
           style: "currency",
@@ -58,12 +106,19 @@ const ServicesPage = () => {
         }).format(p),
     },
     {
+      title: "Included",
+      key: "is_included",
+      width: 100,
+      render: (_v, record) =>
+        record.is_included ? <Tag color="success">Yes</Tag> : <Tag>No</Tag>,
+    },
+    {
       title: "Description",
       dataIndex: "description",
       key: "description",
       render: (text: string) => (
         <div
-          className="max-w-[520px] whitespace-normal overflow-hidden"
+          className="max-w-[320px] whitespace-normal overflow-hidden"
           dangerouslySetInnerHTML={{ __html: String(text ?? "") }}
         />
       ),
@@ -71,6 +126,8 @@ const ServicesPage = () => {
     {
       title: "Action",
       key: "action",
+      fixed: "right",
+      width: 180,
       render: (_v, record) => (
         <Space>
           <Button
@@ -122,6 +179,7 @@ const ServicesPage = () => {
           dataSource={filteredServices}
           rowKey="id"
           loading={isLoading}
+          scroll={{ x: 1200 }}
           pagination={{
             pageSize,
             current: currentPage,

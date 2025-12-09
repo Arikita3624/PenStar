@@ -75,8 +75,11 @@ const BookingDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null); // booking_item_id đang thêm dịch vụ
-  const [deviceDamageModalVisible, setDeviceDamageModalVisible] = useState(false);
-  const [deviceDamage, setDeviceDamage] = useState<Array<{device_id: number; device_name: string; description: string}>>([]);
+  const [deviceDamageModalVisible, setDeviceDamageModalVisible] =
+    useState(false);
+  const [deviceDamage, setDeviceDamage] = useState<
+    Array<{ device_id: number; device_name: string; description: string }>
+  >([]);
 
   useEffect(() => {
     let mounted = true;
@@ -183,6 +186,23 @@ const BookingDetail = () => {
     } catch (err) {
       console.error("Lỗi duyệt booking:", err);
       message.error("Lỗi duyệt booking");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!booking || !booking.id) return;
+    setUpdating(true);
+    try {
+      await updateBookingStatus(booking.id, { stay_status_id: 2 }); // 2 = checked_in
+      message.success(
+        "Đã nhận phòng - Trạng thái booking chuyển sang Đã nhận phòng"
+      );
+      refetch();
+    } catch (err) {
+      console.error("Lỗi nhận phòng:", err);
+      message.error("Lỗi nhận phòng");
     } finally {
       setUpdating(false);
     }
@@ -300,14 +320,14 @@ const BookingDetail = () => {
 
   const handleAddService = async (bookingItemId: number, serviceId: number) => {
     if (!booking || !booking.id) return;
-    
+
     // Tìm service để lấy giá
     const service = allServices.find((s) => s.id === serviceId);
     if (!service) {
       message.error("Không tìm thấy dịch vụ");
       return;
     }
-    
+
     setAddingService(bookingItemId);
     setUpdating(true);
     try {
@@ -332,7 +352,7 @@ const BookingDetail = () => {
 
   const handleDeleteService = async (bookingServiceId: number) => {
     if (!booking) return;
-    
+
     Modal.confirm({
       title: "Xác nhận xóa dịch vụ",
       content: "Bạn có chắc muốn xóa dịch vụ này?",
@@ -364,23 +384,23 @@ const BookingDetail = () => {
 
   const handleConfirmCheckoutWithDamage = async () => {
     if (!booking || !booking.id) return;
-    
+
     setUpdating(true);
     try {
       // Tạo notes về thiết bị hỏng nếu có
       let damageNotes = "";
       if (deviceDamage.length > 0) {
-        damageNotes = `\n[DEVICE_DAMAGE]\n${deviceDamage.map(d => `- ${d.device_name}: ${d.description}`).join('\n')}`;
+        damageNotes = `\n[DEVICE_DAMAGE]\n${deviceDamage.map((d) => `- ${d.device_name}: ${d.description}`).join("\n")}`;
       }
-      
+
       // Cập nhật notes của booking với thông tin thiết bị hỏng
       if (damageNotes) {
         const currentNotes = booking.notes || "";
         await updateBookingStatus(booking.id, {
-          notes: currentNotes + damageNotes
+          notes: currentNotes + damageNotes,
         });
       }
-      
+
       await confirmCheckout(booking.id!);
       setCheckoutConfirmed(true);
       setDeviceDamageModalVisible(false);
@@ -399,31 +419,38 @@ const BookingDetail = () => {
 
   const handlePrintBill = () => {
     if (!booking) return;
-    
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      message.error("Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt.");
+      message.error(
+        "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt."
+      );
       return;
     }
 
-    const groupedServices = booking.services?.reduce((acc: any[], curr: any) => {
-      const existing = acc.find(
-        (s) => s.service_id === curr.service_id && s.booking_item_id === curr.booking_item_id
-      );
-      if (existing) {
-        existing.quantity = (existing.quantity || 1) + (curr.quantity || 1);
-        existing.total_service_price =
-          (Number(existing.total_service_price) || 0) +
-          (Number(curr.total_service_price) || 0);
-      } else {
-        acc.push({
-          ...curr,
-          quantity: curr.quantity || 1,
-          total_service_price: Number(curr.total_service_price) || 0,
-        });
-      }
-      return acc;
-    }, []);
+    const groupedServices = booking.services?.reduce(
+      (acc: any[], curr: any) => {
+        const existing = acc.find(
+          (s) =>
+            s.service_id === curr.service_id &&
+            s.booking_item_id === curr.booking_item_id
+        );
+        if (existing) {
+          existing.quantity = (existing.quantity || 1) + (curr.quantity || 1);
+          existing.total_service_price =
+            (Number(existing.total_service_price) || 0) +
+            (Number(curr.total_service_price) || 0);
+        } else {
+          acc.push({
+            ...curr,
+            quantity: curr.quantity || 1,
+            total_service_price: Number(curr.total_service_price) || 0,
+          });
+        }
+        return acc;
+      },
+      []
+    );
 
     const billHTML = `
       <!DOCTYPE html>
@@ -531,7 +558,9 @@ const BookingDetail = () => {
               <span class="info-label">Ngày tạo:</span>
               <span class="info-value">${booking.created_at ? formatDate(booking.created_at) : "—"}</span>
             </div>
-            ${booking.items && booking.items.length > 0 ? `
+            ${
+              booking.items && booking.items.length > 0
+                ? `
             <div class="info-row">
               <span class="info-label">Ngày nhận phòng:</span>
               <span class="info-value">${formatDate(booking.items[0].check_in)}</span>
@@ -540,7 +569,9 @@ const BookingDetail = () => {
               <span class="info-label">Ngày trả phòng:</span>
               <span class="info-value">${formatDate(booking.items[0].check_out)}</span>
             </div>
-            ` : ""}
+            `
+                : ""
+            }
             <div class="info-row">
               <span class="info-label">Phương thức thanh toán:</span>
               <span class="info-value">${booking.payment_method?.toUpperCase() || "—"}</span>
@@ -560,20 +591,26 @@ const BookingDetail = () => {
               </tr>
             </thead>
             <tbody>
-              ${booking.items?.map((item: any, idx: number) => {
-                const room = rooms.find((r) => r.id === item.room_id);
-                return `
+              ${
+                booking.items
+                  ?.map((item: any, idx: number) => {
+                    const room = rooms.find((r) => r.id === item.room_id);
+                    return `
                   <tr>
                     <td>${idx + 1}</td>
                     <td>${room?.name || `Phòng ${item.room_id}`}</td>
                     <td class="text-right">${formatPrice(item.room_type_price || 0)}</td>
                   </tr>
                 `;
-              }).join("") || ""}
+                  })
+                  .join("") || ""
+              }
             </tbody>
           </table>
 
-          ${groupedServices && groupedServices.length > 0 ? `
+          ${
+            groupedServices && groupedServices.length > 0
+              ? `
           <table>
             <thead>
               <tr>
@@ -584,9 +621,12 @@ const BookingDetail = () => {
               </tr>
             </thead>
             <tbody>
-              ${groupedServices.map((service: any, idx: number) => {
-                const serviceInfo = services.find((s) => s.id === service.service_id);
-                return `
+              ${groupedServices
+                .map((service: any, idx: number) => {
+                  const serviceInfo = services.find(
+                    (s) => s.id === service.service_id
+                  );
+                  return `
                   <tr>
                     <td>${idx + 1}</td>
                     <td>${serviceInfo?.name || `Dịch vụ #${service.service_id}`}</td>
@@ -594,23 +634,32 @@ const BookingDetail = () => {
                     <td class="text-right">${formatPrice(service.total_service_price || 0)}</td>
                   </tr>
                 `;
-              }).join("")}
+                })
+                .join("")}
             </tbody>
           </table>
-          ` : ""}
+          `
+              : ""
+          }
 
           <div class="total-section">
             <div class="total-row">
               <span>Tiền phòng:</span>
               <span>${formatPrice(booking.total_room_price || 0)}</span>
             </div>
-            ${booking.total_service_price ? `
+            ${
+              booking.total_service_price
+                ? `
             <div class="total-row">
               <span>Dịch vụ bổ sung:</span>
               <span>${formatPrice(booking.total_service_price)}</span>
             </div>
-            ` : ""}
-            ${booking.promo_code && booking.discount_amount ? `
+            `
+                : ""
+            }
+            ${
+              booking.promo_code && booking.discount_amount
+                ? `
             <div class="total-row">
               <span>Tổng tiền gốc:</span>
               <span style="text-decoration: line-through; color: #999;">${formatPrice(booking.original_total || booking.total_amount || 0)}</span>
@@ -619,7 +668,9 @@ const BookingDetail = () => {
               <span>Mã giảm giá (${booking.promo_code}):</span>
               <span style="color: #52c41a;">-${formatPrice(booking.discount_amount)}</span>
             </div>
-            ` : ""}
+            `
+                : ""
+            }
             <div class="total-row total-final">
               <span>TỔNG CỘNG:</span>
               <span>${formatPrice(booking.total_price || booking.total_amount || 0)}</span>
@@ -637,7 +688,7 @@ const BookingDetail = () => {
     printWindow.document.write(billHTML);
     printWindow.document.close();
     printWindow.focus();
-    
+
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
@@ -1354,8 +1405,12 @@ const BookingDetail = () => {
                 <Divider style={{ margin: "12px 0" }} />
                 <Row justify="space-between">
                   <Text>Tổng tiền gốc</Text>
-                  <Text style={{ textDecoration: "line-through", color: "#999" }}>
-                    {formatPrice(booking.original_total || booking.total_amount || 0)}
+                  <Text
+                    style={{ textDecoration: "line-through", color: "#999" }}
+                  >
+                    {formatPrice(
+                      booking.original_total || booking.total_amount || 0
+                    )}
                   </Text>
                 </Row>
                 <Row justify="space-between">
@@ -1384,44 +1439,16 @@ const BookingDetail = () => {
         <div style={{ marginTop: 24, textAlign: "right" }}>
           <Space>
             <Button onClick={() => navigate(-1)}>Quay lại</Button>
-
-            {/* Nút Đổi phòng - Admin có thể đổi khi pending (6) hoặc reserved (1) và chưa đổi quá 1 lần */}
-            {(booking.stay_status_id === 6 || booking.stay_status_id === 1) &&
-              (booking.change_count || 0) < 1 &&
-              booking.items &&
-              booking.items.length > 0 && (
-                <Button
-                  type="default"
-                  onClick={() => {
-                    const item = booking.items[0];
-                    const room = rooms.find((r) => r.id === item.room_id);
-                    navigate(`/admin/bookings/${booking.id}/change-room`, {
-                      state: {
-                        bookingItemId: item.id,
-                        currentRoom: {
-                          id: item.room_id,
-                          name: room?.name || `Phòng ${item.room_id}`,
-                          price:
-                            item.room_price /
-                            Math.ceil(
-                              (new Date(item.check_out).getTime() -
-                                new Date(item.check_in).getTime()) /
-                                (1000 * 60 * 60 * 24)
-                            ), // Price per night
-                          type_id: room?.type_id || 0,
-                        },
-                        checkIn: item.check_in,
-                        checkOut: item.check_out,
-                        numAdults: item.num_adults || 1,
-                        numChildren: item.num_children || 0,
-                      },
-                    });
-                  }}
-                  disabled={updating}
-                >
-                  Đổi phòng
-                </Button>
-              )}
+            {booking.stay_status_id === 1 && (
+              <Button
+                type="primary"
+                onClick={handleCheckIn}
+                loading={updating}
+                disabled={updating}
+              >
+                Check In
+              </Button>
+            )}
 
             {/* Chỉ hiện nút Duyệt khi đang chờ xác nhận (stay_status_id === 6 = pending) */}
             {booking.stay_status_id === 6 && (
@@ -1445,8 +1472,8 @@ const BookingDetail = () => {
                 Hủy
               </Button>
             )}
-            {/* Hiện nút Xác nhận checkout khi khách đã checkout (stay_status_id === 3 = checked_out) VÀ chưa confirm */}
-            {booking.stay_status_id === 3 && !checkoutConfirmed && (
+            {/* Hiện nút Xác nhận checkout khi khách đã checkout (stay_status_id === 2 = checked_out) VÀ chưa confirm */}
+            {booking.stay_status_id === 2 && !checkoutConfirmed && (
               <Button
                 type="primary"
                 onClick={handleConfirmCheckout}
@@ -1484,11 +1511,15 @@ const BookingDetail = () => {
         >
           <div>
             <Text>
-              Xác nhận khách đã checkout? Phòng sẽ chuyển sang trạng thái Cleaning.
+              Xác nhận khách đã checkout? Phòng sẽ chuyển sang trạng thái
+              Cleaning.
             </Text>
             <Divider />
             <Title level={5}>Thiết bị hỏng (nếu có)</Title>
-            <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "block", marginBottom: 12 }}
+            >
               Ghi nhận các thiết bị bị hỏng trong phòng khi khách checkout
             </Text>
             {deviceDamage.map((damage, index) => (
@@ -1500,7 +1531,9 @@ const BookingDetail = () => {
                       danger
                       size="small"
                       onClick={() => {
-                        const newDamage = deviceDamage.filter((_, i) => i !== index);
+                        const newDamage = deviceDamage.filter(
+                          (_, i) => i !== index
+                        );
                         setDeviceDamage(newDamage);
                       }}
                       style={{ float: "right" }}
