@@ -174,11 +174,12 @@ export const searchAvailableRooms = async ({
     LEFT JOIN room_types rt ON r.type_id = rt.id
     WHERE r.status = ANY($1)
       AND rt.capacity >= $2
+      AND rt.max_adults >= $3
   `;
 
-  const params = [statusList, totalGuests];
+  const params = [statusList, totalGuests, num_adults];
   console.log("📦 Initial params:", params);
-  let paramIndex = 3;
+  let paramIndex = 4;
 
   // Filter theo loại phòng nếu có
   if (room_type_id) {
@@ -195,15 +196,19 @@ export const searchAvailableRooms = async ({
   }
 
   // Loại trừ phòng đã có booking conflict
+  // Logic: Conflict xảy ra khi khoảng thời gian CHỒNG LẤN
+  // Không conflict khi: check_out_cũ <= check_in_mới HOẶC check_in_cũ >= check_out_mới
+  // => Conflict khi: NOT (check_out_cũ <= check_in_mới OR check_in_cũ >= check_out_mới)
   query += `
     AND NOT EXISTS (
       SELECT 1 FROM booking_items bi
       JOIN bookings b ON bi.booking_id = b.id
       WHERE bi.room_id = r.id
         AND b.stay_status_id IN (1, 2, 3) -- reserved, approved, checked_in
-        AND NOT (bi.check_out <= $${paramIndex} OR bi.check_in >= $${
-    paramIndex + 1
-  })
+        AND NOT (
+          bi.check_out::date <= $${paramIndex}::date 
+          OR bi.check_in::date >= $${paramIndex + 1}::date
+        )
     )
   `;
   params.push(check_in, check_out);

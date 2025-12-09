@@ -9,6 +9,11 @@ import {
   changeRoomInBooking as modelChangeRoomInBooking,
   autoAssignRooms as modelAutoAssignRooms,
 } from "../models/bookingsmodel.js";
+import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js";
+import {
+  getDamagesByBookingId,
+  replaceDamagesForBooking,
+} from "../models/bookingDamagesModel.js";
 import pool from "../db.js";
 
 export const getBookings = async (req, res) => {
@@ -52,6 +57,14 @@ export const getBookingById = async (req, res) => {
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
 
+    // Damages (thiết bị hỏng/mất)
+    const damages = await getDamagesByBookingId(id);
+    booking.damages = damages;
+    booking.damage_total = damages.reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0
+    );
+
     // Add check_in and check_out from first booking_item for convenience
     if (booking.items && booking.items.length > 0) {
       booking.check_in = booking.items[0].check_in;
@@ -69,10 +82,37 @@ export const getBookingById = async (req, res) => {
       (sum, service) => sum + Number(service.total_service_price || 0),
       0
     );
+    // Tính tổng phụ phí
+    booking.total_surcharge = booking.items.reduce((sum, item) => {
+      return sum + Number(item.adult_surcharge_total || 0) + Number(item.child_surcharge_total || 0);
+    }, 0);
     booking.total_amount =
-      booking.total_room_price + booking.total_service_price;
-    // Ghi đè total_price bằng giá trị tính toán đúng (không lấy từ DB)
-    booking.total_price = booking.total_amount;
+      booking.total_room_price + booking.total_service_price + booking.total_surcharge;
+    
+    // Kiểm tra xem có mã giảm giá không (lưu trong notes)
+    let discountInfo = null;
+    if (booking.notes) {
+      const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+      if (discountMatch) {
+        try {
+          discountInfo = JSON.parse(discountMatch[1]);
+          booking.promo_code = discountInfo.promo_code;
+          booking.discount_amount = discountInfo.discount_amount;
+          booking.original_total = discountInfo.original_total;
+        } catch (e) {
+          console.error("Error parsing discount info:", e);
+        }
+      }
+    }
+    
+    // Nếu có mã giảm giá, dùng total_price từ DB (đã được áp dụng giảm giá)
+    // Nếu không có, tính lại từ total_amount
+    if (!discountInfo) {
+      booking.total_price = booking.total_amount + booking.damage_total;
+    } else {
+      // Nếu có discountInfo, total_price đã áp dụng giảm giá trong DB, cộng thêm damage_total (nếu chưa được cộng)
+      booking.total_price = Number(booking.total_price || 0) + booking.damage_total;
+    }
 
     res.json({
       success: true,
@@ -106,6 +146,7 @@ export const createBooking = async (req, res) => {
       console.log("Auto-assigning rooms based on rooms_config");
 
       const assignedItems = [];
+      const assignedRoomIds = []; // Track phòng đã assign
 
       for (const config of payload.rooms_config) {
         const {
@@ -116,16 +157,18 @@ export const createBooking = async (req, res) => {
           num_adults,
           num_children,
           room_type_price, // Use price from room_types
+          services, // Lấy services từ config
         } = config;
 
-        // Auto-assign rooms
+        // Auto-assign rooms - truyền assignedRoomIds để tránh trùng
         const assignedRooms = await modelAutoAssignRooms(
           room_type_id,
           quantity,
           check_in,
           check_out,
           num_adults,
-          num_children
+          num_children,
+          assignedRoomIds
         );
 
         console.log(
@@ -135,6 +178,7 @@ export const createBooking = async (req, res) => {
 
         // Convert assigned rooms to booking items format
         for (const room of assignedRooms) {
+          assignedRoomIds.push(room.id); // Thêm vào danh sách đã assign
           assignedItems.push({
             room_id: room.id,
             check_in,
@@ -143,6 +187,7 @@ export const createBooking = async (req, res) => {
             num_adults,
             num_children,
             room_type_id,
+            services: services || [], // Copy services từ config
           });
         }
       }
@@ -167,6 +212,37 @@ export const createBooking = async (req, res) => {
     );
     booking.items = itemsRes.rows;
     booking.services = servicesRes.rows;
+
+    // Tăng usage count cho mã giảm giá nếu có
+    // promo_code có thể ở payload.promo_code hoặc trong notes
+    let promoCodeToIncrement = payload.promo_code;
+    
+    // Nếu không có trong payload, thử parse từ notes
+    if (!promoCodeToIncrement && booking.notes) {
+      try {
+        const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+        if (discountMatch) {
+          const discountInfo = JSON.parse(discountMatch[1]);
+          promoCodeToIncrement = discountInfo.promo_code;
+        }
+      } catch (parseErr) {
+        console.warn(`[Booking] Could not parse promo_code from notes:`, parseErr);
+      }
+    }
+    
+    if (promoCodeToIncrement) {
+      try {
+        const updatedDiscount = await modelIncrementUsageCount(promoCodeToIncrement);
+        console.log(`[Booking] Incremented usage count for discount code: ${promoCodeToIncrement}`);
+        console.log(`[Booking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+      } catch (discountErr) {
+        console.error(`[Booking] Error incrementing usage count for ${promoCodeToIncrement}:`, discountErr);
+        console.error(`[Booking] Error details:`, discountErr.message);
+        // Không fail booking nếu lỗi increment usage count
+      }
+    } else {
+      console.log(`[Booking] No promo_code found in payload or notes, skipping usage count increment`);
+    }
 
     // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
 
@@ -343,8 +419,28 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
-      // Gửi email xác nhận nếu đã thanh toán thành công
+      
+      // Tăng usage count cho mã giảm giá nếu thanh toán thành công
       if (payment_status === "paid") {
+        try {
+          const booking = await modelGetBookingById(id);
+          if (booking && booking.notes) {
+            const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+            if (discountMatch) {
+              const discountInfo = JSON.parse(discountMatch[1]);
+              if (discountInfo.promo_code) {
+                const updatedDiscount = await modelIncrementUsageCount(discountInfo.promo_code);
+                console.log(`[UpdateMyBooking] Incremented usage count for discount code: ${discountInfo.promo_code}`);
+                console.log(`[UpdateMyBooking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+              }
+            }
+          }
+        } catch (discountErr) {
+          console.error("[UpdateMyBooking] Error incrementing usage count:", discountErr);
+          // Không fail update nếu lỗi increment usage count
+        }
+        
+        // Gửi email xác nhận nếu đã thanh toán thành công
         try {
           const booking = await modelGetBookingById(id);
           const customerEmail = booking.email;
@@ -410,6 +506,57 @@ export const confirmCheckout = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Internal error", error: err.message });
+  }
+};
+
+export const updateBookingDamages = async (req, res) => {
+  const { id } = req.params;
+  const { damages } = req.body || {};
+
+  if (!Array.isArray(damages)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Damages phải là một mảng" });
+  }
+
+  try {
+    const normalized = damages.map((d) => ({
+      booking_item_id: d.booking_item_id || null,
+      device_id: d.device_id || null,
+      device_name: d.device_name?.trim(),
+      description: d.description || null,
+      amount: Number(d.amount) || 0,
+    }));
+
+    // Validate device_name
+    if (normalized.some((d) => !d.device_name)) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiết bị phải có tên",
+      });
+    }
+
+    await replaceDamagesForBooking(Number(id), normalized);
+
+    const booking = await modelGetBookingById(id);
+    const damagesSaved = await getDamagesByBookingId(id);
+    booking.damages = damagesSaved;
+    booking.damage_total = damagesSaved.reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0
+    );
+
+    res.json({
+      success: true,
+      message: "Đã lưu thiết bị hỏng/mất",
+      data: booking,
+    });
+  } catch (err) {
+    console.error("updateBookingDamages error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Internal error",
+    });
   }
 };
 

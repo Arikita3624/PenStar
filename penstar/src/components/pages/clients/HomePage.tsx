@@ -186,6 +186,81 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Hotel References Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-blue-600 mb-3">
+              Đối tác khách sạn uy tín
+            </h2>
+            <p className="text-gray-600">
+              Chúng tôi hợp tác với các hệ thống khách sạn hàng đầu Việt Nam
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Mường Thanh",
+                logo: "https://www.muongthanh.com/wp-content/uploads/2021/06/logo-muong-thanh.png",
+                description: "Hệ thống khách sạn 4-5 sao hàng đầu Việt Nam với hơn 50 khách sạn trên toàn quốc",
+                features: ["4-5 sao", "50+ khách sạn", "Nhiều thành phố"],
+              },
+              {
+                name: "Vinpearl",
+                logo: "https://www.vinpearl.com/logo.png",
+                description: "Thương hiệu nghỉ dưỡng cao cấp với các resort và khách sạn tại các điểm du lịch nổi tiếng",
+                features: ["Resort cao cấp", "Nhiều địa điểm", "Dịch vụ 5 sao"],
+              },
+              {
+                name: "FLC Hotels",
+                logo: "https://flchotels.com/logo.png",
+                description: "Hệ thống khách sạn và resort nghỉ dưỡng với tiêu chuẩn quốc tế",
+                features: ["Tiêu chuẩn quốc tế", "Resort nghỉ dưỡng", "Dịch vụ đẳng cấp"],
+              },
+            ].map((hotel, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition border border-gray-100"
+              >
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
+                      <img
+                        src={hotel.logo}
+                        alt={hotel.name}
+                        className="w-12 h-12 object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          target.parentElement!.innerHTML = `<span class="text-2xl font-bold text-blue-600">${hotel.name.charAt(0)}</span>`;
+                        }}
+                      />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {hotel.name}
+                    </h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                    {hotel.description}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {hotel.features.map((feature, fIdx) => (
+                      <span
+                        key={fIdx}
+                        className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium"
+                      >
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* News Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

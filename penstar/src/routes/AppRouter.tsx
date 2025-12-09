@@ -1,6 +1,7 @@
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RequireRole from "@/components/common/RequireRole";
+import RequireCustomerOnly from "@/components/common/RequireCustomerOnly";
 import Rooms from "@/components/pages/admin/rooms/Rooms";
 import RoomAdd from "@/components/pages/admin/rooms/RoomAdd";
 import RoomEdit from "@/components/pages/admin/rooms/RoomEdit";
@@ -13,6 +14,12 @@ import FloorEdit from "@/components/pages/admin/floors/FloorEdit";
 import ServicesPage from "@/components/pages/admin/services/Services";
 import ServiceAdd from "@/components/pages/admin/services/ServiceAdd";
 import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
+import DevicesPage from "@/components/pages/admin/devices/Devices";
+import DeviceAdd from "@/components/pages/admin/devices/DeviceAdd";
+import DeviceEdit from "@/components/pages/admin/devices/DeviceEdit";
+import DiscountCodesPage from "@/components/pages/admin/discountcodes/DiscountCodes";
+import DiscountCodeAdd from "@/components/pages/admin/discountcodes/DiscountCodeAdd";
+import DiscountCodeEdit from "@/components/pages/admin/discountcodes/DiscountCodeEdit";
 import { Route, Routes } from "react-router-dom";
 import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
@@ -26,13 +33,16 @@ import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
+import CustomerProfile from "@/components/pages/clients/users/CustomerProfile";
 import Userslist from "@/components/pages/admin/users/Userslist";
 import UserEdit from "@/components/pages/admin/users/UserEdit";
 import NotFound from "@/components/common/NotFound";
 import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
+import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBooking";
 import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
+import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
 
 const AppRouter = () => {
   return (
@@ -47,49 +57,65 @@ const AppRouter = () => {
 
           {/* Staff booking - Walk-in customers (staff creates for guest) */}
 
-          {/* Customer bookings - REQUIRE authentication */}
+          {/* Customer bookings - CHỈ cho phép customer, chặn admin/staff */}
           <Route
             path="booking/multi-create"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MultiRoomBookingCreate />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="bookings"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MyBookings />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="my-bookings"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <MyBookings />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
           <Route
             path="bookings/confirm"
             element={
-              <RequireRole role="customer">
+              <RequireCustomerOnly>
                 <BookingConfirm />
-              </RequireRole>
+              </RequireCustomerOnly>
             }
           />
+          {/* BookingSuccess không cần RequireCustomerOnly vì có thể truy cập từ callback VNPay hoặc từ email */}
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
 
           <Route
             path="bookings/payment-method"
-            element={<PaymentMethodSelect />}
+            element={
+              <RequireCustomerOnly>
+                <PaymentMethodSelect />
+              </RequireCustomerOnly>
+            }
           />
+          {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
           <Route path="payment-result" element={<PaymentResult />} />
+          {/* MoMo Mock Payment - chỉ dùng trong test mode */}
+          <Route path="momo-mock-payment" element={<MoMoMockPayment />} />
           {/* admin booking routes moved to admin layout below */}
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
+          <Route
+            path="profile"
+            element={
+              <RequireCustomerOnly>
+                <CustomerProfile />
+              </RequireCustomerOnly>
+            }
+          />
         </Route>
         <Route
           path="admin"
@@ -103,6 +129,9 @@ const AppRouter = () => {
 
           {/* Bookings management - Staff+ */}
           <Route path="bookings" element={<BookingsList />} />
+          {/* Đặt các route cụ thể trước route :id để tránh conflict */}
+          <Route path="bookings/create" element={<AdminWalkInBooking />} />
+          <Route path="bookings/new" element={<AdminWalkInBooking />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
 
           {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
@@ -118,6 +147,15 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route path="devices/new" element={<DeviceAdd />} />
+          <Route path="devices/:id/edit" element={<DeviceEdit />} />
+          <Route path="discount-codes" element={<DiscountCodesPage />} />
+          <Route path="discount-codes/add" element={<DiscountCodeAdd />} />
+          <Route
+            path="discount-codes/:id/edit"
+            element={<DiscountCodeEdit />}
+          />
 
           {/* Users management - Manager+ */}
           <Route

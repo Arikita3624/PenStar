@@ -1,4 +1,4 @@
-import { createUser, getUsers, getUserByEmail } from "../models/usersmodel.js";
+import { createUser, getUsers, getUserByEmail, getUserById } from "../models/usersmodel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 

@@ -11,20 +11,75 @@ const PaymentResult: React.FC = () => {
   const [updating, setUpdating] = React.useState(false);
 
   React.useEffect(() => {
-    // Lấy query parameters từ VNPAY callback
+    // Lấy query parameters từ callback
     const queryParams = new URLSearchParams(location.search);
-    const responseCode = queryParams.get("vnp_ResponseCode");
-    const transactionNo = queryParams.get("vnp_TransactionNo");
-    const amount = queryParams.get("vnp_Amount");
-    const orderId = queryParams.get("vnp_TxnRef");
-
-    const status = {
-      responseCode,
-      transactionNo,
-      amount: amount ? Number(amount) / 100 : 0, // VNPAY gửi amount × 100
-      orderId,
-      success: responseCode === "00",
+    
+    // Kiểm tra xem là VNPay hay MoMo
+    // MoMo thật có thể không có paymentMethod, nhưng có resultCode, partnerCode
+    const paymentMethod = queryParams.get("paymentMethod");
+    const resultCode = queryParams.get("resultCode");
+    const partnerCode = queryParams.get("partnerCode");
+    
+    // Nếu có resultCode hoặc partnerCode thì là MoMo thật
+    // Nếu có paymentMethod=momo thì là MoMo (mock hoặc có paymentMethod)
+    const isMoMo = paymentMethod === "momo" || (resultCode !== null || partnerCode === "MOMO");
+    
+    let status: any = {
+      success: false,
+      responseCode: null,
+      transactionNo: null,
+      amount: 0,
+      orderId: null,
     };
+
+    if (isMoMo) {
+      // Xử lý callback từ MoMo (có thể là mock hoặc thật)
+      // MoMo thật trả về: resultCode, orderId, amount, transId, ...
+      // MoMo mock trả về: status, orderId, amount, ...
+      const momoStatus = queryParams.get("status"); // Mock mode
+      const orderId = queryParams.get("orderId");
+      const amount = queryParams.get("amount");
+      const transId = queryParams.get("transId");
+      
+      // Nếu có resultCode thì là MoMo thật, nếu không thì là mock
+      if (resultCode !== null) {
+        // MoMo thật: resultCode = "0" hoặc 0 là thành công
+        const resultCodeNum = Number(resultCode);
+        status = {
+          responseCode: resultCode,
+          transactionNo: transId || orderId || null,
+          amount: amount ? Number(amount) : 0,
+          orderId: orderId || null,
+          success: resultCode === "0" || resultCodeNum === 0,
+          paymentMethod: "momo",
+        };
+      } else {
+        // MoMo mock: status = "success" là thành công
+        status = {
+          responseCode: momoStatus === "success" ? "00" : "99",
+          transactionNo: orderId || null,
+          amount: amount ? Number(amount) : 0,
+          orderId: orderId || null,
+          success: momoStatus === "success",
+          paymentMethod: "momo",
+        };
+      }
+    } else {
+      // Xử lý callback từ VNPay
+      const responseCode = queryParams.get("vnp_ResponseCode");
+      const transactionNo = queryParams.get("vnp_TransactionNo");
+      const amount = queryParams.get("vnp_Amount");
+      const orderId = queryParams.get("vnp_TxnRef");
+
+      status = {
+        responseCode,
+        transactionNo,
+        amount: amount ? Number(amount) / 100 : 0, // VNPAY gửi amount × 100
+        orderId,
+        success: responseCode === "00",
+        paymentMethod: "vnpay",
+      };
+    }
 
     setPaymentStatus(status);
     setLoading(false);
@@ -37,43 +92,43 @@ const PaymentResult: React.FC = () => {
       return;
     }
 
-    setUpdating(true);
+    // Lấy bookingInfo từ localStorage nếu có (đã được lưu từ PaymentMethodSelect)
+    let bookingInfoFromStorage = null;
     try {
-      console.log("[DEBUG] Cập nhật trạng thái booking ID:", bookingId);
-
-      // Cập nhật trạng thái booking thành "paid"
-      const { updateMyBooking } = await import("@/services/bookingsApi");
-      const result = await Promise.race([
-        updateMyBooking(Number(bookingId), { payment_status: "paid" }),
-        new Promise(
-          (_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000) // 10s timeout
-        ),
-      ]);
-
-      console.log(
-        "✅ Cập nhật payment_status thành 'paid' thành công!",
-        result
-      );
-
-      // Clear localStorage
-      localStorage.removeItem("bookingId");
-
-      // Redirect sang trang BookingSuccess
-      navigate(`/bookings/success/${bookingId}`, { replace: true });
-    } catch (err: any) {
-      console.error("❌ Lỗi cập nhật trạng thái booking:", err);
-      setUpdating(false);
-
-      // Hỏi người dùng có muốn redirect sang success page hay không
-      const confirmed = window.confirm(
-        `Có lỗi khi cập nhật trạng thái (${err.message}). Bạn vẫn muốn xem chi tiết đơn hàng không?`
-      );
-
-      if (confirmed) {
-        localStorage.removeItem("bookingId");
-        navigate(`/bookings/success/${bookingId}`, { replace: true });
+      const stored = localStorage.getItem("bookingInfo");
+      if (stored) {
+        bookingInfoFromStorage = JSON.parse(stored);
       }
+    } catch {
+      // Ignore parse error
     }
+
+    // Redirect ngay lập tức, không đợi update payment_status
+    localStorage.removeItem("bookingId");
+
+    // Redirect với bookingInfo nếu có để tránh fetch lại
+    navigate(`/bookings/success/${bookingId}`, {
+      replace: true,
+      state: bookingInfoFromStorage
+        ? { booking: bookingInfoFromStorage }
+        : undefined,
+    });
+
+    // Update payment_status ở background (không chặn UI)
+    setUpdating(true);
+    (async () => {
+      try {
+        const { updateMyBooking } = await import("@/services/bookingsApi");
+        await updateMyBooking(Number(bookingId), {
+          payment_status: "paid",
+          stay_status_id: 1, // Đặt phòng sang trạng thái reserved/booked sau khi thanh toán thành công
+        });
+      } catch (err: any) {
+        console.error(" Lỗi cập nhật trạng thái booking (background):", err);
+      } finally {
+        setUpdating(false);
+      }
+    })();
   };
 
   if (loading) {
@@ -174,12 +229,34 @@ const PaymentResult: React.FC = () => {
               extra={[
                 <Button
                   type="primary"
-                  danger
                   key="retry"
-                  onClick={() => navigate(-1)}
+                  onClick={async () => {
+                    const bookingId = localStorage.getItem("bookingId");
+                    if (bookingId) {
+                      try {
+                        const { getBookingById } = await import("@/services/bookingsApi");
+                        const bookingInfo = await getBookingById(Number(bookingId));
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: Number(bookingId),
+                            bookingInfo: bookingInfo,
+                          },
+                        });
+                      } catch (err) {
+                        console.error("Error fetching booking:", err);
+                        navigate(-1);
+                      }
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
                   size="middle"
+                  style={{
+                    background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    borderColor: "transparent",
+                  }}
                 >
-                  Quay lại
+                  Thanh toán lại
                 </Button>,
                 <Button onClick={() => navigate("/")} size="middle">
                   Về trang chủ

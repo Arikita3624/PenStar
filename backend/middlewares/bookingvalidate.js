@@ -10,6 +10,7 @@ export const bookingItemSchema = Joi.object({
 
 export const bookingServiceSchema = Joi.object({
   booking_id: Joi.number().positive().required(),
+  booking_item_id: Joi.number().positive().optional().allow(null), // Optional: để thêm dịch vụ cho từng phòng
   service_id: Joi.number().positive().required(),
   quantity: Joi.number().integer().min(1).required(),
   total_service_price: Joi.number().min(0).required(),
@@ -43,7 +44,9 @@ export const bookingCreateSchema = Joi.object({
   email: Joi.any().optional(), // Legacy
   phone: Joi.any().optional(), // Legacy
   notes: Joi.any().optional(), // Ignored
-  promo_code: Joi.any().optional(), // Ignored
+  promo_code: Joi.any().optional(), // Ignored - sẽ được lưu vào notes
+  discount_amount: Joi.number().min(0).optional(), // Số tiền giảm giá - sẽ được lưu vào notes
+  original_total: Joi.number().min(0).optional(), // Tổng tiền gốc trước giảm - sẽ được lưu vào notes
   num_adults: Joi.number().integer().min(1).max(20).optional(), // Số người lớn (root level)
   num_children: Joi.number().integer().min(0).max(20).optional(), // Số trẻ em (root level)
   total_price: Joi.number().min(0).required(),
@@ -60,8 +63,10 @@ export const bookingCreateSchema = Joi.object({
     .items(
       Joi.object({
         room_id: Joi.number().positive().required(),
+        room_type_id: Joi.number().positive().optional(), // Cần cho backend tính phụ phí
         check_in: Joi.string().isoDate().required(),
         check_out: Joi.string().isoDate().required(),
+        room_type_price: Joi.number().min(0).optional(), // Cần cho backend tính tổng
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),
         guests: Joi.array()
@@ -71,6 +76,15 @@ export const bookingCreateSchema = Joi.object({
               guest_type: Joi.string().valid("adult", "child").required(),
               age: Joi.number().integer().min(0).max(120).optional(),
               is_primary: Joi.boolean().required(),
+            })
+          )
+          .optional(),
+        services: Joi.array()
+          .items(
+            Joi.object({
+              service_id: Joi.number().positive().required(),
+              quantity: Joi.number().integer().min(1).required(),
+              total_service_price: Joi.number().min(0).required(),
             })
           )
           .optional(),
@@ -88,6 +102,15 @@ export const bookingCreateSchema = Joi.object({
         room_type_price: Joi.number().min(0).required(),
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),
+        services: Joi.array()
+          .items(
+            Joi.object({
+              service_id: Joi.number().positive().required(),
+              quantity: Joi.number().integer().min(1).required(),
+              total_service_price: Joi.number().min(0).required(),
+            })
+          )
+          .optional(),
       })
     )
     .min(1)
@@ -112,6 +135,56 @@ export const validateBookingCreate = (req, res, next) => {
       .status(400)
       .json({ success: false, message: "items hoặc rooms_config is required" });
   }
+  
+  // Validation: Giới hạn số người tối đa 4 (không tính em bé)
+  const MAX_GUESTS_DEFAULT = 4;
+  
+  // Kiểm tra num_adults và num_children ở root level (nếu có)
+  if (req.body.num_adults !== undefined || req.body.num_children !== undefined) {
+    const numAdults = req.body.num_adults || 0;
+    const numChildren = req.body.num_children || 0;
+    const totalGuests = numAdults + numChildren;
+    
+    if (totalGuests > MAX_GUESTS_DEFAULT) {
+      return res.status(400).json({
+        success: false,
+        message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
+      });
+    }
+  }
+  
+  // Kiểm tra items
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      const numAdults = item.num_adults || 0;
+      const numChildren = item.num_children || 0;
+      const totalGuests = numAdults + numChildren;
+      
+      if (totalGuests > MAX_GUESTS_DEFAULT) {
+        return res.status(400).json({
+          success: false,
+          message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
+        });
+      }
+    }
+  }
+  
+  // Kiểm tra rooms_config
+  if (Array.isArray(rooms_config)) {
+    for (const config of rooms_config) {
+      const numAdults = config.num_adults || 0;
+      const numChildren = config.num_children || 0;
+      const totalGuests = numAdults + numChildren;
+      
+      if (totalGuests > MAX_GUESTS_DEFAULT) {
+        return res.status(400).json({
+          success: false,
+          message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
+        });
+      }
+    }
+  }
+  
   const { value, error } = bookingCreateSchema.validate(req.body, {
     abortEarly: true,
   });

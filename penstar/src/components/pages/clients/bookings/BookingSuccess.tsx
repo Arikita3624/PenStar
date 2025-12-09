@@ -12,7 +12,8 @@ import {
   Modal,
 } from "antd";
 import { cancelBooking, getBookingById } from "@/services/bookingsApi";
-import type { Booking } from "@/types/bookings";
+import type { Booking, BookingService } from "@/types/bookings";
+import { getServiceById } from "@/services/servicesApi";
 import dayjs from "dayjs";
 
 const fmtPrice = (v: string | number | undefined) => {
@@ -29,8 +30,11 @@ const BookingSuccess: React.FC = () => {
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
 
   const [booking, setBooking] = React.useState<Booking | null>(initial);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(!initial); // Không loading nếu đã có initial data
   const [updating, setUpdating] = React.useState(false);
+  const [services, setServices] = React.useState<
+    Record<number, { name: string; price: number }>
+  >({});
 
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
@@ -38,6 +42,32 @@ const BookingSuccess: React.FC = () => {
     try {
       const data = await getBookingById(Number(id));
       setBooking(data);
+
+      // Fetch service details - lazy load, không chặn UI
+      if (Array.isArray(data.services) && data.services.length > 0) {
+        const serviceIds = Array.from(
+          new Set(
+            data.services
+              .map((s: { service_id?: number }) => s.service_id)
+              .filter((id): id is number => id != null)
+          )
+        );
+
+        // Fetch services song song nhưng không chặn rendering
+        Promise.all(serviceIds.map((sid: number) => getServiceById(sid)))
+          .then((serviceResults) => {
+            const serviceMap: Record<number, { name: string; price: number }> =
+              {};
+            serviceResults.forEach((s) => {
+              if (s && s.id)
+                serviceMap[s.id] = { name: s.name, price: s.price };
+            });
+            setServices(serviceMap);
+          })
+          .catch((err) => {
+            console.error("Error fetching services:", err);
+          });
+      }
     } catch {
       setBooking(null);
     } finally {
@@ -46,10 +76,24 @@ const BookingSuccess: React.FC = () => {
   }, [id]);
 
   React.useEffect(() => {
-    if (id) {
+    if (!id) return;
+
+    // Nếu đã có initial booking từ state, hiển thị ngay
+    if (initial && initial.id && String(initial.id) === id) {
+      setBooking(initial);
+      setLoading(false);
+
+      // Fetch lại ở background để đảm bảo data mới nhất (đặc biệt là payment_status sau khi thanh toán)
+      // Nhưng không chặn UI - user thấy ngay thông tin
+      setTimeout(() => {
+        fetchBooking();
+      }, 100);
+    } else {
+      // Không có initial data, fetch ngay
       fetchBooking();
     }
-  }, [id, fetchBooking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Chỉ depend vào id để tránh loop
 
   // Đã chuyển logic check-in sang phía admin. Người dùng không thể tự check-in.
 
@@ -311,23 +355,44 @@ const BookingSuccess: React.FC = () => {
               <Descriptions.Item label="Khách hàng">
                 {booking?.customer_name ?? "-"}
               </Descriptions.Item>
-              <Descriptions.Item label="Tổng tiền">
-                {fmtPrice(booking?.total_price)} VND
-              </Descriptions.Item>
+              {booking?.original_total && booking?.discount_amount ? (
+                <>
+                  <Descriptions.Item label="Tổng tiền gốc">
+                    <span style={{ textDecoration: "line-through", color: "#999" }}>
+                      {fmtPrice(booking.original_total)} VND
+                    </span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Mã giảm giá">
+                    <Tag color="green">{booking.promo_code}</Tag>
+                    <span style={{ marginLeft: 8, color: "#52c41a", fontWeight: "bold" }}>
+                      -{fmtPrice(booking.discount_amount)} VND
+                    </span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Tổng tiền sau giảm">
+                    <span style={{ fontSize: "16px", fontWeight: "bold", color: "#ff4d4f" }}>
+                      {fmtPrice(booking?.total_price)} VND
+                    </span>
+                  </Descriptions.Item>
+                </>
+              ) : (
+                <Descriptions.Item label="Tổng tiền">
+                  {fmtPrice(booking?.total_price)} VND
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Thanh toán">
                 <Tag
                   color={
                     paymentStatus === "paid"
                       ? "green"
                       : paymentStatus === "pending"
-                        ? "gold"
-                        : paymentStatus === "failed"
-                          ? "red"
-                          : paymentStatus === "refunded"
-                            ? "purple"
-                            : paymentStatus === "cancelled"
-                              ? "red"
-                              : "default"
+                      ? "gold"
+                      : paymentStatus === "failed"
+                      ? "red"
+                      : paymentStatus === "refunded"
+                      ? "purple"
+                      : paymentStatus === "cancelled"
+                      ? "red"
+                      : "default"
                   }
                 >
                   {paymentStatus?.toUpperCase() || "-"}
@@ -391,29 +456,35 @@ const BookingSuccess: React.FC = () => {
                 </Space>
               </Card>
             </div>
-            <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
-              <List
-                size="small"
-                dataSource={booking?.services ?? []}
-                renderItem={(s) => (
-                  <List.Item>
-                    <div className="text-sm">
-                      <div className="font-semibold">
-                        Dịch vụ #{s.service_id}
-                      </div>
-                      <div>
-                        Số lượng: {s.quantity} — Giá:{" "}
-                        {fmtPrice(s.total_service_price)} VND
-                      </div>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </div>
+            {Array.isArray(booking?.services) &&
+              booking.services.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
+                  <List
+                    size="small"
+                    dataSource={booking.services}
+                    renderItem={(s: BookingService) => {
+                      const serviceInfo = services[s.service_id];
+                      return (
+                        <List.Item>
+                          <div className="text-sm">
+                            <div className="font-semibold">
+                              {serviceInfo?.name || `Dịch vụ #${s.service_id}`}
+                            </div>
+                            <div>
+                              Số lượng: {s.quantity} — Giá:{" "}
+                              {fmtPrice(s.total_service_price)} VND
+                            </div>
+                          </div>
+                        </List.Item>
+                      );
+                    }}
+                  />
+                </div>
+              )}
 
-            {/* Thông báo thanh toán tại khách sạn */}
-            {booking?.id && paymentStatus === "pending" && (
+            {/* Thông báo thanh toán và nút thanh toán lại */}
+            {booking?.id && (paymentStatus === "pending" || paymentStatus === "failed") && (
               <Card
                 title="💳 Thanh toán"
                 style={{ marginTop: 16 }}
@@ -422,16 +493,36 @@ const BookingSuccess: React.FC = () => {
               >
                 <div style={{ textAlign: "center", padding: "12px 0" }}>
                   <p style={{ fontSize: 14, marginBottom: 12 }}>
-                    Vui lòng thanh toán{" "}
-                    <strong>{fmtPrice(booking.total_price)}</strong> khi đến
-                    khách sạn
+                    {paymentStatus === "pending" 
+                      ? `Vui lòng thanh toán ${fmtPrice(booking.total_price)} khi đến khách sạn`
+                      : `Thanh toán thất bại. Vui lòng thanh toán lại ${fmtPrice(booking.total_price)}`}
                   </p>
                   <Tag
-                    color="warning"
-                    style={{ fontSize: 13, padding: "6px 12px" }}
+                    color={paymentStatus === "pending" ? "warning" : "error"}
+                    style={{ fontSize: 13, padding: "6px 12px", marginBottom: 12 }}
                   >
-                    Trạng thái: Chờ thanh toán
+                    Trạng thái: {paymentStatus === "pending" ? "Chờ thanh toán" : "Thanh toán thất bại"}
                   </Tag>
+                  <div>
+                    <Button
+                      type="primary"
+                      size="middle"
+                      onClick={() => {
+                        navigate("/bookings/payment-method", {
+                          state: {
+                            bookingId: booking.id,
+                            bookingInfo: booking,
+                          },
+                        });
+                      }}
+                      style={{
+                        background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                        borderColor: "transparent",
+                      }}
+                    >
+                      {paymentStatus === "pending" ? "Thanh toán ngay" : "Thanh toán lại"}
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
