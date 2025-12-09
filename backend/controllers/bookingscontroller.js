@@ -59,42 +59,28 @@ export const getBookingById = async (req, res) => {
       booking.check_out = booking.items[0].check_out;
     }
 
-    // Calculate total prices
-    // Use room_types.price for each item
-    booking.total_room_price = booking.items.reduce((sum, item) => {
-      // Assume item.room_type_id is available, otherwise fetch from DB
-      const roomTypePrice = item.room_type_price || item.room_price || 0;
-      return sum + Number(roomTypePrice);
-    }, 0);
-    booking.total_service_price = booking.services.reduce(
-      (sum, service) => sum + Number(service.total_service_price || 0),
-      0
-    );
+    // Nếu DB chưa có total_room_price/total_service_price (old data), tính lại
+    if (!booking.total_room_price) {
+      booking.total_room_price = booking.items.reduce((sum, item) => {
+        return sum + Number(item.room_type_price || 0);
+      }, 0);
+    }
+
+    if (!booking.total_service_price) {
+      booking.total_service_price = booking.services.reduce(
+        (sum, service) => sum + Number(service.total_service_price || 0),
+        0
+      );
+    }
+
+    // Total amount (before discount)
     booking.total_amount =
       booking.total_room_price + booking.total_service_price;
-    
-    // Kiểm tra xem có mã giảm giá không (lưu trong notes)
-    let discountInfo = null;
-    if (booking.notes) {
-      const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
-      if (discountMatch) {
-        try {
-          discountInfo = JSON.parse(discountMatch[1]);
-          booking.promo_code = discountInfo.promo_code;
-          booking.discount_amount = discountInfo.discount_amount;
-          booking.original_total = discountInfo.original_total;
-        } catch (e) {
-          console.error("Error parsing discount info:", e);
-        }
-      }
+
+    // Nếu chưa có original_total, set bằng total_amount
+    if (!booking.original_total) {
+      booking.original_total = booking.total_amount;
     }
-    
-    // Nếu có mã giảm giá, dùng total_price từ DB (đã được áp dụng giảm giá)
-    // Nếu không có, tính lại từ total_amount
-    if (!discountInfo) {
-      booking.total_price = booking.total_amount;
-    }
-    // Nếu có discountInfo, booking.total_price đã đúng từ DB (giá sau giảm)
 
     res.json({
       success: true,
@@ -198,7 +184,7 @@ export const createBooking = async (req, res) => {
     // Tăng usage count cho mã giảm giá nếu có
     // promo_code có thể ở payload.promo_code hoặc trong notes
     let promoCodeToIncrement = payload.promo_code;
-    
+
     // Nếu không có trong payload, thử parse từ notes
     if (!promoCodeToIncrement && booking.notes) {
       try {
@@ -208,22 +194,36 @@ export const createBooking = async (req, res) => {
           promoCodeToIncrement = discountInfo.promo_code;
         }
       } catch (parseErr) {
-        console.warn(`[Booking] Could not parse promo_code from notes:`, parseErr);
+        console.warn(
+          `[Booking] Could not parse promo_code from notes:`,
+          parseErr
+        );
       }
     }
-    
+
     if (promoCodeToIncrement) {
       try {
-        const updatedDiscount = await modelIncrementUsageCount(promoCodeToIncrement);
-        console.log(`[Booking] Incremented usage count for discount code: ${promoCodeToIncrement}`);
-        console.log(`[Booking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+        const updatedDiscount = await modelIncrementUsageCount(
+          promoCodeToIncrement
+        );
+        console.log(
+          `[Booking] Incremented usage count for discount code: ${promoCodeToIncrement}`
+        );
+        console.log(
+          `[Booking] New usage count: ${updatedDiscount?.used_count || "N/A"}`
+        );
       } catch (discountErr) {
-        console.error(`[Booking] Error incrementing usage count for ${promoCodeToIncrement}:`, discountErr);
+        console.error(
+          `[Booking] Error incrementing usage count for ${promoCodeToIncrement}:`,
+          discountErr
+        );
         console.error(`[Booking] Error details:`, discountErr.message);
         // Không fail booking nếu lỗi increment usage count
       }
     } else {
-      console.log(`[Booking] No promo_code found in payload or notes, skipping usage count increment`);
+      console.log(
+        `[Booking] No promo_code found in payload or notes, skipping usage count increment`
+      );
     }
 
     // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
@@ -401,27 +401,40 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
-      
+
       // Tăng usage count cho mã giảm giá nếu thanh toán thành công
       if (payment_status === "paid") {
         try {
           const booking = await modelGetBookingById(id);
           if (booking && booking.notes) {
-            const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
+            const discountMatch = booking.notes.match(
+              /\[Discount: ({[^}]+})\]/
+            );
             if (discountMatch) {
               const discountInfo = JSON.parse(discountMatch[1]);
               if (discountInfo.promo_code) {
-                const updatedDiscount = await modelIncrementUsageCount(discountInfo.promo_code);
-                console.log(`[UpdateMyBooking] Incremented usage count for discount code: ${discountInfo.promo_code}`);
-                console.log(`[UpdateMyBooking] New usage count: ${updatedDiscount?.used_count || 'N/A'}`);
+                const updatedDiscount = await modelIncrementUsageCount(
+                  discountInfo.promo_code
+                );
+                console.log(
+                  `[UpdateMyBooking] Incremented usage count for discount code: ${discountInfo.promo_code}`
+                );
+                console.log(
+                  `[UpdateMyBooking] New usage count: ${
+                    updatedDiscount?.used_count || "N/A"
+                  }`
+                );
               }
             }
           }
         } catch (discountErr) {
-          console.error("[UpdateMyBooking] Error incrementing usage count:", discountErr);
+          console.error(
+            "[UpdateMyBooking] Error incrementing usage count:",
+            discountErr
+          );
           // Không fail update nếu lỗi increment usage count
         }
-        
+
         // Gửi email xác nhận nếu đã thanh toán thành công
         try {
           const booking = await modelGetBookingById(id);

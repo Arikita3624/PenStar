@@ -7,12 +7,23 @@ export const getRoomTypes = async () => {
       rt.name,
       rt.description,
       rt.created_at,
-      rt.max_adults,
-      rt.max_children,
       rt.capacity,
+      rt.area,
+      rt.room_size,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
       rt.devices_id,
+      rt.bed_type,
+      rt.view_direction,
+      rt.safety_info,
+      rt.free_amenities,
+      rt.paid_amenities,
+      rt.base_adults,
+      rt.base_children,
+      rt.extra_adult_fee,
+      rt.extra_child_fee,
+      rt.child_age_limit,
+      rt.policies,
       d.id as device_id,
       d.name as device_name,
       d.type as device_type,
@@ -23,6 +34,23 @@ export const getRoomTypes = async () => {
       SELECT * FROM devices WHERE id = ANY(rt.devices_id)
     ) d ON TRUE
   `);
+
+  // Get all room type images
+  const imagesResult = await pool.query(`
+    SELECT room_type_id, image_url, is_thumbnail
+    FROM room_type_images
+    ORDER BY room_type_id, is_thumbnail DESC, id ASC
+  `);
+
+  // Group images by room_type_id
+  const imagesByRoomType = {};
+  for (const img of imagesResult.rows) {
+    if (!imagesByRoomType[img.room_type_id]) {
+      imagesByRoomType[img.room_type_id] = [];
+    }
+    imagesByRoomType[img.room_type_id].push(img.image_url);
+  }
+
   // Group devices for each room type
   const roomTypes = {};
   for (const row of result.rows) {
@@ -32,12 +60,23 @@ export const getRoomTypes = async () => {
         name: row.name,
         description: row.description,
         created_at: row.created_at,
-        max_adults: row.max_adults,
-        max_children: row.max_children,
         capacity: row.capacity,
+        area: row.area || row.room_size,
         thumbnail: row.thumbnail,
+        images: imagesByRoomType[row.id] || [],
         price: row.price,
         devices_id: row.devices_id,
+        bed_type: row.bed_type,
+        view_direction: row.view_direction,
+        safety_info: row.safety_info,
+        free_amenities: row.free_amenities,
+        paid_amenities: row.paid_amenities,
+        base_adults: row.base_adults,
+        base_children: row.base_children,
+        extra_adult_fee: row.extra_adult_fee,
+        extra_child_fee: row.extra_child_fee,
+        child_age_limit: row.child_age_limit,
+        policies: row.policies,
         devices: [],
       };
     }
@@ -96,6 +135,17 @@ export const getRoomTypeById = async (id) => {
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
       rt.devices_id,
+      rt.bed_type,
+      rt.view_direction,
+      rt.safety_info,
+      rt.free_amenities,
+      rt.paid_amenities,
+      rt.base_adults,
+      rt.base_children,
+      rt.extra_adult_fee,
+      rt.extra_child_fee,
+      rt.child_age_limit,
+      rt.policies,
       d.id as device_id,
       d.name as device_name,
       d.type as device_type,

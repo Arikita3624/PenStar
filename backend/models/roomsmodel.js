@@ -169,17 +169,16 @@ export const searchAvailableRooms = async ({
     : ["available"];
 
   let query = `
-    SELECT DISTINCT r.*, rt.name as type_name, rt.max_adults, rt.max_children, rt.capacity
+    SELECT DISTINCT r.*, rt.name as type_name, rt.capacity
     FROM rooms r
     LEFT JOIN room_types rt ON r.type_id = rt.id
     WHERE r.status = ANY($1)
       AND rt.capacity >= $2
-      AND rt.max_adults >= $3
   `;
 
-  const params = [statusList, totalGuests, num_adults];
+  const params = [statusList, totalGuests];
   console.log("📦 Initial params:", params);
-  let paramIndex = 4;
+  let paramIndex = 3;
 
   // Filter theo loại phòng nếu có
   if (room_type_id) {

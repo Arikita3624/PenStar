@@ -76,7 +76,10 @@ export const autoAssignRooms = async (
     }
 
     // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
-    const maxCapacity = Math.min(roomType.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+    const maxCapacity = Math.min(
+      roomType.capacity || MAX_GUESTS_DEFAULT,
+      MAX_GUESTS_DEFAULT
+    );
     if (totalGuests > maxCapacity) {
       throw new Error(
         `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${roomType.name}".`
@@ -298,7 +301,10 @@ export const createBooking = async (data) => {
         }
 
         // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
-        const maxCapacity = Math.min(type.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+        const maxCapacity = Math.min(
+          type.capacity || MAX_GUESTS_DEFAULT,
+          MAX_GUESTS_DEFAULT
+        );
         if (totalGuests > maxCapacity) {
           throw new Error(
             `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
@@ -340,30 +346,42 @@ export const createBooking = async (data) => {
       }
     }
 
-    // Lưu thông tin mã giảm giá vào notes nếu có
-    let finalNotes = notes || null;
-    if (data.promo_code) {
-      const discountInfo = {
-        promo_code: data.promo_code,
-        discount_amount: data.discount_amount || null,
-        original_total: data.original_total || total_price,
-      };
-      finalNotes = finalNotes 
-        ? `${finalNotes}\n[Discount: ${JSON.stringify(discountInfo)}]`
-        : `[Discount: ${JSON.stringify(discountInfo)}]`;
-    }
-    
-    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, notes, created_at, is_refunded)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), FALSE) RETURNING *`;
+    // Tính total_room_price và total_service_price
+    const total_room_price = Array.isArray(data.items)
+      ? data.items.reduce((sum, item) => sum + (item.room_type_price || 0), 0)
+      : 0;
+
+    const total_service_price = Array.isArray(data.services)
+      ? data.services.reduce((sum, s) => sum + (s.total_service_price || 0), 0)
+      : 0;
+
+    // Xử lý discount
+    const discount_amount = data.discount_amount || 0;
+    const original_total =
+      data.original_total || total_room_price + total_service_price;
+    const promo_code = data.promo_code || null;
+
+    const insertBookingText = `INSERT INTO bookings (
+      customer_name, total_price, payment_status, payment_method, booking_method, 
+      stay_status_id, user_id, notes, promo_code, 
+      total_room_price, total_service_price, discount_amount, original_total,
+      created_at, is_refunded
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), FALSE) RETURNING *`;
+
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
-      total_price, // Đã được áp dụng mã giảm giá nếu có
+      total_price, // Giá sau giảm
       payment_status,
-      data.payment_method || null, // Phương thức thanh toán (optional)
+      data.payment_method || null,
       booking_method,
       stay_status_id,
       user_id,
-      finalNotes, // Ghi chú từ khách hàng + thông tin mã giảm giá
+      notes || null, // Ghi chú từ khách hàng
+      promo_code,
+      total_room_price,
+      total_service_price,
+      discount_amount,
+      original_total,
     ]);
     const booking = bookingRes.rows[0];
 
