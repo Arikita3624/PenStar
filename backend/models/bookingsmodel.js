@@ -56,7 +56,7 @@ export const autoAssignRooms = async (
   try {
     // Validate guest numbers trước khi tìm phòng
     const typeCheck = await client.query(
-      `SELECT max_adults, max_children, capacity, name FROM room_types WHERE id = $1`,
+      `SELECT base_adults, base_children, capacity, name FROM room_types WHERE id = $1`,
       [roomTypeId]
     );
 
@@ -86,14 +86,7 @@ export const autoAssignRooms = async (
       );
     }
 
-    // Kiểm tra 3: Số người lớn không vượt quy định (an toàn, tuân thủ)
-    if (numAdults > roomType.max_adults) {
-      throw new Error(
-        `Số người lớn (${numAdults}) vượt quá quy định (${roomType.max_adults}) cho loại phòng "${roomType.name}".`
-      );
-    }
-
-    // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình có nhiều trẻ em
+    // ✅ KHÔNG kiểm tra giới hạn người lớn/trẻ em - linh hoạt với phụ phí
     // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
 
     console.log(`[DEBUG autoAssignRooms] Excluding room IDs:`, excludeRoomIds);
@@ -107,11 +100,10 @@ export const autoAssignRooms = async (
       WHERE r.type_id = $1
         AND r.status = 'available'
         AND rt.capacity >= $2
-        AND rt.max_adults >= $3
         ${
           excludeRoomIds.length > 0
             ? `AND r.id NOT IN (${excludeRoomIds
-                .map((_, i) => `$${7 + i}`)
+                .map((_, i) => `$${6 + i}`)
                 .join(",")})`
             : ""
         }
@@ -120,20 +112,19 @@ export const autoAssignRooms = async (
           JOIN bookings b ON bi.booking_id = b.id
           WHERE bi.room_id = r.id
             AND b.stay_status_id IN (1, 2, 3)
-            AND NOT (
-              bi.check_out::date <= $4::date 
-              OR bi.check_in::date >= $5::date
+            AND (
+              bi.check_in::date < $4::date 
+              AND bi.check_out::date > $3::date
             )
         )
       ORDER BY r.name ASC
-      LIMIT $6
+      LIMIT $5
     `;
 
     // Build params array
     const params = [
       roomTypeId,
       totalGuests,
-      numAdults,
       checkIn,
       checkOut,
       quantity,
@@ -283,7 +274,7 @@ export const createBooking = async (data) => {
 
         // Check 2: Validate guest numbers against room type
         const typeRes = await client.query(
-          `SELECT max_adults, max_children, name FROM room_types WHERE id = $1`,
+          `SELECT base_adults, base_children, name FROM room_types WHERE id = $1`,
           [room.type_id]
         );
         if (typeRes.rows.length === 0) {
@@ -311,14 +302,8 @@ export const createBooking = async (data) => {
           );
         }
 
-        // Kiểm tra 3: Số người lớn <= max_adults
-        if (num_adults > type.max_adults) {
-          throw new Error(
-            `Số người lớn (${num_adults}) vượt quá quy định (${type.max_adults}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
-          );
-        }
-
-        // ✅ KHÔNG kiểm tra max_children - linh hoạt cho gia đình
+        // ✅ KHÔNG kiểm tra strict base_adults/base_children - cho phép đặt với phụ phí
+        // Frontend sẽ tính extra_adult_fee và extra_child_fee tự động
         // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
 
         // Check 3: Room availability in booking time range

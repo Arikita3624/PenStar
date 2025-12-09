@@ -3,13 +3,18 @@ export type PaymentMethod = "cash" | "card" | "transfer" | "momo" | "vnpay";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
 export type CreatePaymentParams = {
+  bookingId: number;
   amount: number;
+  orderInfo?: string;
   language?: string;
   returnUrl?: string;
 };
 
 export type CreatePaymentResponse = {
-  paymentUrl: string; // VNPay URL
+  paymentUrl: string | null;
+  data?: {
+    paymentUrl: string | null;
+  };
 };
 
 export type PaymentResultParams = {

@@ -5,9 +5,19 @@ export type BookingItem = {
   check_out: string;
   room_price: number;
   room_type_price?: number;
-  num_adults?: number;
-  num_children?: number;
+  num_adults: number;
+  num_children: number;
+  num_babies?: number;
   special_requests?: string;
+  // Các trường phụ phí và chi tiết phòng
+  base_price?: number;
+  extra_fees?: number;
+  extra_adult_fees?: number;
+  extra_child_fees?: number;
+  extra_adults_count?: number;
+  extra_children_count?: number;
+  room_type_id?: number;
+  room_type_name?: string;
 };
 
 export interface BookingRoom {
@@ -19,7 +29,7 @@ export interface BookingRoom {
   num_children: number;
   num_babies?: number;
   extra_fees?: number; // Tổng phụ phí
-  base_price?: number; // Giá gốc (trước khi cộng phụ phí)
+  base_price?: number;
   extra_adult_fees?: number; // Phụ phí người lớn
   extra_child_fees?: number; // Phụ phí trẻ em
   extra_adults_count?: number; // Số người lớn thêm

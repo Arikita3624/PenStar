@@ -1,16 +1,6 @@
 import React from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
-import {
-  Card,
-  Button,
-  Descriptions,
-  List,
-  Spin,
-  Tag,
-  Space,
-  message,
-  Modal,
-} from "antd";
+import { Button, List, Spin, Tag, message, Modal } from "antd";
 import { cancelBooking, getBookingById } from "@/services/bookingsApi";
 import type { Booking, BookingService } from "@/types/bookings";
 import { getServiceById } from "@/services/servicesApi";
@@ -30,7 +20,7 @@ const BookingSuccess: React.FC = () => {
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
 
   const [booking, setBooking] = React.useState<Booking | null>(initial);
-  const [loading, setLoading] = React.useState(!initial); // Không loading nếu đã có initial data
+  const [loading, setLoading] = React.useState(!initial);
   const [updating, setUpdating] = React.useState(false);
   const [services, setServices] = React.useState<
     Record<number, { name: string; price: number }>
@@ -42,8 +32,6 @@ const BookingSuccess: React.FC = () => {
     try {
       const data = await getBookingById(Number(id));
       setBooking(data);
-
-      // Fetch service details - lazy load, không chặn UI
       if (Array.isArray(data.services) && data.services.length > 0) {
         const serviceIds = Array.from(
           new Set(
@@ -52,8 +40,6 @@ const BookingSuccess: React.FC = () => {
               .filter((id): id is number => id != null)
           )
         );
-
-        // Fetch services song song nhưng không chặn rendering
         Promise.all(serviceIds.map((sid: number) => getServiceById(sid)))
           .then((serviceResults) => {
             const serviceMap: Record<number, { name: string; price: number }> =
@@ -77,27 +63,17 @@ const BookingSuccess: React.FC = () => {
 
   React.useEffect(() => {
     if (!id) return;
-
-    // Nếu đã có initial booking từ state, hiển thị ngay
     if (initial && initial.id && String(initial.id) === id) {
       setBooking(initial);
       setLoading(false);
-
-      // Fetch lại ở background để đảm bảo data mới nhất (đặc biệt là payment_status sau khi thanh toán)
-      // Nhưng không chặn UI - user thấy ngay thông tin
       setTimeout(() => {
         fetchBooking();
       }, 100);
     } else {
-      // Không có initial data, fetch ngay
       fetchBooking();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Chỉ depend vào id để tránh loop
-
-  // Đã chuyển logic check-in sang phía admin. Người dùng không thể tự check-in.
-
-  // chuyển logic check-out sang admin. Người dùng không thể tự check-out.
+  }, [id]);
 
   const handleCancel = async () => {
     if (!booking?.id) return;
@@ -131,7 +107,6 @@ const BookingSuccess: React.FC = () => {
   const getStatusDisplay = (statusId?: number, statusName?: string) => {
     const name = statusName || "";
     const id = statusId || 0;
-    // 1=reserved, 2=checked_in, 3=checked_out, 4=cancelled, 5=no_show, 6=pending
     if (id === 6) return <Tag color="warning">Đang đợi xác nhận</Tag>;
     if (id === 1) return <Tag color="blue">Đã xác nhận</Tag>;
     if (id === 2) return <Tag color="green">Đã Check-in</Tag>;
@@ -152,12 +127,7 @@ const BookingSuccess: React.FC = () => {
 
   const statusId = booking?.stay_status_id || 0;
   const paymentStatus = booking?.payment_status || "";
-
-  // Có thể hủy khi: pending (6) HOẶC reserved (1)
-  // Backend sẽ kiểm tra thêm điều kiện 24h
   const canCancel = statusId === 6 || statusId === 1;
-
-  // Tính tổng số người lớn và trẻ em từ tất cả các phòng
   const totalAdults = Array.isArray(booking?.items)
     ? booking!.items.reduce((sum, item) => sum + (item.num_adults || 0), 0)
     : 0;
@@ -166,389 +136,406 @@ const BookingSuccess: React.FC = () => {
     : 0;
 
   return (
-    <div className="bg-gray-50 py-6">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header - Compact */}
-        <div
-          className="relative py-3 mb-3 rounded-xl overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-          }}
-        >
-          <div className="text-center relative z-10">
-            <h1
-              className="text-xl font-bold text-white mb-1"
-              style={{ textShadow: "0 2px 10px rgba(0,0,0,0.2)" }}
-            >
-              Chi tiết đặt phòng
-            </h1>
-            <div className="flex justify-center items-center gap-2">
-              <span
-                className="text-white text-sm"
-                style={{ textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}
-              >
-                Booking #{booking?.id ?? id ?? "-"}
-              </span>
-              {getStatusDisplay(
-                booking?.stay_status_id,
-                booking?.stay_status_name
-              )}
-            </div>
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-800 text-center">
+            Thông tin đặt phòng
+          </h1>
+          <div className="text-center mt-2">
+            <span className="text-gray-600">
+              Booking #{booking?.id ?? id ?? "-"}
+            </span>
+            <span className="mx-2">•</span>
+            {getStatusDisplay(
+              booking?.stay_status_id,
+              booking?.stay_status_name
+            )}
           </div>
         </div>
-
-        <Card
-          className="rounded-xl overflow-hidden border-0"
-          style={{
-            boxShadow: "0 2px 12px rgba(0, 0, 0, 0.06)",
-          }}
-        >
-          <div className="space-y-4">
-            {/* Status Messages */}
-            {statusId === 6 && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(245,158,11,0.1) 100%)",
-                  border: "1px solid rgba(251,191,36,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">⏳</span>
-                  <div>
-                    <div className="font-bold text-base text-yellow-700 mb-0.5">
-                      Đang chờ xác nhận
-                    </div>
-                    <div className="text-gray-700 text-sm">
-                      Booking của bạn đang chờ admin xác nhận. Bạn có thể hủy
-                      booking nếu muốn.
-                    </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-6">
+          {statusId === 6 && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">⏳</span>
+                <div>
+                  <div className="font-bold text-yellow-800 mb-1">
+                    Đang chờ xác nhận
+                  </div>
+                  <div className="text-yellow-700 text-sm">
+                    Booking của bạn đang chờ admin xác nhận. Bạn có thể hủy
+                    booking nếu muốn.
                   </div>
                 </div>
               </div>
-            )}
-            {statusId === 1 && paymentStatus !== "paid" && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(249,115,22,0.1) 0%, rgba(234,88,12,0.1) 100%)",
-                  border: "1px solid rgba(249,115,22,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">💳</span>
-                  <div>
-                    <div className="font-bold text-base text-orange-700 mb-0.5">
-                      Chờ thanh toán
-                    </div>
-                    <div className="text-gray-700 text-sm">
-                      Booking đã được xác nhận! Vui lòng thanh toán để có thể
-                      check-in. Bạn có thể hủy booking trước khi thanh toán.
-                      <br />
-                      <strong className="text-orange-800">
-                        Trạng thái thanh toán: {paymentStatus?.toUpperCase()}
-                      </strong>
-                    </div>
+            </div>
+          )}
+          {statusId === 1 && paymentStatus !== "paid" && (
+            <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">💳</span>
+                <div>
+                  <div className="font-bold text-orange-800 mb-1">
+                    Chờ thanh toán
+                  </div>
+                  <div className="text-orange-700 text-sm">
+                    Booking đã được xác nhận! Vui lòng thanh toán để có thể
+                    check-in.
                   </div>
                 </div>
               </div>
-            )}
-            {statusId === 1 && paymentStatus === "paid" && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(37,99,235,0.1) 100%)",
-                  border: "1px solid rgba(59,130,246,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">✅</span>
-                  <div>
-                    <div className="font-bold text-base text-blue-700 mb-0.5">
-                      Đã xác nhận và thanh toán
-                    </div>
-                    <div className="text-gray-700 text-sm">
-                      Booking đã được xác nhận và thanh toán! Bạn có thể
-                      check-in khi đến phòng.
-                    </div>
+            </div>
+          )}
+          {statusId === 1 && paymentStatus === "paid" && (
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <div className="font-bold text-blue-800 mb-1">
+                    Đã xác nhận và thanh toán
+                  </div>
+                  <div className="text-blue-700 text-sm">
+                    Booking đã được xác nhận và thanh toán! Bạn có thể check-in
+                    khi đến phòng.
                   </div>
                 </div>
               </div>
-            )}
-            {statusId === 2 && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(22,163,74,0.1) 100%)",
-                  border: "1px solid rgba(34,197,94,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">🏠</span>
-                  <div>
-                    <div className="font-bold text-base text-green-700 mb-0.5">
-                      Đã check-in
-                    </div>
-                    <div className="text-gray-700 text-sm">
-                      Bạn đã check-in. Chúc bạn có kỳ nghỉ vui vẻ!
-                    </div>
+            </div>
+          )}
+          {statusId === 2 && (
+            <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🏠</span>
+                <div>
+                  <div className="font-bold text-green-800 mb-1">
+                    Đã check-in
+                  </div>
+                  <div className="text-green-700 text-sm">
+                    Bạn đã check-in. Chúc bạn có kỳ nghỉ vui vẻ!
                   </div>
                 </div>
               </div>
-            )}
-            {statusId === 3 && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(156,163,175,0.1) 0%, rgba(107,114,128,0.1) 100%)",
-                  border: "1px solid rgba(156,163,175,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">👋</span>
-                  <div>
-                    <div className="font-bold text-base text-gray-700 mb-0.5">
-                      Đã check-out
-                    </div>
+            </div>
+          )}
+          {statusId === 4 && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">❌</span>
+                <div>
+                  <div className="font-bold text-red-800 mb-1">
+                    Booking đã hủy
+                  </div>
+                  <div className="text-red-700 text-sm">
+                    Booking đã bị hủy. Phòng đã trở về trạng thái Available.
+                    {booking?.is_refunded && (
+                      <span className="block mt-1 text-purple-600 font-semibold">
+                        💰 Tiền đã được hoàn lại
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-            )}
-            {statusId === 4 && (
-              <div
-                className="p-3 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(220,38,38,0.1) 100%)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">❌</span>
-                  <div>
-                    <div className="font-bold text-base text-red-700 mb-0.5">
-                      Booking đã hủy
-                    </div>
-                    <div className="text-gray-700 text-sm">
-                      Booking đã bị hủy. Phòng đã trở về trạng thái Available.
-                      {booking?.is_refunded && (
-                        <>
-                          <br />
-                          <span className="text-purple-600 font-semibold text-sm">
-                            💰 Tiền đã được hoàn lại
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
+            </div>
+          )}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+              Thông tin người đặt phòng
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Khách hàng</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.customer_name ?? "-"}
+                </span>
               </div>
-            )}
-
-            {/* Booking Details */}
-            <Descriptions bordered column={1} size="small" className="mt-4">
-              <Descriptions.Item label="Khách hàng">
-                {booking?.customer_name ?? "-"}
-              </Descriptions.Item>
-              {booking?.original_total && booking?.discount_amount ? (
-                <>
-                  <Descriptions.Item label="Tổng tiền gốc">
-                    <span style={{ textDecoration: "line-through", color: "#999" }}>
-                      {fmtPrice(booking.original_total)} VND
-                    </span>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Mã giảm giá">
-                    <Tag color="green">{booking.promo_code}</Tag>
-                    <span style={{ marginLeft: 8, color: "#52c41a", fontWeight: "bold" }}>
-                      -{fmtPrice(booking.discount_amount)} VND
-                    </span>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Tổng tiền sau giảm">
-                    <span style={{ fontSize: "16px", fontWeight: "bold", color: "#ff4d4f" }}>
-                      {fmtPrice(booking?.total_price)} VND
-                    </span>
-                  </Descriptions.Item>
-                </>
-              ) : (
-                <Descriptions.Item label="Tổng tiền">
-                  {fmtPrice(booking?.total_price)} VND
-                </Descriptions.Item>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Thời gian đặt</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.created_at
+                    ? dayjs(booking.created_at as string).format(
+                        "DD/MM/YYYY HH:mm"
+                      )
+                    : "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+              Thông tin đặt phòng
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Số phòng</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.items?.length || 0} phòng
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Số người lớn</span>
+                <span className="font-semibold text-gray-900">
+                  {totalAdults}
+                </span>
+              </div>
+              {totalChildren > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Số trẻ em</span>
+                  <span className="font-semibold text-gray-900">
+                    {totalChildren} trẻ
+                  </span>
+                </div>
               )}
-              <Descriptions.Item label="Thanh toán">
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-sm text-blue-600 flex items-start gap-2">
+                  <span>📧</span>
+                  <span>
+                    Thông tin phòng cụ thể (số phòng, tầng) đã được gửi qua
+                    email của bạn
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          {Array.isArray(booking?.services) && booking.services.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+                Dịch vụ
+              </h2>
+              <List
+                size="small"
+                dataSource={booking.services}
+                renderItem={(s: BookingService) => {
+                  const serviceInfo = services[s.service_id];
+                  return (
+                    <List.Item className="border-b-0">
+                      <div className="w-full">
+                        <div className="font-semibold text-gray-800">
+                          {serviceInfo?.name || `Dịch vụ #${s.service_id}`}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Số lượng: {s.quantity} — Giá:{" "}
+                          {fmtPrice(s.total_service_price)} VND
+                        </div>
+                      </div>
+                    </List.Item>
+                  );
+                }}
+              />
+            </div>
+          )}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+              Phương thức thanh toán
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Phương thức</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.payment_method === "vnpay" && "💰 VNPAY"}
+                  {booking?.payment_method === "momo" && "📱 Ví MoMo"}
+                  {booking?.payment_method === "cash" && "💵 Tiền mặt"}
+                  {!booking?.payment_method && "—"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Trạng thái</span>
                 <Tag
                   color={
                     paymentStatus === "paid"
                       ? "green"
                       : paymentStatus === "pending"
-                      ? "gold"
-                      : paymentStatus === "failed"
-                      ? "red"
-                      : paymentStatus === "refunded"
-                      ? "purple"
-                      : paymentStatus === "cancelled"
-                      ? "red"
-                      : "default"
+                        ? "gold"
+                        : paymentStatus === "failed"
+                          ? "red"
+                          : paymentStatus === "refunded"
+                            ? "purple"
+                            : "default"
                   }
                 >
                   {paymentStatus?.toUpperCase() || "-"}
                 </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Phương thức thanh toán">
-                {booking?.payment_method === "vnpay" && "💰 VNPAY"}
-                {booking?.payment_method === "momo" && "📱 Ví MoMo"}
-                {booking?.payment_method === "cash" && "💵 Tiền mặt"}
-                {!booking?.payment_method && "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="Phương thức đặt phòng">
-                {booking?.booking_method === "online"
-                  ? "🌐 Online"
-                  : "🏨 Trực tiếp"}
-              </Descriptions.Item>
-              {booking?.is_refunded && (
-                <Descriptions.Item label="Trạng thái hoàn tiền">
-                  <Tag color="purple">✓ Đã hoàn tiền</Tag>
-                </Descriptions.Item>
-              )}
-              <Descriptions.Item label="Thời gian đặt">
-                {booking?.created_at
-                  ? dayjs(booking.created_at as string).format(
-                      "DD/MM/YYYY HH:mm"
-                    )
-                  : "-"}
-              </Descriptions.Item>
-            </Descriptions>
-            <div className="mt-3">
-              <h3 className="mb-1.5 font-semibold text-sm">
-                Thông tin đặt phòng
-              </h3>
-              <Card size="small" className="bg-blue-50 border-blue-200">
-                <Space direction="vertical" className="w-full">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Số phòng:</span>
-                    <span className="font-semibold">
-                      {booking?.items?.length || 0} phòng
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Số người lớn:</span>
-                    <span className="font-semibold">{totalAdults}</span>
-                  </div>
-                  {totalChildren > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Số trẻ em:</span>
-                      <span className="font-semibold">{totalChildren} trẻ</span>
-                    </div>
-                  )}
-                  <div className="pt-2 border-t border-blue-200">
-                    <p className="text-xs text-blue-800 flex items-start gap-2">
-                      <span>📧</span>
-                      <span>
-                        <strong>Thông tin phòng cụ thể</strong> (số phòng, tầng)
-                        đã được gửi qua email của bạn
-                      </span>
-                    </p>
-                  </div>
-                </Space>
-              </Card>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Đặt phòng</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.booking_method === "online"
+                    ? "🌐 Online"
+                    : "🏨 Trực tiếp"}
+                </span>
+              </div>
             </div>
-            {Array.isArray(booking?.services) &&
-              booking.services.length > 0 && (
-                <div className="mt-3">
-                  <h3 className="mb-1.5 font-semibold text-sm">Dịch vụ</h3>
-                  <List
-                    size="small"
-                    dataSource={booking.services}
-                    renderItem={(s: BookingService) => {
-                      const serviceInfo = services[s.service_id];
-                      return (
-                        <List.Item>
-                          <div className="text-sm">
-                            <div className="font-semibold">
-                              {serviceInfo?.name || `Dịch vụ #${s.service_id}`}
-                            </div>
-                            <div>
-                              Số lượng: {s.quantity} — Giá:{" "}
-                              {fmtPrice(s.total_service_price)} VND
-                            </div>
-                          </div>
-                        </List.Item>
-                      );
+            {booking?.id &&
+              (paymentStatus === "pending" || paymentStatus === "failed") && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm text-gray-600 mb-3 text-center">
+                    {paymentStatus === "pending"
+                      ? `Vui lòng thanh toán ${fmtPrice(booking.total_price)} VND`
+                      : `Thanh toán thất bại. Vui lòng thử lại`}
+                  </p>
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    onClick={() => {
+                      navigate("/bookings/payment-method", {
+                        state: { bookingId: booking.id, bookingInfo: booking },
+                      });
                     }}
-                  />
+                    style={{
+                      backgroundColor: "#eab308",
+                      borderColor: "#eab308",
+                      height: "48px",
+                    }}
+                  >
+                    {paymentStatus === "pending"
+                      ? "THANH TOÁN NGAY"
+                      : "THANH TOÁN LẠI"}
+                  </Button>
                 </div>
               )}
-
-            {/* Thông báo thanh toán và nút thanh toán lại */}
-            {booking?.id && (paymentStatus === "pending" || paymentStatus === "failed") && (
-              <Card
-                title="💳 Thanh toán"
-                style={{ marginTop: 16 }}
-                bordered
-                size="small"
-              >
-                <div style={{ textAlign: "center", padding: "12px 0" }}>
-                  <p style={{ fontSize: 14, marginBottom: 12 }}>
-                    {paymentStatus === "pending" 
-                      ? `Vui lòng thanh toán ${fmtPrice(booking.total_price)} khi đến khách sạn`
-                      : `Thanh toán thất bại. Vui lòng thanh toán lại ${fmtPrice(booking.total_price)}`}
-                  </p>
-                  <Tag
-                    color={paymentStatus === "pending" ? "warning" : "error"}
-                    style={{ fontSize: 13, padding: "6px 12px", marginBottom: 12 }}
-                  >
-                    Trạng thái: {paymentStatus === "pending" ? "Chờ thanh toán" : "Thanh toán thất bại"}
-                  </Tag>
-                  <div>
-                    <Button
-                      type="primary"
-                      size="middle"
-                      onClick={() => {
-                        navigate("/bookings/payment-method", {
-                          state: {
-                            bookingId: booking.id,
-                            bookingInfo: booking,
-                          },
-                        });
-                      }}
-                      style={{
-                        background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
-                        borderColor: "transparent",
-                      }}
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+              Chi tiết phòng đã đặt
+            </h2>
+            <div className="space-y-4">
+              {Array.isArray(booking?.items) && booking.items.length > 0 ? (
+                booking.items.map((item, idx) => {
+                  // Calculate surcharge using correct fields
+                  const surcharge =
+                    (item.extra_fees || 0) +
+                    (item.extra_adult_fees || 0) +
+                    (item.extra_child_fees || 0);
+                  return (
+                    <div
+                      key={idx}
+                      className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0"
                     >
-                      {paymentStatus === "pending" ? "Thanh toán ngay" : "Thanh toán lại"}
-                    </Button>
-                  </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-semibold text-gray-800">
+                          Phòng {idx + 1}
+                        </span>
+                        <span className="text-gray-600">
+                          ID phòng: {item.room_id}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Số người lớn: {item.num_adults || 0}</span>
+                        <span>Số trẻ em: {item.num_children || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Giá phụ phí</span>
+                        <span className="font-semibold text-red-600">
+                          {fmtPrice(surcharge)} VND
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Giá phòng</span>
+                        <span className="font-semibold text-gray-900">
+                          {fmtPrice(item.room_type_price || item.room_price)}{" "}
+                          VND
+                        </span>
+                      </div>
+                      {item.special_requests && (
+                        <div className="text-xs text-gray-500 italic mt-1">
+                          {item.special_requests}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-gray-500">
+                  Không có phòng nào được đặt.
                 </div>
-              </Card>
-            )}
-
-            <div className="flex justify-between mt-4">
-              <Button size="middle" onClick={() => navigate("/my-bookings")}>
-                Xem booking của tôi
-              </Button>
-              <Space size="small">
-                {canCancel && (
-                  <Button
-                    danger
-                    size="middle"
-                    onClick={handleCancel}
-                    loading={updating}
-                  >
-                    Hủy booking
-                  </Button>
-                )}
-                <Button size="middle" onClick={() => navigate("/")}>
-                  Về trang chủ
-                </Button>
-              </Space>
+              )}
             </div>
           </div>
-        </Card>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b">
+              Chi tiết thanh toán
+            </h2>
+            {booking?.original_total && booking?.discount_amount ? (
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tổng tiền gốc</span>
+                  <span className="line-through text-gray-400">
+                    {fmtPrice(booking.original_total)} VND
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Mã giảm giá</span>
+                  <div className="text-right">
+                    <Tag color="green">{booking.promo_code}</Tag>
+                    <span className="ml-2 text-green-600 font-semibold">
+                      -{fmtPrice(booking.discount_amount)} VND
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-3 border-t flex justify-between items-baseline">
+                  <span className="text-lg font-bold text-gray-800">
+                    Tổng giá
+                  </span>
+                  <span className="text-2xl font-bold text-yellow-600">
+                    {fmtPrice(booking?.total_price)} VND
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-bold text-gray-800">
+                  Tổng giá
+                </span>
+                <span className="text-2xl font-bold text-yellow-600">
+                  {fmtPrice(booking?.total_price)} VND
+                </span>
+              </div>
+            )}
+            {booking?.is_refunded && (
+              <div className="mt-4 pt-4 border-t">
+                <Tag color="purple" className="w-full text-center">
+                  ✓ Đã hoàn tiền
+                </Tag>
+              </div>
+            )}
+            {/* Action Buttons sau phần giá */}
+            <div className="flex gap-4 mt-8 justify-end">
+              {canCancel && (
+                <Button
+                  type="primary"
+                  danger
+                  size="middle"
+                  onClick={handleCancel}
+                  loading={updating}
+                  style={{
+                    height: "40px",
+                    minWidth: "120px",
+                    fontSize: "15px",
+                  }}
+                >
+                  Hủy booking
+                </Button>
+              )}
+              <Button
+                type="primary"
+                size="middle"
+                onClick={() => navigate("/")}
+                style={{
+                  backgroundColor: "#eab308",
+                  borderColor: "#eab308",
+                  color: "#fff",
+                  height: "40px",
+                  minWidth: "120px",
+                  fontSize: "15px",
+                }}
+              >
+                Về trang chủ
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

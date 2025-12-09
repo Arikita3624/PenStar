@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { message, Spin, Empty, Button, Tag, Row, Col } from "antd";
 import { searchAvailableRooms } from "@/services/roomsApi";
@@ -11,6 +11,7 @@ import { CalendarOutlined } from "@ant-design/icons";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import BookingSidebar from "@/components/common/BookingSidebar";
 import RoomTypeCard from "./RoomTypeCard";
+import dayjs from "dayjs";
 
 const RoomSearchResults = () => {
   const location = useLocation();
@@ -91,42 +92,6 @@ const RoomSearchResults = () => {
   };
 
   // ...existing code...
-
-  // Toggle room selection
-  const handleRoomSelect = useCallback(
-    (room: Room) => {
-      const isSelected = selectedRoomIds.includes(room.id);
-
-      if (isSelected) {
-        // Bỏ chọn phòng
-        setSelectedRoomIds(selectedRoomIds.filter((id) => id !== room.id));
-        setRoomsConfig(
-          roomsConfig.filter((config) => config.room_id !== room.id)
-        );
-      } else {
-        // Kiểm tra đã chọn đủ số phòng chưa
-        if (selectedRoomIds.length >= numRooms) {
-          message.warning(`Bạn chỉ được chọn tối đa ${numRooms} phòng!`);
-          return;
-        }
-
-        // Thêm phòng mới
-        setSelectedRoomIds([...selectedRoomIds, room.id]);
-        setRoomsConfig([
-          ...roomsConfig,
-          {
-            room_id: room.id,
-            num_adults: 1,
-            num_children: 0,
-            num_babies: 0,
-          },
-        ]);
-      }
-    },
-    [numRooms, roomsConfig, selectedRoomIds]
-  );
-
-  // Đã chuyển toàn bộ logic booking sang confirmedBookings và sidebar checkout
 
   // Group rooms by room type
   const roomsByType = useMemo(
@@ -268,7 +233,6 @@ const RoomSearchResults = () => {
                           }
                         });
                       }}
-                      onRoomSelect={handleRoomSelect}
                     />
                   );
                 })}
@@ -343,8 +307,23 @@ const RoomSearchResults = () => {
                             ...cfg,
                             room_type_id: booking.roomTypeId,
                             room_type_name: booking.roomTypeName,
-                            room_type_price: booking.roomPrice,
+                            // Sử dụng cfg.price (đã bao gồm phụ phí) thay vì booking.roomPrice (chỉ giá base)
+                            room_type_price: cfg.price || booking.roomPrice,
                           }))
+                      );
+
+                      // Tính tổng giá (giống BookingSidebar)
+                      const nights = dayjs(searchParams.check_out).diff(
+                        dayjs(searchParams.check_in),
+                        "day"
+                      );
+                      const totalPrice = allRoomsConfig.reduce(
+                        (sum, cfg) =>
+                          sum +
+                          (Number(cfg.base_price || cfg.price) +
+                            Number(cfg.extra_fees || 0)) *
+                            nights,
+                        0
                       );
 
                       // Chuẩn hóa cho backend: tạo mảng items
@@ -352,22 +331,25 @@ const RoomSearchResults = () => {
                         room_id: cfg.room_id,
                         num_adults: cfg.num_adults,
                         num_children: cfg.num_children,
+                        num_babies: cfg.num_babies,
                         room_type_id: cfg.room_type_id,
                         room_type_name: cfg.room_type_name,
-                        room_type_price: cfg.room_type_price,
+                        room_type_price: cfg.room_type_price, // Giá đã bao gồm phụ phí
+                        base_price: cfg.base_price, // Giá gốc
+                        extra_fees: cfg.extra_fees, // Tổng phụ phí
+                        extra_adult_fees: cfg.extra_adult_fees, // Phụ phí người lớn
+                        extra_child_fees: cfg.extra_child_fees, // Phụ phí trẻ em
+                        extra_adults_count: cfg.extra_adults_count, // Số người lớn thêm
+                        extra_children_count: cfg.extra_children_count, // Số trẻ em thêm
                         check_in: searchParams.check_in,
                         check_out: searchParams.check_out,
                       }));
 
-                      navigate("/booking/multi-create", {
+                      navigate("/bookings/confirm", {
                         state: {
                           searchParams,
-                          roomsConfig: allRoomsConfig,
-                          confirmedBookings,
-                          selectedRoomIds: allRoomsConfig.map(
-                            (cfg) => cfg.room_id
-                          ),
                           items,
+                          totalPrice, // Truyền tổng giá đã tính sẵn
                         },
                       });
                     }}

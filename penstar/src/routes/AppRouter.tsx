@@ -25,7 +25,6 @@ import RoomDetail from "@/components/pages/clients/rooms/RoomDetail";
 import RoomSearchResults from "@/components/pages/clients/rooms/RoomSearchResults";
 import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
-import MultiRoomBookingCreate from "@/components/pages/clients/bookings/MultiRoomBookingCreate";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import SignUp from "@/components/pages/clients/users/SignUp";
@@ -55,14 +54,6 @@ const AppRouter = () => {
           {/* Staff booking - Walk-in customers (staff creates for guest) */}
 
           {/* Customer bookings - CHỈ cho phép customer, chặn admin/staff */}
-          <Route
-            path="booking/multi-create"
-            element={
-              <RequireCustomerOnly>
-                <MultiRoomBookingCreate />
-              </RequireCustomerOnly>
-            }
-          />
           <Route
             path="bookings"
             element={
