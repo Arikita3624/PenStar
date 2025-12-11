@@ -1,21 +1,20 @@
 import pool from "../db.js";
 
 export const getRoomTypes = async () => {
-  const result = await pool.query(`
+  let result;
+  try {
+    result = await pool.query(`
     SELECT 
       rt.id,
       rt.name,
       rt.description,
       rt.created_at,
       rt.capacity,
-      rt.area,
       rt.room_size,
       (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
       rt.price,
-      rt.devices_id,
       rt.bed_type,
       rt.view_direction,
-      rt.safety_info,
       rt.free_amenities,
       rt.paid_amenities,
       rt.base_adults,
@@ -23,17 +22,14 @@ export const getRoomTypes = async () => {
       rt.extra_adult_fee,
       rt.extra_child_fee,
       rt.child_age_limit,
-      rt.policies,
-      d.id as device_id,
-      d.name as device_name,
-      d.type as device_type,
-      d.fee as device_fee,
-      d.description as device_description
+      rt.policies
     FROM room_types rt
-    LEFT JOIN LATERAL (
-      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
-    ) d ON TRUE
-  `);
+    `);
+    console.log("Kết quả truy vấn room_types:", result.rows);
+  } catch (err) {
+    console.error("Lỗi truy vấn room_types:", err);
+    throw err;
+  }
 
   // Get all room type images
   const imagesResult = await pool.query(`
@@ -61,14 +57,12 @@ export const getRoomTypes = async () => {
         description: row.description,
         created_at: row.created_at,
         capacity: row.capacity,
-        area: row.area || row.room_size,
+        room_size: row.room_size,
         thumbnail: row.thumbnail,
         images: imagesByRoomType[row.id] || [],
         price: row.price,
-        devices_id: row.devices_id,
         bed_type: row.bed_type,
         view_direction: row.view_direction,
-        safety_info: row.safety_info,
         free_amenities: row.free_amenities,
         paid_amenities: row.paid_amenities,
         base_adults: row.base_adults,
@@ -77,17 +71,7 @@ export const getRoomTypes = async () => {
         extra_child_fee: row.extra_child_fee,
         child_age_limit: row.child_age_limit,
         policies: row.policies,
-        devices: [],
       };
-    }
-    if (row.device_id) {
-      roomTypes[row.id].devices.push({
-        id: row.device_id,
-        name: row.device_name,
-        type: row.device_type,
-        fee: row.device_fee,
-        description: row.device_description,
-      });
     }
   }
   return Object.values(roomTypes);

@@ -87,10 +87,6 @@ const BookingDetail = () => {
       if (!booking) return;
       setLoadingExtras(true);
 
-      console.log("📦 Booking data:", booking);
-      console.log("🛎️ Booking services:", booking.services);
-      console.log("🏨 Booking items:", booking.items);
-
       try {
         const roomIds: string[] = [];
         const serviceIds: string[] = [];
@@ -879,6 +875,13 @@ const BookingDetail = () => {
                 const totalGuests = numAdults + numChildren;
                 const specialRequests = item.special_requests;
 
+                // Các trường extra
+                const extraAdultFees = item.extra_adult_fees || 0;
+                const extraChildFees = item.extra_child_fees || 0;
+                const extraFees = item.extra_fees || 0;
+                const quantity = item.quantity || 1;
+                const numBabies = item.num_babies || 0;
+
                 // Get services for this specific room
                 const roomServices =
                   booking.services?.filter(
@@ -921,8 +924,9 @@ const BookingDetail = () => {
                                 <UserOutlined /> {numAdults} người lớn
                                 {numChildren > 0
                                   ? `, ${numChildren} trẻ em`
-                                  : ""}{" "}
-                                (Tổng: {totalGuests} khách)
+                                  : ""}
+                                {numBabies > 0 ? `, ${numBabies} em bé` : ""}
+                                (Tổng: {totalGuests + numBabies} khách)
                               </Text>
                               {specialRequests && (
                                 <Text
@@ -936,13 +940,61 @@ const BookingDetail = () => {
                                   Yêu cầu: {specialRequests}
                                 </Text>
                               )}
+                              {/* Hiển thị các trường extra */}
+                              {(extraAdultFees > 0 ||
+                                extraChildFees > 0 ||
+                                extraFees > 0) && (
+                                <div style={{ marginTop: 8 }}>
+                                  <Text
+                                    type="secondary"
+                                    style={{ fontSize: 12 }}
+                                  >
+                                    <strong>Phụ phí:</strong>
+                                  </Text>
+                                  {extraAdultFees > 0 && (
+                                    <Text
+                                      type="danger"
+                                      style={{ fontSize: 12, marginLeft: 8 }}
+                                    >
+                                      Người lớn: {formatPrice(extraAdultFees)}
+                                    </Text>
+                                  )}
+                                  {extraChildFees > 0 && (
+                                    <Text
+                                      type="danger"
+                                      style={{ fontSize: 12, marginLeft: 8 }}
+                                    >
+                                      Trẻ em: {formatPrice(extraChildFees)}
+                                    </Text>
+                                  )}
+                                  {extraFees > 0 && (
+                                    <Text
+                                      type="danger"
+                                      style={{ fontSize: 12, marginLeft: 8 }}
+                                    >
+                                      Tổng phụ phí: {formatPrice(extraFees)}
+                                    </Text>
+                                  )}
+                                </div>
+                              )}
+                              {quantity > 1 && (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  Số lượng phòng: {quantity}
+                                </Text>
+                              )}
                             </Space>
                           </div>
                         </div>
                         <Text strong type="success">
                           {formatPrice(
-                            booking.items?.find((it) => it.room_id === room.id)
-                              ?.room_price || 0
+                            (() => {
+                              const found = booking.items?.find(
+                                (it) => it.room_id === room.id
+                              );
+                              const roomPrice = found?.room_price || 0;
+                              const extraFees = found?.extra_fees || 0;
+                              return roomPrice + extraFees;
+                            })()
                           )}
                         </Text>
                       </div>

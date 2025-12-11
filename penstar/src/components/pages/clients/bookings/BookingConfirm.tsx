@@ -92,7 +92,7 @@ const BookingConfirm = () => {
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(price);
+    }).format(Math.round(price));
 
   // Mutation create booking
   const createBookingMutation = useMutation({
@@ -169,7 +169,7 @@ const BookingConfirm = () => {
       return message.error("Vui lòng đồng ý với chính sách đặt phòng");
     }
 
-    // Group items theo room_type_id để tạo rooms_config cho backend
+    // Gom nhóm items theo room_type_id, num_adults, num_children để tạo rooms_config cho backend
     const roomsConfigMap: Record<string, any> = {};
 
     items.forEach((item: any) => {
@@ -183,9 +183,42 @@ const BookingConfirm = () => {
           room_type_price: Number(item.room_type_price) * nights,
           num_adults: item.num_adults,
           num_children: item.num_children,
+          // Khởi tạo các trường phụ phí
+          extra_fees: 0,
+          extra_adult_fees: 0,
+          extra_child_fees: 0,
         };
       }
       roomsConfigMap[key].quantity += 1;
+      // Cộng dồn phụ phí cho từng nhóm
+      roomsConfigMap[key].extra_fees += Number(item.extra_fees || 0) * nights;
+      roomsConfigMap[key].extra_adult_fees +=
+        Number(item.extra_adult_fees || 0) * nights;
+      roomsConfigMap[key].extra_child_fees +=
+        Number(item.extra_child_fees || 0) * nights;
+    });
+
+    // Lấy trung bình phụ phí trên mỗi phòng (nếu cần)
+    Object.values(roomsConfigMap).forEach((cfg: any) => {
+      if (cfg.quantity > 0) {
+        cfg.extra_fees = cfg.extra_fees / cfg.quantity;
+        cfg.extra_adult_fees = cfg.extra_adult_fees / cfg.quantity;
+        cfg.extra_child_fees = cfg.extra_child_fees / cfg.quantity;
+      }
+    });
+
+    // Truyền đủ các trường phụ phí vào từng item, KHÔNG truyền num_babies
+    const itemsWithFees = items.map((item: any) => {
+      const key = `${item.room_type_id}-${item.num_adults}-${item.num_children}`;
+      const config = roomsConfigMap[key];
+      // Xóa hẳn trường num_babies nếu có
+      const newItem = { ...item };
+      return {
+        ...newItem,
+        extra_fees: config?.extra_fees ?? 0,
+        extra_adult_fees: config?.extra_adult_fees ?? 0,
+        extra_child_fees: config?.extra_child_fees ?? 0,
+      };
     });
 
     const payload = {
@@ -199,7 +232,7 @@ const BookingConfirm = () => {
       payment_method: paymentMethod,
       booking_method: "online",
       stay_status_id: 6, // pending
-      rooms_config: Object.values(roomsConfigMap),
+      items: itemsWithFees,
     };
 
     console.log("📤 Payload gửi backend:", payload);
@@ -356,12 +389,15 @@ const BookingConfirm = () => {
                 <div className="space-y-3">
                   <h4 className="font-semibold">Thông tin phòng:</h4>
                   {items.map((item: any, idx: number) => {
-                    const basePrice =
-                      Number(item.base_price || item.room_type_price) * nights;
-                    const extraAdultFees =
-                      Number(item.extra_adult_fees || 0) * nights;
-                    const extraChildFees =
-                      Number(item.extra_child_fees || 0) * nights;
+                    const basePrice = Math.round(
+                      Number(item.base_price || item.room_type_price) * nights
+                    );
+                    const extraAdultFees = Math.round(
+                      Number(item.extra_adult_fees || 0) * nights
+                    );
+                    const extraChildFees = Math.round(
+                      Number(item.extra_child_fees || 0) * nights
+                    );
                     const totalExtraFees = extraAdultFees + extraChildFees;
                     const totalPerRoom = basePrice + totalExtraFees;
 

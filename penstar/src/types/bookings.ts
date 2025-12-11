@@ -108,15 +108,3 @@ export type BookingUpdatePayload = {
   is_refunded?: boolean;
   notes?: string;
 };
-
-// For multi-room booking form
-export type RoomBookingData = {
-  room_id: number;
-  num_adults: number;
-  num_children: number;
-  children_ages?: number[];
-  special_requests?: string;
-  room_type_id: number;
-  price: number;
-  room_type_price?: number;
-};

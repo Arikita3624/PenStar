@@ -14,6 +14,7 @@ import {
   HolderOutlined,
   PhoneOutlined,
   HomeOutlined,
+  FundViewOutlined,
 } from "@ant-design/icons";
 import type { RoomTypeCardProps } from "@/types/roomBooking";
 
@@ -387,7 +388,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             {roomType.name || "Loại phòng"}
                           </h3>
 
-                          {/* Thông tin giường và diện tích */}
+                          {/* Thông tin giường, diện tích, hướng nhìn */}
                           <div
                             className="flex gap-3 items-center"
                             style={{ marginBottom: "8px" }}
@@ -396,7 +397,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               className="flex items-center gap-1"
                               style={{ color: "#666", fontSize: "13px" }}
                             >
-                              <span>🛏️</span>
                               <span>
                                 {roomType.bed_type || "1 giường queen size"}
                               </span>
@@ -406,10 +406,20 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               style={{ color: "#666", fontSize: "13px" }}
                             >
                               <ExpandOutlined style={{ fontSize: "13px" }} />
-                              <span>
-                                {roomType.area || roomType.room_size || 30} m²
-                              </span>
+                              <span>{roomType.room_size || 30} m²</span>
                             </span>
+                            {/* Hiển thị hướng nhìn nếu có */}
+                            {roomType.view_direction && (
+                              <span
+                                className="flex items-center gap-1"
+                                style={{ color: "#666" }}
+                              >
+                                <span>
+                                  <FundViewOutlined />
+                                </span>
+                                <span>{roomType.view_direction}</span>
+                              </span>
+                            )}
                           </div>
 
                           {/* Icon tiện nghi */}
@@ -963,15 +973,31 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                   {roomType.name}
                 </h2>
 
-                {/* Diện tích */}
+                {/* Diện tích và hướng nhìn */}
                 <div
                   style={{
                     fontSize: "14px",
                     color: "#666",
                     marginBottom: "16px",
+                    display: "flex",
+                    gap: "16px",
+                    alignItems: "center",
                   }}
                 >
-                  {roomType.area || roomType.room_size || 30} m² |
+                  <span>
+                    <ExpandOutlined
+                      style={{ fontSize: "13px", marginRight: 4 }}
+                    />
+                    {roomType.room_size || 30} m²
+                  </span>
+                  {roomType.view_direction && (
+                    <span>
+                      <span style={{ marginRight: 4 }}>
+                        <FundViewOutlined />
+                      </span>
+                      {roomType.view_direction}
+                    </span>
+                  )}
                 </div>
 
                 {/* Mô tả */}
@@ -1009,52 +1035,101 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                       ...(roomType.paid_amenities || []),
                     ];
 
+                    // Chuẩn hóa icon tiện nghi cho đồng bộ
                     const getAmenityIcon = (name: string) => {
                       const lowerName = name.toLowerCase();
                       if (
                         lowerName.includes("wifi") ||
                         lowerName.includes("tốc độ")
                       )
-                        return <WifiOutlined />;
+                        return (
+                          <WifiOutlined
+                            style={{ fontSize: "18px", color: "#1890ff" }}
+                          />
+                        );
                       if (
                         lowerName.includes("nước") ||
                         lowerName.includes("suối")
                       )
-                        return <CoffeeOutlined />;
+                        return (
+                          <CoffeeOutlined
+                            style={{ fontSize: "18px", color: "#52c41a" }}
+                          />
+                        );
                       if (
                         lowerName.includes("bàn chải") ||
-                        lowerName.includes("đánh răng")
+                        lowerName.includes("đánh răng") ||
+                        lowerName.includes("kem")
                       )
-                        return <SnippetsOutlined />;
+                        return (
+                          <SnippetsOutlined
+                            style={{ fontSize: "18px", color: "#faad14" }}
+                          />
+                        );
                       if (
                         lowerName.includes("dầu") ||
                         lowerName.includes("gội") ||
                         lowerName.includes("sữa tắm")
                       )
-                        return <HolderOutlined />;
-                      if (lowerName.includes("khăn")) return <HomeOutlined />;
-                      if (lowerName.includes("dép")) return <HomeOutlined />;
+                        return (
+                          <HolderOutlined
+                            style={{ fontSize: "18px", color: "#faad14" }}
+                          />
+                        );
+                      if (lowerName.includes("khăn"))
+                        return (
+                          <HomeOutlined
+                            style={{ fontSize: "18px", color: "#1890ff" }}
+                          />
+                        );
+                      if (lowerName.includes("dép"))
+                        return (
+                          <HomeOutlined
+                            style={{ fontSize: "18px", color: "#faad14" }}
+                          />
+                        );
                       if (
                         lowerName.includes("minibar") ||
-                        lowerName.includes("đồ uống")
+                        lowerName.includes("đồ uống") ||
+                        lowerName.includes("gas")
                       )
-                        return <CoffeeOutlined />;
+                        return (
+                          <CoffeeOutlined
+                            style={{ fontSize: "18px", color: "#faad14" }}
+                          />
+                        );
                       if (
                         lowerName.includes("room service") ||
                         lowerName.includes("24/7")
                       )
-                        return <PhoneOutlined />;
+                        return (
+                          <PhoneOutlined
+                            style={{ fontSize: "18px", color: "#1890ff" }}
+                          />
+                        );
                       if (
                         lowerName.includes("giặt") ||
                         lowerName.includes("là")
                       )
-                        return <HomeOutlined />;
+                        return (
+                          <HomeOutlined
+                            style={{ fontSize: "18px", color: "#52c41a" }}
+                          />
+                        );
                       if (
                         lowerName.includes("snack") ||
                         lowerName.includes("ăn nhẹ")
                       )
-                        return <CoffeeOutlined />;
-                      return <HomeOutlined />;
+                        return (
+                          <CoffeeOutlined
+                            style={{ fontSize: "18px", color: "#faad14" }}
+                          />
+                        );
+                      return (
+                        <HomeOutlined
+                          style={{ fontSize: "18px", color: "#999" }}
+                        />
+                      );
                     };
 
                     return allAmenities.length > 0 ? (

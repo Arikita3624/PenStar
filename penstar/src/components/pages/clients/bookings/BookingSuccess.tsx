@@ -8,7 +8,7 @@ import dayjs from "dayjs";
 
 const fmtPrice = (v: string | number | undefined) => {
   if (v == null) return "0";
-  const n = Number(v) || 0;
+  const n = Math.round(Number(v) || 0);
   return n.toLocaleString("vi-VN");
 };
 
@@ -403,33 +403,62 @@ const BookingSuccess: React.FC = () => {
             <div className="space-y-4">
               {Array.isArray(booking?.items) && booking.items.length > 0 ? (
                 booking.items.map((item, idx) => {
-                  // Calculate surcharge using correct fields
+                  // Chỉ lấy đúng tổng phụ phí (extra_fees), nếu không có thì cộng từng loại
                   const surcharge =
-                    (item.extra_fees || 0) +
-                    (item.extra_adult_fees || 0) +
-                    (item.extra_child_fees || 0);
+                    item.extra_fees != null
+                      ? item.extra_fees
+                      : (item.extra_adult_fees || 0) +
+                        (item.extra_child_fees || 0);
                   return (
                     <div
                       key={idx}
                       className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0"
                     >
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="mb-2">
                         <span className="font-semibold text-gray-800">
                           Phòng {idx + 1}
                         </span>
-                        <span className="text-gray-600">
-                          ID phòng: {item.room_id}
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Số người lớn:</span>
+                        <span className="font-semibold text-gray-900">
+                          {item.num_adults || 0}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm mb-1">
-                        <span>Số người lớn: {item.num_adults || 0}</span>
-                        <span>Số trẻ em: {item.num_children || 0}</span>
-                      </div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Giá phụ phí</span>
-                        <span className="font-semibold text-red-600">
-                          {fmtPrice(surcharge)} VND
+                        <span>Số trẻ em:</span>
+                        <span className="font-semibold text-gray-900">
+                          {item.num_children || 0}
                         </span>
+                      </div>
+                      <div className="flex flex-col text-sm mb-1">
+                        <span className="font-semibold">Chi tiết phụ phí:</span>
+                        {item.extra_adult_fees > 0 && (
+                          <span className="ml-2 text-gray-700">
+                            - Phụ phí người lớn:{" "}
+                            <span className="text-red-600 font-semibold">
+                              {fmtPrice(item.extra_adult_fees)} VND
+                            </span>{" "}
+                            ({item.extra_adults_count || 0} người)
+                          </span>
+                        )}
+                        {item.extra_child_fees > 0 && (
+                          <span className="ml-2 text-gray-700">
+                            - Phụ phí trẻ em:{" "}
+                            <span className="text-red-600 font-semibold">
+                              {fmtPrice(item.extra_child_fees)} VND
+                            </span>{" "}
+                            ({item.extra_children_count || 0} trẻ)
+                          </span>
+                        )}
+                        {surcharge > 0 && (
+                          <span className="ml-2 text-gray-700">
+                            - Tổng phụ phí:{" "}
+                            <span className="text-red-600 font-semibold">
+                              {fmtPrice(surcharge)} VND
+                            </span>
+                          </span>
+                        )}
                       </div>
                       <div className="flex justify-between text-sm mb-1">
                         <span>Giá phòng</span>

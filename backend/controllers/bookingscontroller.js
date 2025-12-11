@@ -109,60 +109,13 @@ export const createBooking = async (req, res) => {
       payload.user_id = Number(req.user.id);
     }
 
-    // Handle auto-assignment if rooms_config is provided
+    // Không build lại items từ rooms_config nữa. Nếu frontend gửi items thì insert trực tiếp, nếu gửi rooms_config thì báo lỗi.
     if (Array.isArray(payload.rooms_config)) {
-      console.log("Auto-assigning rooms based on rooms_config");
-
-      const assignedItems = [];
-      const assignedRoomIds = []; // Track phòng đã assign
-
-      for (const config of payload.rooms_config) {
-        const {
-          room_type_id,
-          quantity,
-          check_in,
-          check_out,
-          num_adults,
-          num_children,
-          room_type_price, // Use price from room_types
-          services, // Lấy services từ config
-        } = config;
-
-        // Auto-assign rooms - truyền assignedRoomIds để tránh trùng
-        const assignedRooms = await modelAutoAssignRooms(
-          room_type_id,
-          quantity,
-          check_in,
-          check_out,
-          num_adults,
-          num_children,
-          assignedRoomIds
-        );
-
-        console.log(
-          `Auto-assigned ${assignedRooms.length} rooms:`,
-          assignedRooms.map((r) => r.name)
-        );
-
-        // Convert assigned rooms to booking items format
-        for (const room of assignedRooms) {
-          assignedRoomIds.push(room.id); // Thêm vào danh sách đã assign
-          assignedItems.push({
-            room_id: room.id,
-            check_in,
-            check_out,
-            room_type_price,
-            num_adults,
-            num_children,
-            room_type_id,
-            services: services || [], // Copy services từ config
-          });
-        }
-      }
-
-      // Replace rooms_config with assigned items
-      payload.items = assignedItems;
-      delete payload.rooms_config;
+      return res.status(400).json({
+        success: false,
+        message:
+          "Vui lòng gửi trực tiếp mảng items từ frontend. Không hỗ trợ build lại items từ rooms_config ở backend nữa.",
+      });
     }
 
     console.log("Final payload:", JSON.stringify(payload, null, 2));

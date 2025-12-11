@@ -89,7 +89,7 @@ export const autoAssignRooms = async (
     // ✅ KHÔNG kiểm tra giới hạn người lớn/trẻ em - linh hoạt với phụ phí
     // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
 
-    console.log(`[DEBUG autoAssignRooms] Excluding room IDs:`, excludeRoomIds);
+    // console.log(`[DEBUG autoAssignRooms] Excluding room IDs:`, excludeRoomIds);
 
     // Find available rooms of the specified type and capacity
     // Exclude rooms that have overlapping bookings AND rooms already assigned in this transaction
@@ -131,15 +131,12 @@ export const autoAssignRooms = async (
       ...excludeRoomIds,
     ];
 
-    console.log(`[DEBUG autoAssignRooms] Query:`, query);
-    console.log(`[DEBUG autoAssignRooms] Params:`, params);
+    // console.log(`[DEBUG autoAssignRooms] Query:`, query);
+    // console.log(`[DEBUG autoAssignRooms] Params:`, params);
 
     const result = await client.query(query, params);
 
-    console.log(
-      `[DEBUG autoAssignRooms] Found ${result.rows.length} rooms:`,
-      result.rows.map((r) => `${r.name} (ID: ${r.id})`)
-    );
+    // console.log(`[DEBUG autoAssignRooms] Found ${result.rows.length} rooms:`, result.rows.map((r) => `${r.name} (ID: ${r.id})`));
 
     // Nếu số phòng khả dụng < số phòng cần, báo lỗi rõ ràng
     if (result.rows.length < quantity) {
@@ -160,52 +157,9 @@ export const createBooking = async (data) => {
   try {
     await client.query("BEGIN");
 
-    console.log(
-      "[DEBUG] createBooking received data.rooms_config:",
-      data.rooms_config
-    );
-    console.log("[DEBUG] createBooking received data.items:", data.items);
-
-    // === AUTO ASSIGN ROOMS ===
-    if (Array.isArray(data.rooms_config)) {
-      console.log(
-        "[DEBUG] rooms_config received:",
-        JSON.stringify(data.rooms_config, null, 2)
-      );
-      let bookingItems = [];
-      let assignedRoomIds = []; // Track phòng đã assign trong transaction này
-
-      for (const cfg of data.rooms_config) {
-        console.log("[DEBUG] Processing config:", cfg);
-        console.log("[DEBUG] cfg.services:", cfg.services);
-        const assignedRooms = await autoAssignRooms(
-          cfg.room_type_id,
-          cfg.quantity,
-          cfg.check_in,
-          cfg.check_out,
-          cfg.num_adults,
-          cfg.num_children,
-          assignedRoomIds // Truyền danh sách phòng đã assign
-        );
-        for (let i = 0; i < cfg.quantity; i++) {
-          const roomId = assignedRooms[i].id;
-          assignedRoomIds.push(roomId); // Thêm vào danh sách đã assign
-          bookingItems.push({
-            room_id: roomId,
-            room_type_id: cfg.room_type_id,
-            check_in: cfg.check_in,
-            check_out: cfg.check_out,
-            room_type_price: cfg.room_type_price,
-            num_adults: cfg.num_adults,
-            num_children: cfg.num_children,
-            services: cfg.services || [], // 🔧 Thêm services từ config
-          });
-        }
-      }
-      data.items = bookingItems;
-    }
-
-    console.log("Creating booking with data:", JSON.stringify(data, null, 2));
+    // console.log("[DEBUG] createBooking received data.rooms_config:", data.rooms_config);
+    // console.log("[DEBUG] createBooking received data.items:", data.items);
+    // console.log("Creating booking with data:", JSON.stringify(data, null, 2));
 
     const {
       customer_name,
@@ -344,29 +298,20 @@ export const createBooking = async (data) => {
     const discount_amount = data.discount_amount || 0;
     const original_total =
       data.original_total || total_room_price + total_service_price;
-    const promo_code = data.promo_code || null;
 
     const insertBookingText = `INSERT INTO bookings (
-      customer_name, total_price, payment_status, payment_method, booking_method, 
-      stay_status_id, user_id, notes, promo_code, 
-      total_room_price, total_service_price, discount_amount, original_total,
-      created_at, is_refunded
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), FALSE) RETURNING *`;
+      customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`;
 
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
-      total_price, // Giá sau giảm
+      total_price, // Giá sau giảm, lấy từ frontend
       payment_status,
-      data.payment_method || null,
       booking_method,
       stay_status_id,
       user_id,
-      notes || null, // Ghi chú từ khách hàng
-      promo_code,
-      total_room_price,
-      total_service_price,
-      discount_amount,
-      original_total,
+      notes || null,
+      data.payment_method || null,
     ]);
     const booking = bookingRes.rows[0];
 
@@ -381,10 +326,10 @@ export const createBooking = async (data) => {
 
     // insert booking_items if provided
     if (Array.isArray(data.items)) {
-      console.log("[DEBUG] data.items:", JSON.stringify(data.items, null, 2));
-      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      // console.log("[DEBUG] data.items:", JSON.stringify(data.items, null, 2));
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children, extra_adult_fees, extra_child_fees, extra_fees, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`;
       for (const item of data.items) {
-        console.log("[DEBUG] Processing item:", item);
+        // console.log("[DEBUG] Processing item:", item);
         const {
           room_id,
           room_type_id,
@@ -393,10 +338,11 @@ export const createBooking = async (data) => {
           room_type_price,
           num_adults,
           num_children,
-          services,
+          extra_adult_fees = 0,
+          extra_child_fees = 0,
+          extra_fees = 0,
+          quantity = 1,
         } = item;
-        console.log("[DEBUG] Extracted services from item:", services);
-        // Không validate hay insert room_price nữa
         const itemResult = await client.query(insertItemText, [
           booking.id,
           room_id,
@@ -406,36 +352,11 @@ export const createBooking = async (data) => {
           room_type_price,
           num_adults || 1,
           num_children || 0,
+          extra_adult_fees,
+          extra_child_fees,
+          extra_fees,
+          quantity,
         ]);
-
-        const booking_item_id = itemResult.rows[0].id;
-
-        // Insert services cho phòng này (nếu có)
-        console.log(
-          `[DEBUG] Processing services for booking_item_id ${booking_item_id}:`,
-          services
-        );
-        if (Array.isArray(services) && services.length > 0) {
-          console.log(
-            `[DEBUG] Inserting ${services.length} services for room ${booking_item_id}`
-          );
-          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
-          for (const service of services) {
-            const { service_id, quantity, total_service_price } = service;
-            const serviceResult = await client.query(insertServiceText, [
-              booking.id,
-              booking_item_id,
-              service_id,
-              quantity,
-              total_service_price,
-            ]);
-            console.log(`[DEBUG] Inserted service:`, serviceResult.rows[0]);
-          }
-        } else {
-          console.log(
-            `[DEBUG] No services to insert for booking_item_id ${booking_item_id}`
-          );
-        }
 
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
           "pending",

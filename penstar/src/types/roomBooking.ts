@@ -5,6 +5,7 @@ import type { RoomType } from "./roomtypes";
 export interface RoomBookingConfig {
   room_id: number;
   room_type_id: number;
+  quantity: number; // Số lượng phòng (luôn là 1 nếu mỗi phòng là một object)
   num_adults: number;
   num_children: number;
   num_babies?: number; // Em bé (0-5 tuổi) - optional, tối đa 2, không tính vào giới hạn

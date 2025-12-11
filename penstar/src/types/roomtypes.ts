@@ -29,7 +29,6 @@ export interface RoomType {
   child_age_limit?: number;
   policies?: RoomTypePolicy;
   base_occupancy?: number;
-  area?: number;
   room_size?: number;
   thumbnail?: string;
   images?: string[];
