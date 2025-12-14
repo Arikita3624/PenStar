@@ -168,6 +168,36 @@ export const searchAvailableRooms = async ({
     ? [status]
     : ["available"];
 
+  // Debug: log các phòng bị loại do booking overlap
+  try {
+    const conflictQuery = `
+      SELECT DISTINCT r.id as room_id, r.name as room_name, bi.check_in, bi.check_out, b.stay_status_id
+      FROM rooms r
+      JOIN booking_items bi ON bi.room_id = r.id
+      JOIN bookings b ON bi.booking_id = b.id
+      WHERE r.status = ANY($1)
+        AND NOT (
+          bi.check_out::date <= $2::date 
+          OR bi.check_in::date >= $3::date
+        )
+        AND b.stay_status_id IN (1,2,6)
+    `;
+    const debugParams = [statusList, check_in, check_out];
+    const res = await pool.query(conflictQuery, debugParams);
+    if (res.rows.length) {
+      console.log("[DEBUG] Các phòng bị loại do booking overlap:");
+      res.rows.forEach((row) => {
+        console.log(
+          `Room #${row.room_id} (${row.room_name}) | Booking: ${row.check_in} - ${row.check_out} | Status: ${row.stay_status_id}`
+        );
+      });
+    } else {
+      console.log("[DEBUG] Không có phòng nào bị loại do booking overlap.");
+    }
+  } catch (err) {
+    console.error("[DEBUG] Lỗi khi log conflictQuery:", err);
+  }
+
   let query = `
     SELECT DISTINCT r.*, rt.name as type_name, rt.capacity
     FROM rooms r
@@ -203,7 +233,7 @@ export const searchAvailableRooms = async ({
       SELECT 1 FROM booking_items bi
       JOIN bookings b ON bi.booking_id = b.id
       WHERE bi.room_id = r.id
-        AND b.stay_status_id IN (1, 2, 3) -- reserved, approved, checked_in
+        AND b.stay_status_id IN (1, 2, 6) -- reserved, checked_in, pending
         AND NOT (
           bi.check_out::date <= $${paramIndex}::date 
           OR bi.check_in::date >= $${paramIndex + 1}::date

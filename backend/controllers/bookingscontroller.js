@@ -12,6 +12,7 @@ import {
 } from "../models/bookingsmodel.js";
 // import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js"; // [CLEANUP] Đã comment dòng liên quan đến discount
 import pool from "../db.js";
+import { markNoShow } from "../utils/markNoShow.js";
 
 export const getBookings = async (req, res) => {
   try {
@@ -74,6 +75,19 @@ export const getBookingById = async (req, res) => {
       );
     }
 
+    // Nếu booking đã bị hủy và có canceled_by, lấy tên người hủy
+    if (booking.canceled_by) {
+      const userRes = await pool.query(
+        "SELECT full_name, email FROM users WHERE id = $1",
+        [booking.canceled_by]
+      );
+      if (userRes.rows[0]) {
+        booking.canceled_by_name = userRes.rows[0].email || null;
+        if (!booking.canceled_by_name && userRes.rows[0].full_name) {
+          booking.canceled_by_name = userRes.rows[0].full_name;
+        }
+      }
+    }
     res.json({
       success: true,
       message: "✅ Get booking by ID successfully",
@@ -396,6 +410,7 @@ export const cancelBooking = async (req, res) => {
     const { id } = req.params;
     const userId = req.user?.id;
     const userRoleId = req.user?.role_id;
+    const { cancel_reason } = req.body;
     // Admin (4), Manager (3), Staff (2) đều có quyền hủy bất kỳ booking nào
     const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
@@ -406,7 +421,12 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    const result = await modelCancelBooking(id, userId, isStaffOrAbove);
+    const result = await modelCancelBooking(
+      id,
+      userId,
+      isStaffOrAbove,
+      cancel_reason
+    );
 
     res.json({
       success: true,
@@ -420,5 +440,15 @@ export const cancelBooking = async (req, res) => {
       message: err.message || "Không thể hủy booking",
       error: err.message,
     });
+  }
+};
+
+export const adminMarkNoShow = async (req, res) => {
+  const { id } = req.params; // id booking
+  try {
+    await markNoShow(Number(id));
+    res.json({ success: true, message: "Booking đã chuyển sang no_show." });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

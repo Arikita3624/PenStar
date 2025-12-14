@@ -55,6 +55,10 @@ export type Booking = {
   total_room_price?: number;
   total_service_price?: number;
   // ...existing code...
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
+  canceled_by_name?: string;
   payment_status: string;
   payment_method?: string;
   booking_method: string;
@@ -88,10 +92,14 @@ export type BookingDetails = Booking & {
   total_room_price?: number;
   total_service_price?: number;
   // total_amount removed: not used in booking flow
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
   status?: string;
   is_refunded?: boolean;
   checked_in_by_email?: string;
   checked_out_by_email?: string;
+  canceled_by_email?: string;
 };
 
 export type BookingUpdatePayload = {

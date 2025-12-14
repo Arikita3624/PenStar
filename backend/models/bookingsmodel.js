@@ -456,12 +456,18 @@ export const updateBookingStatus = async (id, fields) => {
       }
     }
 
+    // Nếu chuyển sang canceled (4) hoặc no_show (5) thì luôn failed và không hoàn tiền
+    let patchFields = { ...fields };
+    if (fields.stay_status_id === 4 || fields.stay_status_id === 5) {
+      patchFields.payment_status = "failed";
+      patchFields.is_refunded = false;
+    }
     const keys = [];
     const vals = [];
     let idx = 1;
-    for (const k of Object.keys(fields)) {
+    for (const k of Object.keys(patchFields)) {
       keys.push(`${k} = $${idx++}`);
-      vals.push(fields[k]);
+      vals.push(patchFields[k]);
     }
     if (!keys.length) return null;
     const q = `UPDATE bookings SET ${keys.join(
@@ -592,7 +598,12 @@ export const confirmCheckout = async (id, userId) => {
   }
 };
 
-export const cancelBooking = async (id, userId, isAdmin = false) => {
+export const cancelBooking = async (
+  id,
+  userId,
+  isAdmin = false,
+  cancelReason = ""
+) => {
   // Cancel booking with business logic: check permissions, calculate refund
   const client = await pool.connect();
   try {
@@ -665,14 +676,16 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
       }
     }
 
-    // NEW LOGIC: When cancel, set payment_status to "failed"
-    // Admin can later change to "refunded" if needed
+    // NEW LOGIC: When cancel, set payment_status to "failed"; lưu lý do, người hủy, thời điểm hủy
     await client.query(
       `UPDATE bookings 
        SET stay_status_id = 4,
-           payment_status = 'failed'
+           payment_status = 'failed',
+           cancel_reason = $2,
+           canceled_by = $3,
+           canceled_at = NOW()
        WHERE id = $1`,
-      [id]
+      [id, cancelReason, userId]
     );
 
     // Update room status to available

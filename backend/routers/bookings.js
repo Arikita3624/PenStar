@@ -9,6 +9,7 @@ import {
   confirmCheckout,
   cancelBooking,
   confirmCheckin,
+  adminMarkNoShow,
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
 import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
@@ -45,5 +46,7 @@ router.post(
   requireRole("staff"),
   confirmCheckout
 );
+// Đánh dấu no_show thủ công (admin)
+router.post("/:id/no-show", requireAuth, requireRole("staff"), adminMarkNoShow);
 
 export default router;

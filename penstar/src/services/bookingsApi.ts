@@ -1,7 +1,5 @@
-export const confirmCheckin = async (id: number): Promise<Booking> => {
-  const { data } = await instance.post(`/bookings/${id}/confirm-checkin`);
-  return data.data;
-};
+// Admin: Mark booking as No Show
+
 import { instance } from "./api";
 import type {
   Booking,
@@ -38,8 +36,13 @@ export const updateBookingStatus = async (
 };
 
 // Client can cancel their own booking
-export const cancelBooking = async (id: number): Promise<Booking> => {
-  const { data } = await instance.post(`/bookings/${id}/cancel`);
+export const cancelBooking = async (
+  id: number,
+  cancel_reason?: string
+): Promise<Booking> => {
+  const { data } = await instance.post(`/bookings/${id}/cancel`, {
+    cancel_reason,
+  });
   return data.data;
 };
 
@@ -54,5 +57,13 @@ export const updateMyBooking = async (
 
 export const confirmCheckout = async (id: number): Promise<Booking> => {
   const { data } = await instance.post(`/bookings/${id}/confirm-checkout`);
+  return data.data;
+};
+export const markNoShow = async (id: number): Promise<Booking> => {
+  const { data } = await instance.post(`/bookings/${id}/no-show`);
+  return data.data;
+};
+export const confirmCheckin = async (id: number): Promise<Booking> => {
+  const { data } = await instance.post(`/bookings/${id}/confirm-checkin`);
   return data.data;
 };

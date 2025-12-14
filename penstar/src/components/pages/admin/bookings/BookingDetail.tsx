@@ -1,3 +1,4 @@
+import { markNoShow } from "@/services/bookingsApi";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getBookingById,
@@ -58,6 +59,8 @@ const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const [noShowLoading, setNoShowLoading] = useState(false);
+
   const {
     data: booking,
     isLoading,
@@ -69,6 +72,60 @@ const BookingDetail = () => {
     enabled: !!id,
     retry: false,
   });
+
+  // Điều kiện hiển thị nút No Show: admin, booking chưa bị hủy, chưa no show, chưa check-in/out
+  // Validate điều kiện no show ở frontend
+  let noShowReason = "";
+  let canMarkNoShow = false;
+  if (booking) {
+    if (booking.stay_status_id === 4) {
+      noShowReason = "Booking đã bị hủy";
+    } else if (booking.stay_status_id === 5) {
+      noShowReason = "Booking đã bị no show";
+    } else if (booking.stay_status_id === 2 || booking.stay_status_id === 3) {
+      noShowReason = "Booking đã check-out/check-in";
+    } else if (booking.stay_status_id === 6) {
+      noShowReason = "Booking chưa được duyệt";
+    } else if (booking.check_in) {
+      // Kiểm tra thời gian check-in (sau 2 tiếng kể từ 12:00 ngày nhận phòng)
+      const now = new Date();
+      const checkInDate = new Date(booking.check_in);
+      checkInDate.setHours(12 + 2, 0, 0, 0); // 14:00
+      if (now < checkInDate) {
+        noShowReason =
+          "Chỉ được no show sau 2 tiếng kể từ giờ check-in (sau 14:00 ngày nhận phòng)";
+      } else {
+        canMarkNoShow = true;
+      }
+    } else {
+      noShowReason = "Không tìm thấy thời gian check-in";
+    }
+  }
+
+  const handleNoShow = async () => {
+    if (!booking || !booking.id) return;
+    Modal.confirm({
+      title: "Xác nhận No Show",
+      content:
+        "Bạn có chắc chắn muốn đánh dấu booking này là No Show? Khách sẽ không được hoàn tiền và phòng sẽ trở về trạng thái Available.",
+      okText: "Xác nhận No Show",
+      cancelText: "Hủy",
+      onOk: async () => {
+        setNoShowLoading(true);
+        try {
+          await markNoShow(booking.id!);
+          message.success("Đã đánh dấu No Show thành công.");
+          refetch();
+        } catch (err) {
+          console.error("Lỗi No Show:", err);
+          const error = err as { response?: { data?: { message?: string } } };
+          message.error(error.response?.data?.message || "Lỗi No Show");
+        } finally {
+          setNoShowLoading(false);
+        }
+      },
+    });
+  };
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [services, setServices] = useState<Services[]>([]);
@@ -260,49 +317,31 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
-  const handleToggleRefund = async () => {
-    if (!booking || !booking.id) return;
-    const newRefundStatus = !booking.is_refunded;
-
-    Modal.confirm({
-      title: newRefundStatus ? "Xác nhận hoàn tiền" : "Hủy hoàn tiền",
-      content: newRefundStatus
-        ? "Bạn có chắc muốn đánh dấu booking này đã hoàn tiền?"
-        : "Bạn có chắc muốn hủy trạng thái hoàn tiền?",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await updateBookingStatus(booking.id!, {
-            is_refunded: newRefundStatus,
-            payment_status: newRefundStatus ? "refunded" : "failed",
-          });
-          message.success(
-            newRefundStatus
-              ? "Đã đánh dấu hoàn tiền thành công"
-              : "Đã hủy trạng thái hoàn tiền"
-          );
-          refetch();
-        } catch (err) {
-          console.error("Lỗi cập nhật hoàn tiền:", err);
-          message.error("Lỗi cập nhật hoàn tiền");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
-
   const handleCancel = async () => {
     if (!booking || !booking.id) return;
+    let reason = "";
     Modal.confirm({
       title: "Xác nhận hủy",
-      content:
-        "Bạn có chắc muốn hủy booking này? Phòng sẽ trở về trạng thái Available. Trạng thái thanh toán sẽ tự động chuyển thành Failed.",
+      content: (
+        <div>
+          <div>
+            Bạn có chắc muốn hủy booking này? Phòng sẽ trở về trạng thái
+            Available. Trạng thái thanh toán sẽ tự động chuyển thành Failed.
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <b>Lý do hủy:</b>
+            <textarea
+              style={{ width: "100%", minHeight: 60, marginTop: 4 }}
+              onChange={(e) => (reason = e.target.value)}
+              placeholder="Nhập lý do hủy..."
+            />
+          </div>
+        </div>
+      ),
       onOk: async () => {
         setUpdating(true);
         try {
-          await cancelBooking(booking.id!);
+          await cancelBooking(booking.id!, reason);
           message.success(
             "Đã hủy booking - Phòng chuyển sang trạng thái Available."
           );
@@ -1425,32 +1464,38 @@ const BookingDetail = () => {
                   ✓ Đã thanh toán - Không thể thay đổi
                 </Text>
               )}
-            {booking.stay_status_id === 4 && (
+            {(booking.stay_status_id === 4 || booking.stay_status_id === 5) && (
               <>
                 <Text type="warning" style={{ fontSize: 12 }}>
-                  ⚠️ Booking đã hủy. Trạng thái thanh toán = Failed (không thể
-                  sửa).
+                  {booking.stay_status_id === 4
+                    ? "⚠️ Booking đã hủy. Trạng thái thanh toán = Failed (không thể sửa)."
+                    : "⚠️ Booking No show. Trạng thái thanh toán = Failed (không thể sửa)."}
                 </Text>
-                <Divider style={{ margin: "8px 0" }} />
-                <Row justify="space-between" align="middle">
-                  <Text>Hoàn tiền cho khách</Text>
-                  <Button
-                    type={booking.is_refunded ? "default" : "primary"}
-                    danger={booking.is_refunded}
-                    onClick={handleToggleRefund}
-                    loading={updating}
-                    disabled={updating}
-                  >
-                    {booking.is_refunded
-                      ? "Hủy hoàn tiền"
-                      : "Đánh dấu đã hoàn tiền"}
-                  </Button>
-                </Row>
-                {booking.is_refunded && (
-                  <Text type="success" style={{ fontSize: 12 }}>
-                    ✓ Đã hoàn tiền cho khách hàng
-                  </Text>
+                {booking.cancel_reason && (
+                  <div style={{ margin: "8px 0" }}>
+                    <Text strong>Lý do hủy:</Text>{" "}
+                    <Text>{booking.cancel_reason}</Text>
+                  </div>
                 )}
+                {booking.canceled_by && (
+                  <div style={{ margin: "4px 0" }}>
+                    <Text strong>Người hủy:</Text>{" "}
+                    <Text>
+                      {booking.canceled_by_name
+                        ? booking.canceled_by_name
+                        : `ID: ${booking.canceled_by}`}
+                    </Text>
+                  </div>
+                )}
+                {booking.canceled_at && (
+                  <div style={{ margin: "4px 0" }}>
+                    <Text strong>Thời điểm hủy:</Text>{" "}
+                    <Text>
+                      {new Date(booking.canceled_at).toLocaleString("vi-VN")}
+                    </Text>
+                  </div>
+                )}
+                {/* Ẩn nút hoàn tiền khi hủy hoặc no show */}
               </>
             )}
             <Divider style={{ margin: "12px 0" }} />
@@ -1514,6 +1559,23 @@ const BookingDetail = () => {
                 Hủy
               </Button>
             )}
+            {/* Nút No Show cho admin */}
+            <span>
+              <Button
+                danger
+                type="dashed"
+                onClick={handleNoShow}
+                loading={noShowLoading}
+                disabled={!canMarkNoShow || noShowLoading || updating}
+              >
+                No Show
+              </Button>
+              {!canMarkNoShow && noShowReason && (
+                <span style={{ marginLeft: 8, color: "#faad14", fontSize: 12 }}>
+                  {noShowReason}
+                </span>
+              )}
+            </span>
             {/* Hiện nút Xác nhận checkout khi khách đã checkout (stay_status_id === 2 = checked_out) VÀ chưa confirm */}
             {booking.stay_status_id === 2 && !checkoutConfirmed && (
               <Button

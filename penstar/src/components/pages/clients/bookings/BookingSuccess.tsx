@@ -367,7 +367,9 @@ const BookingSuccess: React.FC = () => {
               </div>
             </div>
             {booking?.id &&
-              (paymentStatus === "pending" || paymentStatus === "failed") && (
+              (paymentStatus === "pending" || paymentStatus === "failed") &&
+              statusId !== 4 &&
+              statusId !== 5 && (
                 <div className="mt-4 pt-4 border-t">
                   <p className="text-sm text-gray-600 mb-3 text-center">
                     {paymentStatus === "pending"
