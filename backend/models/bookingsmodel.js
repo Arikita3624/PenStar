@@ -546,18 +546,18 @@ export const confirmCheckout = async (id, userId) => {
       throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
     }
 
-    // Validate checkout time: chỉ cho phép checkout nếu đã đến 14:00 ngày checkout hoặc sau đó
+    // Validate checkout time: chỉ cho phép checkout nếu đã đến 12:00 ngày checkout hoặc sau đó
     const now = new Date();
     const checkOutDate = new Date(checkBooking.rows[0].check_out);
     const checkInDate = new Date(checkBooking.rows[0].check_in);
-    // Giờ giới hạn checkout là 14:00
+    // Giờ giới hạn checkout là 12:00
     const checkOutLimit = new Date(checkOutDate);
-    checkOutLimit.setHours(14, 0, 0, 0);
+    checkOutLimit.setHours(12, 0, 0, 0);
     if (now < checkInDate) {
       throw new Error("Chưa đến thời gian check-in, không thể checkout!");
     }
     if (now < checkOutLimit) {
-      throw new Error("Chỉ được checkout sau 14:00 ngày trả phòng");
+      throw new Error("Chỉ được checkout sau 12:00 ngày trả phòng");
     }
 
     // Get rooms from this booking

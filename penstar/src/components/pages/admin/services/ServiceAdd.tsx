@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { createService } from "@/services/servicesApi";
-import { getServiceTypes } from "@/services/serviceTypesApi";
+// import { getServiceTypes } from "@/services/serviceTypesApi";
 import { useNavigate } from "react-router-dom";
 import { PlusOutlined } from "@ant-design/icons";
 import { useState } from "react";
@@ -26,10 +26,7 @@ const ServiceAdd = () => {
   const [imageFileList, setImageFileList] = useState<UploadFile[]>([]);
   const [thumbnailFileList, setThumbnailFileList] = useState<UploadFile[]>([]);
 
-  const { data: serviceTypes = [] } = useQuery({
-    queryKey: ["service-types"],
-    queryFn: getServiceTypes,
-  });
+  // Removed serviceTypes logic
 
   const createMut = useMutation({
     mutationFn: (payload: FormData) => createService(payload),
@@ -82,7 +79,6 @@ const ServiceAdd = () => {
             createMut.mutate(formData);
           }}
           initialValues={{
-            service_type_code: "optional",
             is_included: false,
           }}
         >
@@ -103,19 +99,7 @@ const ServiceAdd = () => {
               <InputNumber style={{ width: "100%" }} min={0} />
             </Form.Item>
 
-            <Form.Item
-              name="service_type_code"
-              label="Loại dịch vụ"
-              rules={[{ required: true }]}
-            >
-              <Select placeholder="Chọn loại dịch vụ">
-                {serviceTypes.map((type) => (
-                  <Select.Option key={type.code} value={type.code}>
-                    {type.name}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+            {/* Removed service_type_code field */}
           </div>
 
           <Form.Item

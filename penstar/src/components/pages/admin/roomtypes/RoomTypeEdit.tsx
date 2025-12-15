@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Button,
   Card,
@@ -283,13 +284,15 @@ const RoomTypeEdit = () => {
               <Form.Item name="description" label="Mô tả" valuePropName="value">
                 <QuillEditor />
               </Form.Item>
-              {/* <Form.Item name="amenities" label="Tiện nghi & Dịch vụ"> */}
+              {/*
+              <Form.Item name="amenities" label="Tiện nghi & Dịch vụ">
                 <Select
                   mode="tags"
                   placeholder="Nhập tiện nghi và nhấn Enter (VD: WiFi, Điều hòa, Tivi...)"
                   style={{ width: "100%" }}
                 />
               </Form.Item>
+              */}
               <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
                 <Select
                   mode="tags"

@@ -7,7 +7,6 @@ import {
   Table,
   message,
   Space,
-  Tag,
   Avatar,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -16,7 +15,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
-import { getServiceTypes } from "@/services/serviceTypesApi";
 
 const ServicesPage = () => {
   const queryClient = useQueryClient();
@@ -28,11 +26,6 @@ const ServicesPage = () => {
   const { data: services = [], isLoading } = useQuery({
     queryKey: ["services"],
     queryFn: getServices,
-  });
-
-  const { data: serviceTypes = [] } = useQuery({
-    queryKey: ["service-types"],
-    queryFn: getServiceTypes,
   });
 
   const filteredServices = services.filter((s: Services) => {
@@ -72,29 +65,6 @@ const ServicesPage = () => {
     },
     { title: "Tên dịch vụ", dataIndex: "name", key: "name" },
     {
-      title: "Loại dịch vụ",
-      key: "service_type_code",
-      width: 120,
-      render: (_v, record) => {
-        const type = serviceTypes.find(
-          (t) => t.code === record.service_type_code
-        );
-        return type ? (
-          <Tag
-            color={
-              type.code === "mandatory"
-                ? "red"
-                : type.code === "optional"
-                  ? "blue"
-                  : "green"
-            }
-          >
-            {type.name}
-          </Tag>
-        ) : null;
-      },
-    },
-    {
       title: "Giá (VND)",
       dataIndex: "price",
       key: "price",
@@ -104,13 +74,6 @@ const ServicesPage = () => {
           style: "currency",
           currency: "VND",
         }).format(p),
-    },
-    {
-      title: "Bao gồm giá phòng",
-      key: "is_included",
-      width: 100,
-      render: (_v, record) =>
-        record.is_included ? <Tag color="success">Có</Tag> : <Tag>Không</Tag>,
     },
     {
       title: "Mô tả",

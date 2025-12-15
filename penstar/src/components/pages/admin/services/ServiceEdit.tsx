@@ -1,22 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
-  message,
-  Select,
-  Switch,
-  Upload,
-} from "antd";
+import { Button, Card, Form, Input, InputNumber, message, Upload } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getServiceById, updateService } from "@/services/servicesApi";
-import { getServiceTypes } from "@/services/serviceTypesApi";
+// import { getServiceTypes } from "@/services/serviceTypesApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -34,10 +24,7 @@ const ServiceEdit = () => {
     enabled: !!id,
   });
 
-  const { data: serviceTypes = [] } = useQuery({
-    queryKey: ["service-types"],
-    queryFn: getServiceTypes,
-  });
+  // Removed serviceTypes logic
 
   useEffect(() => {
     if (!data) return;
@@ -45,7 +32,7 @@ const ServiceEdit = () => {
       name: data.name,
       description: data.description,
       price: data.price,
-      service_type_code: data.service_type_code || "optional",
+      // service_type_code: data.service_type_code || "optional",
       is_included: data.is_included || false,
       note: data.note,
     });
@@ -148,29 +135,8 @@ const ServiceEdit = () => {
               <InputNumber style={{ width: "100%" }} min={0} />
             </Form.Item>
 
-            <Form.Item
-              name="service_type_code"
-              label="Loại dịch vụ"
-              rules={[{ required: true }]}
-            >
-              <Select placeholder="Chọn loại dịch vụ">
-                {serviceTypes.map((type) => (
-                  <Select.Option key={type.code} value={type.code}>
-                    {type.name}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+            {/* Removed service_type_code field */}
           </div>
-
-          <Form.Item
-            name="is_included"
-            label="Bao gồm giá phòng"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-
           <Form.Item name="description" label="Mô tả" valuePropName="value">
             <QuillEditor />
           </Form.Item>
