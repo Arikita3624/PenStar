@@ -75,7 +75,7 @@ export const bookingCreateSchema = Joi.object({
               (currentHour < 14 || (currentHour === 14 && currentMinute < 0))
             ) {
               return helpers.message(
-                "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
+                "Check-in từ 12:00. Vui lòng chọn ngày khác hoặc đợi đến 12:00."
               );
             }
             return value;

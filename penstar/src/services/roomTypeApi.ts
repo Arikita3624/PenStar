@@ -28,7 +28,7 @@ export const createRoomType = async (roomTypeData: {
   name: string;
   description: string;
   thumbnail?: string;
-  amenities?: string[];
+  // amenities?: string[];
   capacity?: number;
   max_adults?: number;
   max_children?: number;
@@ -49,7 +49,7 @@ export const updateRoomType = async (
   roomTypeData: {
     name: string;
     description: string;
-    amenities?: string[];
+    // amenities?: string[];
     capacity?: number;
     max_adults?: number;
     max_children?: number;

@@ -74,7 +74,7 @@ const RoomTypeEdit = () => {
     form.setFieldsValue({
       name: data.name,
       description: data.description,
-      amenities: data.amenities || [],
+      // amenities: data.amenities || [],
       free_amenities: data.free_amenities || [],
       paid_amenities: data.paid_amenities || [],
       capacity: data.capacity,
@@ -87,7 +87,6 @@ const RoomTypeEdit = () => {
       bed_type: data.bed_type,
       view_direction: data.view_direction,
       room_size: data.room_size,
-      devices_id: data.devices_id || [],
       policies: data.policies || {},
     });
   }, [data, form]);
@@ -95,7 +94,7 @@ const RoomTypeEdit = () => {
   const handleFinish = async (values: {
     name: string;
     description: string;
-    amenities?: string[];
+    // amenities?: string[];
     free_amenities?: string[];
     paid_amenities?: string[];
     capacity?: number;
@@ -108,7 +107,6 @@ const RoomTypeEdit = () => {
     bed_type?: string;
     view_direction?: string;
     room_size?: number;
-    devices_id?: number[];
     policies?: any;
   }) => {
     try {
@@ -116,7 +114,7 @@ const RoomTypeEdit = () => {
       await updateRoomType(id as string, {
         name: values.name,
         description: values.description,
-        amenities: values.amenities,
+        // amenities: values.amenities,
         free_amenities: values.free_amenities,
         paid_amenities: values.paid_amenities,
         capacity: values.capacity ? Number(values.capacity) : undefined,
@@ -139,7 +137,6 @@ const RoomTypeEdit = () => {
         bed_type: values.bed_type,
         view_direction: values.view_direction,
         room_size: values.room_size ? Number(values.room_size) : undefined,
-        devices_id: values.devices_id || [],
         policies: values.policies || {},
       });
 
@@ -286,7 +283,7 @@ const RoomTypeEdit = () => {
               <Form.Item name="description" label="Mô tả" valuePropName="value">
                 <QuillEditor />
               </Form.Item>
-              <Form.Item name="amenities" label="Tiện nghi & Dịch vụ">
+              {/* <Form.Item name="amenities" label="Tiện nghi & Dịch vụ"> */}
                 <Select
                   mode="tags"
                   placeholder="Nhập tiện nghi và nhấn Enter (VD: WiFi, Điều hòa, Tivi...)"
@@ -318,13 +315,6 @@ const RoomTypeEdit = () => {
                   style={{ width: "100%" }}
                   min={0}
                   placeholder="25"
-                />
-              </Form.Item>
-              <Form.Item name="devices_id" label="ID thiết bị (nếu có)">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập ID thiết bị, cách nhau bởi dấu phẩy"
-                  style={{ width: "100%" }}
                 />
               </Form.Item>
               <Form.Item name="policies" label="Chính sách phòng">

@@ -1,5 +1,4 @@
 import pool from "../db.js";
-import { getDevicesByRoomType } from "./room_type_devicesmodel.js";
 
 export const getRoomTypes = async () => {
   let result;
@@ -24,7 +23,6 @@ export const getRoomTypes = async () => {
         rt.free_amenities,
         rt.paid_amenities,
         rt.room_size,
-        rt.devices_id,
         rt.policies
       FROM room_types rt
     `);
@@ -73,14 +71,9 @@ export const getRoomTypes = async () => {
         extra_child_fee: row.extra_child_fee,
         child_age_limit: row.child_age_limit,
         policies: row.policies,
-        devices: [],
+        // devices: [],
       };
     }
-  }
-
-  // Lấy devices cho từng room_type
-  for (const id of Object.keys(roomTypes)) {
-    roomTypes[id].devices = await getDevicesByRoomType(id);
   }
 
   return Object.values(roomTypes);
@@ -104,12 +97,11 @@ export const createRoomType = async (data) => {
     free_amenities,
     paid_amenities,
     room_size,
-    devices_id,
     policies,
   } = data;
   const result = await pool.query(
     `INSERT INTO room_types (
-      name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, amenities, free_amenities, paid_amenities, room_size, devices_id, policies
+      name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, amenities, free_amenities, paid_amenities, room_size, policies
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
     ) RETURNING *`,
@@ -130,7 +122,6 @@ export const createRoomType = async (data) => {
       free_amenities || null,
       paid_amenities || null,
       room_size,
-      devices_id || null,
       policies ? JSON.stringify(policies) : null,
     ]
   );
@@ -158,7 +149,6 @@ export const getRoomTypeById = async (id) => {
       rt.free_amenities,
       rt.paid_amenities,
       rt.room_size,
-      rt.devices_id,
       rt.policies
     FROM room_types rt
     WHERE rt.id = $1`,
@@ -168,7 +158,7 @@ export const getRoomTypeById = async (id) => {
   if (row) {
     if (row.policies && typeof row.policies === "string")
       row.policies = JSON.parse(row.policies);
-    row.devices = await getDevicesByRoomType(row.id);
+    // row.devices = await getDevicesByRoomType(row.id);
   }
   return row;
 };
@@ -191,7 +181,6 @@ export const updateRoomType = async (id, data) => {
     free_amenities,
     paid_amenities,
     room_size,
-    devices_id,
     policies,
   } = data;
 
@@ -222,7 +211,6 @@ export const updateRoomType = async (id, data) => {
       free_amenities = $14,
       paid_amenities = $15,
       room_size = $16,
-      devices_id = $17,
       policies = $18
     WHERE id = $19 RETURNING *`,
     [
@@ -242,7 +230,6 @@ export const updateRoomType = async (id, data) => {
       free_amenities || null,
       paid_amenities || null,
       room_size,
-      devices_id || null,
       policies ? JSON.stringify(policies) : null,
       id,
     ]

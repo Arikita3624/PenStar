@@ -91,13 +91,12 @@ const RoomTypeAdd: React.FC = () => {
               price: values.price ? Number(values.price) : 0,
               bed_type: values.bed_type,
               view_direction: values.view_direction,
-              amenities: values.amenities || [],
+              // amenities: values.amenities || [],
               free_amenities: values.free_amenities || [],
               paid_amenities: values.paid_amenities || [],
               room_size: values.room_size
                 ? Number(values.room_size)
                 : undefined,
-              devices_id: values.devices_id || [],
               policies: values.policies || {},
             };
             try {
@@ -169,13 +168,6 @@ const RoomTypeAdd: React.FC = () => {
                   placeholder="40"
                 />
               </Form.Item>
-              <Form.Item name="devices_id" label="ID thiết bị (nếu có)">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập ID thiết bị, cách nhau bởi dấu phẩy"
-                  style={{ width: "100%" }}
-                />
-              </Form.Item>
               <Form.Item name="policies" label="Chính sách phòng">
                 <Input.TextArea
                   rows={3}
@@ -187,13 +179,7 @@ const RoomTypeAdd: React.FC = () => {
                 <QuillEditor />
               </Form.Item>
 
-              <Form.Item name="amenities" label="Tiện nghi & Dịch vụ">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập tiện nghi và nhấn Enter (VD: WiFi, Điều hòa, Tivi...)"
-                  style={{ width: "100%" }}
-                />
-              </Form.Item>
+              {/* Đã xoá Form.Item amenities */}
 
               <div className="grid grid-cols-2 gap-4">
                 <Form.Item name="bed_type" label="Loại giường">

@@ -1,11 +1,3 @@
-export interface Device {
-  id: number;
-  name: string;
-  type?: string;
-  fee: number;
-  description?: string;
-}
-
 export interface RoomTypePolicy {
   cancellation?: string;
   payment?: string;
@@ -20,8 +12,6 @@ export interface RoomType {
   name: string;
   description: string;
   capacity?: number;
-  max_adults?: number;
-  max_children?: number;
   base_adults?: number;
   base_children?: number;
   extra_adult_fee?: number;
@@ -35,12 +25,8 @@ export interface RoomType {
   created_at: string;
   updated_at: string;
   price?: number;
-  devices_id?: number[];
-  devices?: Device[];
   bed_type?: string;
   view_direction?: string;
-  safety_info?: string;
-  amenities?: string[];
   free_amenities?: string[];
   paid_amenities?: string[];
 }

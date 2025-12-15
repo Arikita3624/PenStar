@@ -90,10 +90,9 @@ const BookingDetail = () => {
       // Kiểm tra thời gian check-in (sau 2 tiếng kể từ 12:00 ngày nhận phòng)
       const now = new Date();
       const checkInDate = new Date(booking.check_in);
-      checkInDate.setHours(12 + 2, 0, 0, 0); // 14:00
+      checkInDate.setHours(12 + 2, 0, 0, 0); // 14:00 (2 tiếng sau 12:00)
       if (now < checkInDate) {
-        noShowReason =
-          "Chỉ được no show sau 2 tiếng kể từ giờ check-in (sau 14:00 ngày nhận phòng)";
+        noShowReason = "";
       } else {
         canMarkNoShow = true;
       }

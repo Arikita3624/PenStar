@@ -25,11 +25,11 @@ export const markNoShow = async (bookingId) => {
   if (!check_in) throw new Error("Không tìm thấy thời gian check-in");
   const now = new Date();
   const checkInDate = new Date(check_in);
-  // Giờ giới hạn no show là 2 tiếng sau check-in (14:00 ngày nhận phòng)
+  // Giờ giới hạn no show là 2 tiếng sau check-in (sau 12:00 ngày nhận phòng)
   checkInDate.setHours(14, 0, 0, 0);
   if (now < checkInDate)
     throw new Error(
-      "Chỉ được no show sau 2 tiếng kể từ giờ check-in (sau 14:00 ngày nhận phòng)"
+      "Chỉ được no show sau 2 tiếng kể từ giờ check-in (sau 12:00 ngày nhận phòng)"
     );
 
   // 3. Lấy các phòng liên quan booking

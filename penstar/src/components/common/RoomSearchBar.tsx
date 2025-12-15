@@ -31,8 +31,48 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   const [promoCode, setPromoCode] = useState("");
   const [dateError, setDateError] = useState<string | null>(null);
 
+  // Gom logic validate ngày vào một hàm
+  const validateDates = (
+    checkInDate: Dayjs,
+    checkOutDate: Dayjs,
+    now: Dayjs
+  ) => {
+    if (!checkInDate || !checkOutDate) {
+      return {
+        valid: false,
+        error: "Vui lòng chọn ngày check-in và check-out",
+      };
+    }
+    const isToday = checkInDate.isSame(now, "day");
+    const currentHour = now.hour();
+    const currentMinute = now.minute();
+    if (
+      isToday &&
+      (currentHour < 12 || (currentHour === 12 && currentMinute < 0))
+    ) {
+      return {
+        valid: false,
+        error: "Check-in từ 12:00. Vui lòng chọn ngày khác hoặc đợi đến 12:00.",
+      };
+    }
+    const isCheckOutToday = checkOutDate.isSame(now, "day");
+    if (isCheckOutToday && currentHour >= 12) {
+      return {
+        valid: false,
+        error:
+          "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.",
+      };
+    }
+    if (
+      checkOutDate.isBefore(checkInDate) ||
+      checkOutDate.isSame(checkInDate)
+    ) {
+      return { valid: false, error: "Ngày check-out phải sau ngày check-in." };
+    }
+    return { valid: true, error: "" };
+  };
+
   const handleSearch = () => {
-    // If required, check authentication and redirect to signin
     if (requireAuthForSearch && auth?.initialized && !auth?.token) {
       message.error("Vui lòng đăng nhập để tìm kiếm và đặt phòng");
       navigate("/signin");
@@ -42,45 +82,17 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       message.warning("Vui lòng chọn ngày check-in và check-out");
       return;
     }
-
-    // Validate thời điểm check-in: từ 14:00
     const checkInDate = dates[0];
-    const now = dayjs();
-    const isToday = checkInDate.isSame(now, "day");
-    const currentHour = now.hour();
-
-    // Nếu check-in là hôm nay và chưa đến 14:00 thì không cho phép
-    if (isToday && currentHour < 14) {
-      message.warning(
-        "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
-      );
-      return;
-    }
-
-    // Validate thời điểm check-out: trước 12:00
     const checkOutDate = dates[1];
-    const isCheckOutToday = checkOutDate.isSame(now, "day");
-
-    // Nếu check-out là hôm nay và đã quá 12:00 thì không cho phép
-    if (isCheckOutToday && currentHour >= 12) {
-      message.warning(
-        "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
-      );
+    const now = dayjs();
+    const { valid, error } = validateDates(checkInDate, checkOutDate, now);
+    if (!valid) {
+      message.warning(error);
       return;
     }
-
-    // Kiểm tra check-out phải sau check-in
-    if (
-      checkOutDate.isBefore(checkInDate) ||
-      checkOutDate.isSame(checkInDate)
-    ) {
-      message.warning("Ngày check-out phải sau ngày check-in.");
-      return;
-    }
-
     const searchParams: RoomSearchParams = {
-      check_in: dates[0].format("YYYY-MM-DD"),
-      check_out: dates[1].format("YYYY-MM-DD"),
+      check_in: checkInDate.format("YYYY-MM-DD"),
+      check_out: checkOutDate.format("YYYY-MM-DD"),
       promo_code: promoCode || undefined,
     };
     onSearch(searchParams);
@@ -113,47 +125,15 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
               onChange={(values) => {
                 if (values && values[0] && values[1]) {
                   setDates([values[0], values[1]]);
-
-                  // Validate ngay khi chọn ngày
                   const now = dayjs();
                   const checkInDate = values[0];
                   const checkOutDate = values[1];
-                  const isToday = checkInDate.isSame(now, "day");
-                  const currentHour = now.hour();
-                  const currentMinute = now.minute();
-
-                  // Reset error
-                  setDateError(null);
-
-                  // Validate check-in: từ 14:00
-                  if (
-                    isToday &&
-                    (currentHour < 14 ||
-                      (currentHour === 14 && currentMinute < 0))
-                  ) {
-                    setDateError(
-                      "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
-                    );
-                    return;
-                  }
-
-                  // Validate check-out: trước 12:00
-                  const isCheckOutToday = checkOutDate.isSame(now, "day");
-                  if (isCheckOutToday && currentHour >= 12) {
-                    setDateError(
-                      "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
-                    );
-                    return;
-                  }
-
-                  // Kiểm tra check-out phải sau check-in
-                  if (
-                    checkOutDate.isBefore(checkInDate) ||
-                    checkOutDate.isSame(checkInDate)
-                  ) {
-                    setDateError("Ngày check-out phải sau ngày check-in.");
-                    return;
-                  }
+                  const { valid, error } = validateDates(
+                    checkInDate,
+                    checkOutDate,
+                    now
+                  );
+                  setDateError(valid ? null : error);
                 } else {
                   setDates(null);
                   setDateError(null);

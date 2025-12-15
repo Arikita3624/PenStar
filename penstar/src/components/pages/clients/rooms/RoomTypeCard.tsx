@@ -3,19 +3,13 @@
 import React, { useState, useMemo } from "react";
 import { Button, Collapse, Row, Col, Alert, Modal, Select } from "antd";
 import {
-  ExpandOutlined,
   LeftOutlined,
   RightOutlined,
   UserOutlined,
-  CoffeeOutlined,
   CalendarOutlined,
-  WifiOutlined,
-  SnippetsOutlined,
-  HolderOutlined,
-  PhoneOutlined,
-  HomeOutlined,
-  FundViewOutlined,
+  CoffeeOutlined,
 } from "@ant-design/icons";
+import { getAmenityIcon } from "@/utils/amenities";
 import type { RoomTypeCardProps } from "@/types/roomBooking";
 
 const { Panel } = Collapse;
@@ -27,7 +21,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     const thumbnail = roomType.thumbnail || "/placeholder-room.jpg";
     const [isExpanded, setIsExpanded] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [modalImageIndex, setModalImageIndex] = useState(0);
     const [amenitiesModalOpen, setAmenitiesModalOpen] = useState(false);
     const [policyModalOpen, setPolicyModalOpen] = useState(false);
     // const isInitialExpansion = React.useRef(false); // Removed: unused
@@ -405,17 +398,59 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               className="flex items-center gap-1"
                               style={{ color: "#666", fontSize: "13px" }}
                             >
-                              <ExpandOutlined style={{ fontSize: "13px" }} />
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="#888"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="3"
+                                    y="3"
+                                    width="18"
+                                    height="18"
+                                    rx="2"
+                                  />
+                                  <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+                                </svg>
+                              </span>
                               <span>{roomType.room_size || 30} m²</span>
                             </span>
                             {/* Hiển thị hướng nhìn nếu có */}
                             {roomType.view_direction && (
                               <span
                                 className="flex items-center gap-1"
-                                style={{ color: "#666" }}
+                                style={{ color: "#666", fontSize: "13px" }}
                               >
-                                <span>
-                                  <FundViewOutlined />
+                                <span
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="#888"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <circle cx="12" cy="12" r="3.2" />
+                                    <path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" />
+                                  </svg>
                                 </span>
                                 <span>{roomType.view_direction}</span>
                               </span>
@@ -554,7 +589,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             fontWeight: "500",
                           }}
                         >
-                          {roomType.max_adults || 2} Người lớn
+                          {roomType.base_adults ?? roomType.capacity ?? 2} Người
+                          lớn
                         </span>
                       </div>
                       <div
@@ -848,7 +884,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           open={amenitiesModalOpen}
           onCancel={() => setAmenitiesModalOpen(false)}
           footer={null}
-          width={900}
+          width={700}
           closeIcon={
             <div
               style={{
@@ -868,302 +904,176 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
             </div>
           }
         >
-          <Row gutter={24}>
-            {/* Cột trái: Ảnh với slider */}
-            <Col span={10}>
-              <div style={{ position: "relative" }}>
-                {roomType.images && roomType.images.length > 0 ? (
-                  <>
-                    <img
-                      src={
-                        roomType.images[modalImageIndex].startsWith("http")
-                          ? roomType.images[modalImageIndex]
-                          : `http://localhost:5000${roomType.images[modalImageIndex]}`
-                      }
-                      alt={roomType.name}
-                      style={{
-                        width: "100%",
-                        height: "320px",
-                        objectFit: "cover",
-                        borderRadius: "4px",
-                      }}
-                    />
-                    {/* Nút prev */}
-                    {roomType.images.length > 1 && (
-                      <>
-                        <div
-                          onClick={() =>
-                            setModalImageIndex((prev) =>
-                              prev === 0
-                                ? roomType.images!.length - 1
-                                : prev - 1
-                            )
-                          }
-                          style={{
-                            position: "absolute",
-                            left: "12px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: "40px",
-                            height: "40px",
-                            background: "rgba(255, 255, 255, 0.9)",
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <LeftOutlined style={{ fontSize: "16px" }} />
-                        </div>
-                        {/* Nút next */}
-                        <div
-                          onClick={() =>
-                            setModalImageIndex((prev) =>
-                              prev === roomType.images!.length - 1
-                                ? 0
-                                : prev + 1
-                            )
-                          }
-                          style={{
-                            position: "absolute",
-                            right: "12px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: "40px",
-                            height: "40px",
-                            background: "rgba(255, 255, 255, 0.9)",
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <RightOutlined style={{ fontSize: "16px" }} />
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "320px",
-                      background: "#f0f0f0",
-                      borderRadius: "4px",
-                    }}
-                  />
+          {/* Thông tin tổng quan phòng */}
+          <div style={{ display: "flex", gap: 24, marginBottom: 24 }}>
+            {/* Ảnh đại diện */}
+            <div style={{ flex: "0 0 180px" }}>
+              <img
+                src={
+                  roomType.images && roomType.images.length > 0
+                    ? roomType.images[0].startsWith("http")
+                      ? roomType.images[0]
+                      : `http://localhost:5000${roomType.images[0]}`
+                    : roomType.thumbnail?.startsWith("http")
+                      ? roomType.thumbnail
+                      : `http://localhost:5000${roomType.thumbnail}`
+                }
+                alt={roomType.name}
+                style={{
+                  width: 180,
+                  height: 120,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  background: "#f0f0f0",
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src =
+                    "https://via.placeholder.com/180x120?text=No+Image";
+                }}
+              />
+            </div>
+            {/* Thông tin text */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
+                {roomType.name}
+              </div>
+              <div
+                style={{
+                  color: "#666",
+                  fontSize: 14,
+                  marginBottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 20,
+                  flexWrap: "wrap",
+                }}
+              >
+                {roomType.bed_type && (
+                  <span
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    {roomType.bed_type}
+                  </span>
+                )}
+                {roomType.room_size && (
+                  <span
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center" }}>
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#888"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+                      </svg>
+                    </span>
+                    {roomType.room_size} m²
+                  </span>
+                )}
+                {roomType.view_direction && (
+                  <span
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center" }}>
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#888"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="3.2" />
+                        <path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" />
+                      </svg>
+                    </span>
+                    {roomType.view_direction}
+                  </span>
                 )}
               </div>
-            </Col>
-
-            {/* Cột phải: Thông tin */}
-            <Col span={14}>
-              <div>
-                {/* Tên phòng */}
-                <h2
-                  style={{
-                    fontSize: "20px",
-                    fontWeight: "600",
-                    marginBottom: "12px",
-                    color: "#333",
-                  }}
-                >
-                  {roomType.name}
-                </h2>
-
-                {/* Diện tích và hướng nhìn */}
+              {roomType.description && (
                 <div
                   style={{
-                    fontSize: "14px",
-                    color: "#666",
-                    marginBottom: "16px",
-                    display: "flex",
-                    gap: "16px",
-                    alignItems: "center",
+                    color: "#444",
+                    fontSize: 14,
+                    marginBottom: 0,
+                    lineHeight: 1.6,
+                    maxHeight: 60,
+                    overflow: "auto",
                   }}
-                >
-                  <span>
-                    <ExpandOutlined
-                      style={{ fontSize: "13px", marginRight: 4 }}
-                    />
-                    {roomType.room_size || 30} m²
-                  </span>
-                  {roomType.view_direction && (
-                    <span>
-                      <span style={{ marginRight: 4 }}>
-                        <FundViewOutlined />
+                  dangerouslySetInnerHTML={{ __html: roomType.description }}
+                />
+              )}
+            </div>
+          </div>
+          <h2
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              marginBottom: 24,
+              color: "#333",
+            }}
+          >
+            Danh sách tiện nghi phòng
+          </h2>
+          <div style={{ display: "flex", gap: 32 }}>
+            {(() => {
+              const allAmenities = [
+                ...(roomType.free_amenities || []),
+                ...(roomType.paid_amenities || []),
+              ];
+              if (allAmenities.length === 0) {
+                return (
+                  <div style={{ color: "#999", fontSize: 13 }}>
+                    Không có thông tin tiện nghi
+                  </div>
+                );
+              }
+              // Chia thành 2 cột
+              const mid = Math.ceil(allAmenities.length / 2);
+              const col1 = allAmenities.slice(0, mid);
+              const col2 = allAmenities.slice(mid);
+              const renderList = (arr: string[]) => (
+                <ul style={{ paddingLeft: 18, listStyle: "none" }}>
+                  {arr.map((amenity: string, idx: number) => (
+                    <li
+                      key={idx}
+                      style={{
+                        marginBottom: 10,
+                        color: "#222",
+                        fontSize: 14,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 18, color: "#222" }}>
+                        {getAmenityIcon(amenity)}
                       </span>
-                      {roomType.view_direction}
-                    </span>
-                  )}
-                </div>
-
-                {/* Mô tả */}
-                {roomType.description && (
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      color: "#666",
-                      lineHeight: "1.6",
-                      marginBottom: "24px",
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        roomType.description ||
-                        "Căn phòng này có máy sấy, khu vực tiếp khách và máy lạnh.",
-                    }}
-                  />
-                )}
-
-                {/* Tiện ích trong phòng */}
-                <div>
-                  <h3
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: "600",
-                      marginBottom: "12px",
-                      color: "#333",
-                    }}
-                  >
-                    Tiện ích trong phòng:
-                  </h3>
-                  {(() => {
-                    const allAmenities = [
-                      ...(roomType.free_amenities || []),
-                      ...(roomType.paid_amenities || []),
-                    ];
-
-                    // Chuẩn hóa icon tiện nghi cho đồng bộ
-                    const getAmenityIcon = (name: string) => {
-                      const lowerName = name.toLowerCase();
-                      if (
-                        lowerName.includes("wifi") ||
-                        lowerName.includes("tốc độ")
-                      )
-                        return (
-                          <WifiOutlined
-                            style={{ fontSize: "18px", color: "#1890ff" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("nước") ||
-                        lowerName.includes("suối")
-                      )
-                        return (
-                          <CoffeeOutlined
-                            style={{ fontSize: "18px", color: "#52c41a" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("bàn chải") ||
-                        lowerName.includes("đánh răng") ||
-                        lowerName.includes("kem")
-                      )
-                        return (
-                          <SnippetsOutlined
-                            style={{ fontSize: "18px", color: "#faad14" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("dầu") ||
-                        lowerName.includes("gội") ||
-                        lowerName.includes("sữa tắm")
-                      )
-                        return (
-                          <HolderOutlined
-                            style={{ fontSize: "18px", color: "#faad14" }}
-                          />
-                        );
-                      if (lowerName.includes("khăn"))
-                        return (
-                          <HomeOutlined
-                            style={{ fontSize: "18px", color: "#1890ff" }}
-                          />
-                        );
-                      if (lowerName.includes("dép"))
-                        return (
-                          <HomeOutlined
-                            style={{ fontSize: "18px", color: "#faad14" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("minibar") ||
-                        lowerName.includes("đồ uống") ||
-                        lowerName.includes("gas")
-                      )
-                        return (
-                          <CoffeeOutlined
-                            style={{ fontSize: "18px", color: "#faad14" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("room service") ||
-                        lowerName.includes("24/7")
-                      )
-                        return (
-                          <PhoneOutlined
-                            style={{ fontSize: "18px", color: "#1890ff" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("giặt") ||
-                        lowerName.includes("là")
-                      )
-                        return (
-                          <HomeOutlined
-                            style={{ fontSize: "18px", color: "#52c41a" }}
-                          />
-                        );
-                      if (
-                        lowerName.includes("snack") ||
-                        lowerName.includes("ăn nhẹ")
-                      )
-                        return (
-                          <CoffeeOutlined
-                            style={{ fontSize: "18px", color: "#faad14" }}
-                          />
-                        );
-                      return (
-                        <HomeOutlined
-                          style={{ fontSize: "18px", color: "#999" }}
-                        />
-                      );
-                    };
-
-                    return allAmenities.length > 0 ? (
-                      <Row gutter={[16, 12]}>
-                        {allAmenities.map((amenity: string, idx: number) => (
-                          <Col span={12} key={idx}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "10px",
-                              }}
-                            >
-                              <div style={{ fontSize: "18px", color: "#666" }}>
-                                {getAmenityIcon(amenity)}
-                              </div>
-                              <span style={{ fontSize: "13px", color: "#333" }}>
-                                {amenity}
-                              </span>
-                            </div>
-                          </Col>
-                        ))}
-                      </Row>
-                    ) : (
-                      <div style={{ color: "#999", fontSize: "13px" }}>
-                        Không có thông tin tiện nghi
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </Modal>{" "}
+                      {amenity}
+                    </li>
+                  ))}
+                </ul>
+              );
+              return (
+                <>
+                  <div style={{ flex: 1 }}>{renderList(col1)}</div>
+                  <div style={{ flex: 1 }}>{renderList(col2)}</div>
+                </>
+              );
+            })()}
+          </div>
+        </Modal>
         {/* Modal Chính sách */}
         <Modal
           title={roomType.name.toUpperCase()}
@@ -1197,53 +1107,12 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                     color: "#52c41a",
                   }}
                 >
-                  ✓ Tiện nghi miễn phí
+                  Tiện nghi miễn phí
                 </div>
                 <Row gutter={[16, 16]}>
                   {roomType.free_amenities.map(
                     (amenity: string, idx: number) => {
-                      const getAmenityIcon = (name: string) => {
-                        const lowerName = name.toLowerCase();
-                        if (
-                          lowerName.includes("wifi") ||
-                          lowerName.includes("internet") ||
-                          lowerName.includes("tốc độ")
-                        )
-                          return <WifiOutlined style={{ fontSize: "18px" }} />;
-                        if (
-                          lowerName.includes("nước") ||
-                          lowerName.includes("suối") ||
-                          lowerName.includes("chai")
-                        )
-                          return (
-                            <CoffeeOutlined style={{ fontSize: "18px" }} />
-                          );
-                        if (
-                          lowerName.includes("bàn chải") ||
-                          lowerName.includes("đánh răng") ||
-                          lowerName.includes("kem")
-                        )
-                          return (
-                            <SnippetsOutlined style={{ fontSize: "18px" }} />
-                          );
-                        if (
-                          lowerName.includes("dầu") ||
-                          lowerName.includes("gội") ||
-                          lowerName.includes("sữa tắm")
-                        )
-                          return (
-                            <HolderOutlined style={{ fontSize: "18px" }} />
-                          );
-                        if (
-                          lowerName.includes("khăn") ||
-                          lowerName.includes("tắm") ||
-                          lowerName.includes("mặt")
-                        )
-                          return <HomeOutlined style={{ fontSize: "18px" }} />;
-                        if (lowerName.includes("dép"))
-                          return <HomeOutlined style={{ fontSize: "18px" }} />;
-                        return <HomeOutlined style={{ fontSize: "18px" }} />;
-                      };
+                      // ...existing code...
 
                       return (
                         <Col span={12} key={`free-${idx}`}>
@@ -1287,40 +1156,12 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                     color: "#f5a623",
                   }}
                 >
-                  💰 Tiện nghi tính phí
+                  Tiện nghi tính phí
                 </div>
                 <Row gutter={[16, 16]}>
                   {roomType.paid_amenities.map(
                     (amenity: string, idx: number) => {
-                      const getAmenityIcon = (name: string) => {
-                        const lowerName = name.toLowerCase();
-                        if (
-                          lowerName.includes("minibar") ||
-                          lowerName.includes("đồ uống") ||
-                          lowerName.includes("gas")
-                        )
-                          return (
-                            <CoffeeOutlined style={{ fontSize: "18px" }} />
-                          );
-                        if (
-                          lowerName.includes("room service") ||
-                          lowerName.includes("24/7")
-                        )
-                          return <PhoneOutlined style={{ fontSize: "18px" }} />;
-                        if (
-                          lowerName.includes("giặt") ||
-                          lowerName.includes("là")
-                        )
-                          return <HomeOutlined style={{ fontSize: "18px" }} />;
-                        if (
-                          lowerName.includes("snack") ||
-                          lowerName.includes("ăn nhẹ")
-                        )
-                          return (
-                            <CoffeeOutlined style={{ fontSize: "18px" }} />
-                          );
-                        return <HomeOutlined style={{ fontSize: "18px" }} />;
-                      };
+                      // ...existing code...
 
                       return (
                         <Col span={12} key={`paid-${idx}`}>
@@ -1352,21 +1193,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                 </Row>
               </div>
             )}
-
-            {/* Chính sách hoàn hủy */}
-            {roomType.policies?.cancellation && (
-              <div style={{ marginBottom: "16px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px" }}>
-                  Chính sách hoàn hủy
-                </div>
-                <div style={{ color: "#666" }}>
-                  {typeof roomType.policies.cancellation === "string"
-                    ? roomType.policies.cancellation
-                    : "Nếu hủy, thay đổi hoặc không đến, khách sẽ trả toàn bộ giá trị tiền đặt phòng."}
-                </div>
-              </div>
-            )}
-
             {/* Thanh toán */}
             {roomType.policies?.payment && (
               <div style={{ marginBottom: "16px" }}>
