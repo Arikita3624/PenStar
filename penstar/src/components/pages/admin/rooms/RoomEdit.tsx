@@ -200,10 +200,9 @@ const RoomEdit = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        {/* use global message so notifications persist across navigation */}
-        <h2 className="text-2xl font-bold mb-4">EDIT ROOM</h2>
+        <h2 className="text-2xl font-bold mb-4">SỬA PHÒNG</h2>
         <Link to="/admin/rooms">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
@@ -234,12 +233,12 @@ const RoomEdit = () => {
             try {
               await updateRoom(Number(id), payload);
               await uploadSelectedFiles(Number(id));
-              message.success("Room updated");
+              message.success("Cập nhật phòng thành công");
               navigate("/admin/rooms");
             } catch (e: any) {
               console.error("Failed to update room:", e);
               const errorMsg =
-                e?.response?.data?.message || "Failed to update room";
+                e?.response?.data?.message || "Cập nhật phòng thất bại";
               message.error(errorMsg);
             }
           }}
@@ -248,7 +247,7 @@ const RoomEdit = () => {
             <div className="col-span-8">
               <Form.Item
                 name="name"
-                label="Room Name"
+                label="Tên phòng"
                 rules={[{ required: true }]}
               >
                 <Input />
@@ -256,10 +255,10 @@ const RoomEdit = () => {
               <div className="grid grid-cols-2 gap-4">
                 <Form.Item
                   name="type_id"
-                  label="Room Type"
+                  label="Loại phòng"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select room type" loading={typesLoading}>
+                  <Select placeholder="Chọn loại phòng" loading={typesLoading}>
                     {types.map((t: RoomType) => (
                       <Select.Option key={t.id} value={t.id}>
                         {t.name}
@@ -269,10 +268,10 @@ const RoomEdit = () => {
                 </Form.Item>
                 <Form.Item
                   name="floor_id"
-                  label="Floor"
+                  label="Tầng"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select floor" loading={floorsLoading}>
+                  <Select placeholder="Chọn tầng" loading={floorsLoading}>
                     {floors.map((f: Floors) => (
                       <Select.Option key={f.id} value={f.id}>
                         {f.name}
@@ -284,34 +283,36 @@ const RoomEdit = () => {
               {/* Price input removed, now managed in room type */}
               <Form.Item
                 name="status"
-                label="Status"
+                label="Trạng thái"
                 rules={[{ required: true }]}
               >
-                <Select placeholder="Select status">
-                  <Select.Option value="available">Available</Select.Option>
-                  <Select.Option value="booked">Booked</Select.Option>
-                  <Select.Option value="occupied">Occupied</Select.Option>
-                  <Select.Option value="unavailable">Unavailable</Select.Option>
-                  <Select.Option value="cleaning">Cleaning</Select.Option>
+                <Select placeholder="Chọn trạng thái">
+                  <Select.Option value="available">Còn trống</Select.Option>
+                  <Select.Option value="booked">Đã đặt</Select.Option>
+                  <Select.Option value="occupied">Đang ở</Select.Option>
+                  <Select.Option value="unavailable">
+                    Không khả dụng
+                  </Select.Option>
+                  <Select.Option value="cleaning">Đang dọn</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item
                 name="short_desc"
-                label="Short Description"
+                label="Mô tả ngắn"
                 rules={[{ required: true }]}
               >
                 <Input.TextArea rows={3} />
               </Form.Item>
               <Form.Item
                 name="long_desc"
-                label="Long Description"
+                label="Mô tả chi tiết"
                 valuePropName="value"
               >
                 <QuillEditor />
               </Form.Item>
             </div>
             <div className="col-span-4">
-              <Form.Item label="Thumbnail">
+              <Form.Item label="Ảnh đại diện">
                 <Upload
                   accept="image/*"
                   listType="picture-card"
@@ -423,13 +424,13 @@ const RoomEdit = () => {
                   {!thumbFile && !existingThumbUrl && (
                     <div className="flex flex-col items-center justify-center">
                       <div className="text-2xl">+</div>
-                      <div>Upload</div>
+                      <div>Tải ảnh</div>
                     </div>
                   )}
                 </Upload>
               </Form.Item>
 
-              <Form.Item label="Additional images (extras)">
+              <Form.Item label="Ảnh bổ sung (không bắt buộc)">
                 {/* Upload control remains for selecting new files */}
                 <Upload
                   accept="image/*"
@@ -469,12 +470,12 @@ const RoomEdit = () => {
                 >
                   <div className="flex flex-col items-center justify-center">
                     <div className="text-2xl">+</div>
-                    <div>Upload</div>
+                    <div>Tải ảnh</div>
                   </div>
                 </Upload>
 
                 <div className="text-xs text-gray-500 mt-2">
-                  Selected (pending): {fileList.length} file(s)
+                  Đã chọn (chờ tải lên): {fileList.length} ảnh
                 </div>
 
                 {/* Gallery: render both existing extras (from server) and newly selected files */}
@@ -566,7 +567,7 @@ const RoomEdit = () => {
           </div>
           <div className="mt-4">
             <Button type="primary" htmlType="submit">
-              Save
+              Lưu thay đổi
             </Button>
           </div>
         </Form>

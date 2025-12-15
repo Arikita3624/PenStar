@@ -3,7 +3,6 @@ import {
   getBookingServices,
   getBookingServiceById,
   createBookingService,
-  deleteBookingService,
   getServicesByBookingItem,
   getServicesByBooking,
 } from "../controllers/booking_servicescontroller.js";
@@ -23,6 +22,7 @@ router.post(
   validateBookingServiceCreate,
   createBookingService
 );
-router.delete("/:id", requireAuth, requireRole("staff"), deleteBookingService);
+// ...existing code...
+// router.delete("/:id", requireAuth, requireRole("staff"), deleteBookingService); // Đã vô hiệu hóa chức năng xóa dịch vụ
 
 export default router;

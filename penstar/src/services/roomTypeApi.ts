@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
 import type { RoomType } from "@/types/roomtypes";
 
@@ -28,7 +29,7 @@ export const createRoomType = async (roomTypeData: {
   name: string;
   description: string;
   thumbnail?: string;
-  amenities?: string[];
+  // amenities?: string[];
   capacity?: number;
   max_adults?: number;
   max_children?: number;
@@ -49,12 +50,19 @@ export const updateRoomType = async (
   roomTypeData: {
     name: string;
     description: string;
-    amenities?: string[];
+    free_amenities?: string[];
+    paid_amenities?: string[];
     capacity?: number;
-    max_adults?: number;
-    max_children?: number;
-    base_occupancy?: number;
+    base_adults?: number;
+    base_children?: number;
+    extra_adult_fee?: number;
+    extra_child_fee?: number;
+    child_age_limit?: number;
     price?: number;
+    bed_type?: string;
+    view_direction?: string;
+    room_size?: number;
+    policies?: any;
   }
 ) => {
   try {

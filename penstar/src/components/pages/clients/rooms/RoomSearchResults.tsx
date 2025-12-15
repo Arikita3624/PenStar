@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { message, Spin, Empty, Button, Tag, Row, Col } from "antd";
+import { message, Spin, Empty, Button, Row, Col } from "antd";
 import { searchAvailableRooms } from "@/services/roomsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import type { Room, RoomSearchParams } from "@/types/room";
@@ -31,7 +31,7 @@ const RoomSearchResults = () => {
   // State cho multi-room selection (giữ lại cho RoomTypeCard, nhưng không dùng cho booking payload nữa)
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [numRooms, setNumRooms] = useState(1);
-  const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]);
+  // const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]); // Removed: unused
 
   // State cho nhiều loại phòng đã xác nhận
   const [confirmedBookings, setConfirmedBookings] = useState<
@@ -59,7 +59,7 @@ const RoomSearchResults = () => {
       location.state?.autoSelectedConfigs
     ) {
       setSelectedRoomIds(location.state.autoSelectedRoomIds);
-      setRoomsConfig(location.state.autoSelectedConfigs);
+      // setRoomsConfig(location.state.autoSelectedConfigs); // Removed: unused
       message.success(
         `Đã tự động chọn ${location.state.autoSelectedRoomIds.length} phòng từ catalog`
       );
@@ -70,7 +70,7 @@ const RoomSearchResults = () => {
   const handleSearch = async (params: RoomSearchParams) => {
     setLoading(true);
     setSelectedRoomIds([]);
-    setRoomsConfig([]);
+    // setRoomsConfig([]); // Removed: unused
     try {
       console.log("🔍 Searching with params:", params);
       const response = await searchAvailableRooms(params);
@@ -141,9 +141,7 @@ const RoomSearchResults = () => {
                   )
                 </span>
               </div>
-              {searchParams.promo_code && (
-                <Tag color="gold">Mã khuyến mãi: {searchParams.promo_code}</Tag>
-              )}
+              {/* Promo code display removed: promo_code is not used in booking anymore */}
             </div>
           </div>
         )}
@@ -207,9 +205,7 @@ const RoomSearchResults = () => {
                       roomsConfig={currentRoomsConfig}
                       disabled={roomsInType.length < numRooms}
                       onSelectRoomType={(selectedRooms, newRoomsConfig) => {
-                        setRoomsConfig(newRoomsConfig);
                         setSelectedRoomIds(selectedRooms.map((r) => r.id));
-
                         // Thêm hoặc cập nhật loại phòng đã xác nhận
                         setConfirmedBookings((prev) => {
                           const idx = prev.findIndex(
@@ -233,6 +229,7 @@ const RoomSearchResults = () => {
                           }
                         });
                       }}
+                      onRoomSelect={() => {}}
                     />
                   );
                 })}
@@ -267,7 +264,7 @@ const RoomSearchResults = () => {
                         };
                       })
                     )}
-                    promoCode={searchParams.promo_code}
+                    // promoCode prop removed: not used in BookingSidebar
                     onRemoveRoom={(index) => {
                       // Tìm phòng cần xóa trong confirmedBookings
                       let currentIndex = 0;

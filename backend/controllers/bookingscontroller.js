@@ -8,9 +8,11 @@ import {
   cancelBooking as modelCancelBooking,
   changeRoomInBooking as modelChangeRoomInBooking,
   autoAssignRooms as modelAutoAssignRooms,
+  confirmCheckin as modelConfirmCheckin,
 } from "../models/bookingsmodel.js";
-import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js";
+// import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js"; // [CLEANUP] Đã comment dòng liên quan đến discount
 import pool from "../db.js";
+import { markNoShow } from "../utils/markNoShow.js";
 
 export const getBookings = async (req, res) => {
   try {
@@ -73,15 +75,19 @@ export const getBookingById = async (req, res) => {
       );
     }
 
-    // Total amount (before discount)
-    booking.total_amount =
-      booking.total_room_price + booking.total_service_price;
-
-    // Nếu chưa có original_total, set bằng total_amount
-    if (!booking.original_total) {
-      booking.original_total = booking.total_amount;
+    // Nếu booking đã bị hủy và có canceled_by, lấy tên người hủy
+    if (booking.canceled_by) {
+      const userRes = await pool.query(
+        "SELECT full_name, email FROM users WHERE id = $1",
+        [booking.canceled_by]
+      );
+      if (userRes.rows[0]) {
+        booking.canceled_by_name = userRes.rows[0].email || null;
+        if (!booking.canceled_by_name && userRes.rows[0].full_name) {
+          booking.canceled_by_name = userRes.rows[0].full_name;
+        }
+      }
     }
-
     res.json({
       success: true,
       message: "✅ Get booking by ID successfully",
@@ -132,52 +138,6 @@ export const createBooking = async (req, res) => {
       [booking.id]
     );
     booking.items = itemsRes.rows;
-    booking.services = servicesRes.rows;
-
-    // Tăng usage count cho mã giảm giá nếu có
-    // promo_code có thể ở payload.promo_code hoặc trong notes
-    let promoCodeToIncrement = payload.promo_code;
-
-    // Nếu không có trong payload, thử parse từ notes
-    if (!promoCodeToIncrement && booking.notes) {
-      try {
-        const discountMatch = booking.notes.match(/\[Discount: ({[^}]+})\]/);
-        if (discountMatch) {
-          const discountInfo = JSON.parse(discountMatch[1]);
-          promoCodeToIncrement = discountInfo.promo_code;
-        }
-      } catch (parseErr) {
-        console.warn(
-          `[Booking] Could not parse promo_code from notes:`,
-          parseErr
-        );
-      }
-    }
-
-    if (promoCodeToIncrement) {
-      try {
-        const updatedDiscount = await modelIncrementUsageCount(
-          promoCodeToIncrement
-        );
-        console.log(
-          `[Booking] Incremented usage count for discount code: ${promoCodeToIncrement}`
-        );
-        console.log(
-          `[Booking] New usage count: ${updatedDiscount?.used_count || "N/A"}`
-        );
-      } catch (discountErr) {
-        console.error(
-          `[Booking] Error incrementing usage count for ${promoCodeToIncrement}:`,
-          discountErr
-        );
-        console.error(`[Booking] Error details:`, discountErr.message);
-        // Không fail booking nếu lỗi increment usage count
-      }
-    } else {
-      console.log(
-        `[Booking] No promo_code found in payload or notes, skipping usage count increment`
-      );
-    }
 
     // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
 
@@ -354,58 +314,24 @@ export const updateMyBookingStatus = async (req, res) => {
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
       const updated = await modelUpdateBookingStatus(id, { payment_status });
-
-      // Tăng usage count cho mã giảm giá nếu thanh toán thành công
-      if (payment_status === "paid") {
-        try {
-          const booking = await modelGetBookingById(id);
-          if (booking && booking.notes) {
-            const discountMatch = booking.notes.match(
-              /\[Discount: ({[^}]+})\]/
-            );
-            if (discountMatch) {
-              const discountInfo = JSON.parse(discountMatch[1]);
-              if (discountInfo.promo_code) {
-                const updatedDiscount = await modelIncrementUsageCount(
-                  discountInfo.promo_code
-                );
-                console.log(
-                  `[UpdateMyBooking] Incremented usage count for discount code: ${discountInfo.promo_code}`
-                );
-                console.log(
-                  `[UpdateMyBooking] New usage count: ${
-                    updatedDiscount?.used_count || "N/A"
-                  }`
-                );
-              }
-            }
-          }
-        } catch (discountErr) {
-          console.error(
-            "[UpdateMyBooking] Error incrementing usage count:",
-            discountErr
+      // [CLEANUP] Đã bỏ block tăng usage count cho mã giảm giá
+      // Gửi email xác nhận nếu đã thanh toán thành công
+      try {
+        const booking = await modelGetBookingById(id);
+        const customerEmail = booking.email;
+        if (customerEmail) {
+          const { sendBookingConfirmationEmail } = await import(
+            "../utils/mailer.js"
           );
-          // Không fail update nếu lỗi increment usage count
+          await sendBookingConfirmationEmail(customerEmail, id);
+          console.log(
+            `Đã gửi email xác nhận booking #${id} tới ${customerEmail}`
+          );
+        } else {
+          console.warn("Không tìm thấy email khách để gửi xác nhận booking");
         }
-
-        // Gửi email xác nhận nếu đã thanh toán thành công
-        try {
-          const booking = await modelGetBookingById(id);
-          const customerEmail = booking.email;
-          if (customerEmail) {
-            const { sendBookingConfirmationEmail } = await import(
-              "../utils/mailer.js"
-            );
-            await sendBookingConfirmationEmail(customerEmail, id);
-            console.log(
-              `Đã gửi email xác nhận booking #${id} tới ${customerEmail}`
-            );
-          } else {
-            console.warn("Không tìm thấy email khách để gửi xác nhận booking");
-          }
-        } catch (mailErr) {
-          console.error("Lỗi gửi email xác nhận booking:", mailErr);
-        }
+      } catch (mailErr) {
+        console.error("Lỗi gửi email xác nhận booking:", mailErr);
       }
       return res.json({
         success: true,
@@ -440,10 +366,32 @@ export const updateMyBookingStatus = async (req, res) => {
   }
 };
 
+export const confirmCheckin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const result = await modelConfirmCheckin(id, userId);
+    res.json({
+      success: true,
+      message: "Đã check-in thành công",
+      data: result,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 export const confirmCheckout = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await modelConfirmCheckout(id);
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const updated = await modelConfirmCheckout(id, userId);
     res.json({
       success: true,
       message: "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning",
@@ -457,46 +405,12 @@ export const confirmCheckout = async (req, res) => {
   }
 };
 
-// Guest can update booking payment info (no auth required)
-export const updateGuestBooking = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { payment_method, payment_status } = req.body;
-
-    // Only allow updating payment fields for guest
-    const allowedFields = {};
-    if (payment_method) allowedFields.payment_method = payment_method;
-    if (payment_status) allowedFields.payment_status = payment_status;
-
-    if (Object.keys(allowedFields).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid fields to update",
-      });
-    }
-
-    const result = await modelUpdateBookingStatus(id, allowedFields);
-
-    res.json({
-      success: true,
-      message: "Cập nhật booking thành công",
-      data: result,
-    });
-  } catch (err) {
-    console.error("updateGuestBooking error:", err);
-    res.status(400).json({
-      success: false,
-      message: err.message || "Không thể cập nhật booking",
-      error: err.message,
-    });
-  }
-};
-
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
     const userRoleId = req.user?.role_id;
+    const { cancel_reason } = req.body;
     // Admin (4), Manager (3), Staff (2) đều có quyền hủy bất kỳ booking nào
     const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
@@ -507,7 +421,12 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    const result = await modelCancelBooking(id, userId, isStaffOrAbove);
+    const result = await modelCancelBooking(
+      id,
+      userId,
+      isStaffOrAbove,
+      cancel_reason
+    );
 
     res.json({
       success: true,
@@ -524,38 +443,12 @@ export const cancelBooking = async (req, res) => {
   }
 };
 
-export const changeRoomInBooking = async (req, res) => {
+export const adminMarkNoShow = async (req, res) => {
+  const { id } = req.params; // id booking
   try {
-    const { id } = req.params;
-    const { booking_item_id, new_room_id, reason } = req.body;
-    const changed_by = req.user?.id;
-
-    if (!booking_item_id || !new_room_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin booking_item_id hoặc new_room_id",
-      });
-    }
-
-    const result = await modelChangeRoomInBooking({
-      booking_id: Number(id),
-      booking_item_id: Number(booking_item_id),
-      new_room_id: Number(new_room_id),
-      changed_by: changed_by || null,
-      reason: reason || null,
-    });
-
-    res.json({
-      success: true,
-      message: "✅ Đổi phòng thành công",
-      data: result,
-    });
-  } catch (error) {
-    console.error("changeRoomInBooking error:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message || "Không thể đổi phòng",
-      error: error.message,
-    });
+    await markNoShow(Number(id));
+    res.json({ success: true, message: "Booking đã chuyển sang no_show." });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

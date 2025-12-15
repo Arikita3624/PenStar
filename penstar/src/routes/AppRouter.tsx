@@ -14,14 +14,9 @@ import FloorEdit from "@/components/pages/admin/floors/FloorEdit";
 import ServicesPage from "@/components/pages/admin/services/Services";
 import ServiceAdd from "@/components/pages/admin/services/ServiceAdd";
 import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
-import DiscountCodesPage from "@/components/pages/admin/discountcodes/DiscountCodes";
-import DiscountCodeAdd from "@/components/pages/admin/discountcodes/DiscountCodeAdd";
-import DiscountCodeEdit from "@/components/pages/admin/discountcodes/DiscountCodeEdit";
 import { Route, Routes } from "react-router-dom";
 import LayoutClient from "@/components/pages/clients/LayoutClient";
 import HomePage from "@/components/pages/clients/HomePage";
-import RoomsList from "@/components/pages/clients/rooms/RoomsList";
-import RoomDetail from "@/components/pages/clients/rooms/RoomDetail";
 import RoomSearchResults from "@/components/pages/clients/rooms/RoomSearchResults";
 import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
@@ -36,7 +31,6 @@ import NotFound from "@/components/common/NotFound";
 import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBooking";
-import PaymentMethodSelect from "@/components/pages/clients/bookings/PaymentMethodSelect";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
 
@@ -47,11 +41,7 @@ const AppRouter = () => {
         <Route path="/" element={<LayoutClient />}>
           <Route index element={<HomePage />} />
           <Route path="home" element={<HomePage />} />
-          <Route path="rooms" element={<RoomsList />} />
           <Route path="rooms/search-results" element={<RoomSearchResults />} />
-          <Route path="rooms/:id" element={<RoomDetail />} />
-
-          {/* Staff booking - Walk-in customers (staff creates for guest) */}
 
           {/* Customer bookings - CHỈ cho phép customer, chặn admin/staff */}
           <Route
@@ -81,14 +71,6 @@ const AppRouter = () => {
           {/* BookingSuccess không cần RequireCustomerOnly vì có thể truy cập từ callback VNPay hoặc từ email */}
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
 
-          <Route
-            path="bookings/payment-method"
-            element={
-              <RequireCustomerOnly>
-                <PaymentMethodSelect />
-              </RequireCustomerOnly>
-            }
-          />
           {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
           <Route path="payment-result" element={<PaymentResult />} />
           {/* MoMo Mock Payment - chỉ dùng trong test mode */}
@@ -135,12 +117,6 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
-          <Route path="discount-codes" element={<DiscountCodesPage />} />
-          <Route path="discount-codes/add" element={<DiscountCodeAdd />} />
-          <Route
-            path="discount-codes/:id/edit"
-            element={<DiscountCodeEdit />}
-          />
 
           {/* Users management - Manager+ */}
           <Route

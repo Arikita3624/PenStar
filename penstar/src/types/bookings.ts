@@ -36,15 +36,7 @@ export interface BookingRoom {
   extra_children_count?: number; // Số trẻ em thêm
 }
 
-export interface BookingSidebarProps {
-  checkIn: string;
-  checkOut: string;
-  rooms: BookingRoom[];
-  promoCode?: string;
-  onCheckout: () => void;
-  onRemoveRoom?: (index: number) => void;
-  loading: boolean;
-}
+// BookingSidebarProps removed: not used as a type anymore, replaced with inline props
 
 export type BookingService = {
   service_id: number;
@@ -62,8 +54,11 @@ export type Booking = {
   total_price: number;
   total_room_price?: number;
   total_service_price?: number;
-  discount_amount?: number;
-  original_total?: number;
+  // ...existing code...
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
+  canceled_by_name?: string;
   payment_status: string;
   payment_method?: string;
   booking_method: string;
@@ -71,7 +66,7 @@ export type Booking = {
   user_id?: number;
   is_refunded?: boolean;
   change_count?: number;
-  promo_code?: string;
+  // ...existing code...
   items: BookingItem[];
   services?: BookingService[];
   created_at?: string;
@@ -96,9 +91,15 @@ export type BookingDetails = Booking & {
   check_out?: string;
   total_room_price?: number;
   total_service_price?: number;
-  total_amount?: number;
+  // total_amount removed: not used in booking flow
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
   status?: string;
   is_refunded?: boolean;
+  checked_in_by_email?: string;
+  checked_out_by_email?: string;
+  canceled_by_email?: string;
 };
 
 export type BookingUpdatePayload = {

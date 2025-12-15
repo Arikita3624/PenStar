@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Button,
   Card,
@@ -74,53 +75,70 @@ const RoomTypeEdit = () => {
     form.setFieldsValue({
       name: data.name,
       description: data.description,
-      amenities: data.amenities || [],
+      // amenities: data.amenities || [],
+      free_amenities: data.free_amenities || [],
+      paid_amenities: data.paid_amenities || [],
       capacity: data.capacity,
-      max_adults: data.max_adults,
-      max_children: data.max_children,
+      base_adults: data.base_adults,
+      base_children: data.base_children,
+      extra_adult_fee: data.extra_adult_fee,
+      extra_child_fee: data.extra_child_fee,
+      child_age_limit: data.child_age_limit,
       price: data.price,
       bed_type: data.bed_type,
       view_direction: data.view_direction,
-      safety_info: data.safety_info,
       room_size: data.room_size,
-      floor_material: data.floor_material,
-      devices: data.devices || [],
+      policies: data.policies || {},
     });
   }, [data, form]);
 
   const handleFinish = async (values: {
     name: string;
     description: string;
-    amenities?: string[];
+    // amenities?: string[];
+    free_amenities?: string[];
+    paid_amenities?: string[];
     capacity?: number;
-    max_adults?: number;
-    max_children?: number;
+    base_adults?: number;
+    base_children?: number;
+    extra_adult_fee?: number;
+    extra_child_fee?: number;
+    child_age_limit?: number;
     price?: number;
     bed_type?: string;
     view_direction?: string;
-    safety_info?: string;
     room_size?: number;
-    floor_material?: string;
-    devices?: string[];
+    policies?: any;
   }) => {
     try {
       // 1. Update room type basic info
       await updateRoomType(id as string, {
         name: values.name,
         description: values.description,
-        amenities: values.amenities,
+        // amenities: values.amenities,
+        free_amenities: values.free_amenities,
+        paid_amenities: values.paid_amenities,
         capacity: values.capacity ? Number(values.capacity) : undefined,
-        max_adults: values.max_adults ? Number(values.max_adults) : undefined,
-        max_children: values.max_children
-          ? Number(values.max_children)
+        base_adults: values.base_adults
+          ? Number(values.base_adults)
+          : undefined,
+        base_children: values.base_children
+          ? Number(values.base_children)
+          : undefined,
+        extra_adult_fee: values.extra_adult_fee
+          ? Number(values.extra_adult_fee)
+          : undefined,
+        extra_child_fee: values.extra_child_fee
+          ? Number(values.extra_child_fee)
+          : undefined,
+        child_age_limit: values.child_age_limit
+          ? Number(values.child_age_limit)
           : undefined,
         price: values.price ? Number(values.price) : undefined,
         bed_type: values.bed_type,
         view_direction: values.view_direction,
-        safety_info: values.safety_info,
         room_size: values.room_size ? Number(values.room_size) : undefined,
-        floor_material: values.floor_material,
-        devices: values.devices,
+        policies: values.policies || {},
       });
 
       // 2. Handle thumbnail
@@ -153,7 +171,7 @@ const RoomTypeEdit = () => {
         }
       }
 
-      message.success("Room type updated successfully");
+      message.success("Cập nhật loại phòng thành công");
       queryClient.invalidateQueries({ queryKey: ["room_types"] });
       queryClient.invalidateQueries({ queryKey: ["roomtype", id] });
       queryClient.invalidateQueries({ queryKey: ["roomtype_images", id] });
@@ -162,7 +180,7 @@ const RoomTypeEdit = () => {
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
       const errorMsg =
-        error?.response?.data?.message || "Failed to update room type";
+        error?.response?.data?.message || "Cập nhật loại phòng thất bại";
       message.error(errorMsg);
     }
   };
@@ -171,10 +189,10 @@ const RoomTypeEdit = () => {
     try {
       await deleteRoomTypeImage(imageId);
       setExistingExtras((prev) => prev.filter((img) => img.id !== imageId));
-      message.success("Image deleted");
+      message.success("Xóa ảnh thành công");
     } catch (err) {
       console.error("Failed to delete image:", err);
-      message.error("Failed to delete image");
+      message.error("Xóa ảnh thất bại");
     }
   };
   if (isLoading) {
@@ -188,161 +206,124 @@ const RoomTypeEdit = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">EDIT ROOM TYPE</h2>
+        <h2 className="text-2xl font-bold mb-4">CHỈNH SỬA LOẠI PHÒNG</h2>
         <Link to="/admin/roomtypes">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
         <Form form={form} layout="vertical" onFinish={handleFinish}>
           <Row gutter={24}>
             <Col span={16}>
-              <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-                <Input placeholder="Enter room type name (e.g., Deluxe, Suite)" />
-              </Form.Item>
-
-              <div className="grid grid-cols-4 gap-4">
-                <Form.Item
-                  name="price"
-                  label="Price (VND)"
-                  rules={[{ required: true }]}
-                  tooltip="Giá phòng cho loại này"
-                >
-                  <InputNumber
-                    style={{ width: "100%" }}
-                    min={0}
-                    placeholder="1000000"
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="capacity"
-                  label="Capacity"
-                  rules={[{ required: true }]}
-                  tooltip="Tổng số người tối đa (người lớn + trẻ em)"
-                >
-                  <InputNumber
-                    style={{ width: "100%" }}
-                    min={1}
-                    placeholder="2"
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="max_adults"
-                  label="Max Adults"
-                  rules={[{ required: true }]}
-                  tooltip="Số người lớn tối đa"
-                >
-                  <InputNumber
-                    style={{ width: "100%" }}
-                    min={1}
-                    placeholder="2"
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="max_children"
-                  label="Max Children"
-                  rules={[{ required: true }]}
-                  tooltip="Số trẻ em tối đa"
-                >
-                  <InputNumber
-                    style={{ width: "100%" }}
-                    min={0}
-                    placeholder="1"
-                  />
-                </Form.Item>
-                {/* Base Occupancy removed */}
-              </div>
-
               <Form.Item
-                name="description"
-                label="Description"
-                valuePropName="value"
+                name="name"
+                label="Tên loại phòng"
+                rules={[{ required: true }]}
               >
+                <Input placeholder="Nhập tên loại phòng (VD: Deluxe, Suite)" />
+              </Form.Item>
+              <Form.Item
+                name="price"
+                label="Giá (VND)"
+                rules={[{ required: true }]}
+                tooltip="Giá phòng cho loại này"
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="1000000"
+                />
+              </Form.Item>
+              <Form.Item
+                name="capacity"
+                label="Sức chứa tối đa"
+                rules={[{ required: true }]}
+                tooltip="Tổng số người tối đa (người lớn + trẻ em)"
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={1}
+                  placeholder="2"
+                />
+              </Form.Item>
+              <Form.Item name="base_adults" label="Số người lớn cơ bản">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="2"
+                />
+              </Form.Item>
+              <Form.Item name="base_children" label="Số trẻ em cơ bản">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="0"
+                />
+              </Form.Item>
+              <Form.Item name="extra_adult_fee" label="Phụ thu người lớn thêm">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="0"
+                />
+              </Form.Item>
+              <Form.Item name="extra_child_fee" label="Phụ thu trẻ em thêm">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="0"
+                />
+              </Form.Item>
+              <Form.Item name="child_age_limit" label="Giới hạn tuổi trẻ em">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="12"
+                />
+              </Form.Item>
+              <Form.Item name="description" label="Mô tả" valuePropName="value">
                 <QuillEditor />
               </Form.Item>
-
-              <Form.Item name="amenities" label="Amenities & Services">
+              {/*
+              <Form.Item name="amenities" label="Tiện nghi & Dịch vụ">
                 <Select
                   mode="tags"
-                  placeholder="Type amenity and press Enter (e.g., WiFi, Air Conditioning, TV...)"
+                  placeholder="Nhập tiện nghi và nhấn Enter (VD: WiFi, Điều hòa, Tivi...)"
                   style={{ width: "100%" }}
-                  options={[
-                    { label: "WiFi miễn phí", value: "WiFi miễn phí" },
-                    { label: "Điều hòa", value: "Điều hòa" },
-                    { label: "Tivi LCD", value: "Tivi LCD" },
-                    { label: "Minibar", value: "Minibar" },
-                    { label: "Phòng tắm riêng", value: "Phòng tắm riêng" },
-                    { label: "Bàn làm việc", value: "Bàn làm việc" },
-                    { label: "Két sắt", value: "Két sắt" },
-                    { label: "Máy sấy tóc", value: "Máy sấy tóc" },
-                  ]}
                 />
               </Form.Item>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Form.Item name="bed_type" label="Bed Type">
-                  <Select placeholder="Select bed type">
-                    <Select.Option value="single">Single Bed</Select.Option>
-                    <Select.Option value="double">Double Bed</Select.Option>
-                    <Select.Option value="queen">Queen Bed</Select.Option>
-                    <Select.Option value="king">King Bed</Select.Option>
-                    <Select.Option value="twin">Twin Beds</Select.Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item name="view_direction" label="View Direction">
-                  <Select placeholder="Select view">
-                    <Select.Option value="sea">Sea View</Select.Option>
-                    <Select.Option value="city">City View</Select.Option>
-                    <Select.Option value="mountain">
-                      Mountain View
-                    </Select.Option>
-                    <Select.Option value="garden">Garden View</Select.Option>
-                    <Select.Option value="pool">Pool View</Select.Option>
-                  </Select>
-                </Form.Item>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Form.Item name="room_size" label="Room Size (m²)">
-                  <InputNumber
-                    style={{ width: "100%" }}
-                    min={0}
-                    placeholder="25"
-                  />
-                </Form.Item>
-
-                <Form.Item name="floor_material" label="Floor Material">
-                  <Select placeholder="Select floor material">
-                    <Select.Option value="carpet">Carpet</Select.Option>
-                    <Select.Option value="wood">Wooden Floor</Select.Option>
-                    <Select.Option value="tile">Tile</Select.Option>
-                    <Select.Option value="marble">Marble</Select.Option>
-                  </Select>
-                </Form.Item>
-              </div>
-
-              <Form.Item name="safety_info" label="Safety Information">
+              */}
+              <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
+                <Select
+                  mode="tags"
+                  placeholder="Nhập tiện nghi miễn phí và nhấn Enter"
+                  style={{ width: "100%" }}
+                />
+              </Form.Item>
+              <Form.Item name="paid_amenities" label="Tiện nghi tính phí">
+                <Select
+                  mode="tags"
+                  placeholder="Nhập tiện nghi tính phí và nhấn Enter"
+                  style={{ width: "100%" }}
+                />
+              </Form.Item>
+              <Form.Item name="bed_type" label="Loại giường">
+                <Input placeholder="Nhập loại giường (VD: King, Queen, Twin...)" />
+              </Form.Item>
+              <Form.Item name="view_direction" label="Hướng nhìn">
+                <Input placeholder="Nhập hướng nhìn (VD: Biển, Thành phố, Vườn...)" />
+              </Form.Item>
+              <Form.Item name="room_size" label="Diện tích phòng (m²)">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="25"
+                />
+              </Form.Item>
+              <Form.Item name="policies" label="Chính sách phòng">
                 <Input.TextArea
-                  rows={2}
-                  placeholder="Fire extinguisher, smoke detector, first aid kit..."
-                />
-              </Form.Item>
-
-              <Form.Item name="devices" label="Devices & Equipment">
-                <Select
-                  mode="tags"
-                  placeholder="Type device name and press Enter"
-                  style={{ width: "100%" }}
-                  options={[
-                    { label: "TV", value: "TV" },
-                    { label: "Air Conditioner", value: "Air Conditioner" },
-                    { label: "Refrigerator", value: "Refrigerator" },
-                    { label: "Electric Kettle", value: "Electric Kettle" },
-                    { label: "Hair Dryer", value: "Hair Dryer" },
-                    { label: "Safe Box", value: "Safe Box" },
-                    { label: "Telephone", value: "Telephone" },
-                  ]}
+                  rows={3}
+                  placeholder="Nhập chính sách phòng (JSON hoặc text)"
                 />
               </Form.Item>
             </Col>
@@ -402,19 +383,17 @@ const RoomTypeEdit = () => {
                   {!thumbFile && !existingThumbUrl && (
                     <div className="flex flex-col items-center justify-center">
                       <PlusOutlined className="text-2xl" />
-                      <div className="mt-2">Upload</div>
+                      <div className="mt-2">Tải ảnh</div>
                     </div>
                   )}
                 </Upload>
               </Form.Item>
 
               <Form.Item label="Gallery Images">
-                {/* Existing images */}
+                {/* Ảnh bổ sung */}
                 {existingExtras.length > 0 && (
                   <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-2">
-                      Existing images:
-                    </div>
+                    <div className="text-xs text-gray-500 mb-2">Ảnh đã có:</div>
                     <div className="grid grid-cols-3 gap-2">
                       {existingExtras.map((img) => (
                         <div key={img.id} className="relative group">
@@ -497,7 +476,7 @@ const RoomTypeEdit = () => {
                   </div>
                 </Upload>
                 <div className="text-xs text-gray-500 mt-2">
-                  New images to upload: {fileList.length}
+                  Ảnh mới tải lên: {fileList.length}
                 </div>
               </Form.Item>
             </Col>
@@ -506,10 +485,10 @@ const RoomTypeEdit = () => {
           <div className="mt-6 pt-4 border-t">
             <div className="flex gap-3">
               <Button type="primary" htmlType="submit" size="large">
-                Update Room Type
+                Lưu thay đổi
               </Button>
               <Link to="/admin/roomtypes">
-                <Button size="large">Cancel</Button>
+                <Button size="large">Hủy</Button>
               </Link>
             </div>
           </div>

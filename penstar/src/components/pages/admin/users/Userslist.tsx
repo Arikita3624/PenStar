@@ -33,7 +33,7 @@ const Userlist = () => {
   const roleMap = useMemo(() => {
     const src: Role[] = Array.isArray(rolesRaw)
       ? rolesRaw
-      : rolesRaw?.data ?? [];
+      : (rolesRaw?.data ?? []);
     const m: Record<number, string> = {};
     src.forEach((r) => {
       if (r && typeof r.id !== "undefined") m[Number(r.id)] = r.name;
@@ -54,16 +54,16 @@ const Userlist = () => {
     mutationFn: ({ id, status }: { id: number | string; status: string }) =>
       updateUser(id, { status }),
     onSuccess: () => {
-      message.success("User status updated");
+      message.success("Cập nhật trạng thái người dùng thành công");
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: () => message.error("Failed to update user status"),
+    onError: () => message.error("Cập nhật trạng thái người dùng thất bại"),
   });
 
   // backend returns { success, message, data } from listUsers controller
   const users: User[] = Array.isArray(usersRaw?.data)
     ? usersRaw.data
-    : usersRaw ?? [];
+    : (usersRaw ?? []);
 
   const filtered = users.filter((u) => {
     const q = String(searchTerm ?? "")
@@ -90,11 +90,11 @@ const Userlist = () => {
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
       width: 80,
     },
-    { title: "Name", dataIndex: "full_name", key: "full_name" },
+    { title: "Họ tên", dataIndex: "full_name", key: "full_name" },
     { title: "Email", dataIndex: "email", key: "email" },
-    { title: "Phone", dataIndex: "phone", key: "phone" },
+    { title: "Số điện thoại", dataIndex: "phone", key: "phone" },
     {
-      title: "Role",
+      title: "Vai trò",
       dataIndex: "role_id",
       key: "role_id",
       render: (_unused, rec) => {
@@ -104,7 +104,7 @@ const Userlist = () => {
       },
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       render: (_v, record) => {
         const isCurrentUser = record.id === currentUserId;
@@ -116,7 +116,7 @@ const Userlist = () => {
               onClick={() => navigate(`/admin/users/${record.id}/edit`)}
               disabled={isCurrentUser}
             >
-              Edit
+              Sửa
             </Button>
             <Button
               type="primary"
@@ -129,7 +129,7 @@ const Userlist = () => {
               }
               disabled={isCurrentUser}
             >
-              {record.status === "banned" ? "Unban" : "Ban"}
+              {record.status === "banned" ? "Bỏ chặn" : "Chặn"}
             </Button>
           </Space>
         );
@@ -140,10 +140,10 @@ const Userlist = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">USERS</h1>
+        <h1 className="text-2xl font-bold">DANH SÁCH NGƯỜI DÙNG</h1>
         <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by name or email"
+            placeholder="Tìm theo tên hoặc email"
             allowClear
             style={{ width: 360 }}
             onChange={(e) => {

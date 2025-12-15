@@ -43,13 +43,13 @@ const RoomTypesPage = () => {
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteRoomType(id),
     onSuccess: () => {
-      message.success("Room type deleted");
+      message.success("Xóa loại phòng thành công");
       queryClient.invalidateQueries({ queryKey: ["room_types"] });
     },
     onError: (err: unknown) => {
       const serverMsg = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
-      const msg = serverMsg || "Failed to delete";
+      const msg = serverMsg || "Xóa loại phòng thất bại";
       message.error(msg);
     },
   });
@@ -62,7 +62,7 @@ const RoomTypesPage = () => {
       width: 60,
     },
     {
-      title: "Thumbnail",
+      title: "Ảnh đại diện",
       dataIndex: "thumbnail",
       key: "thumbnail",
       width: 100,
@@ -71,27 +71,27 @@ const RoomTypesPage = () => {
           ? thumbnail.startsWith("http")
             ? thumbnail
             : `http://localhost:5000${thumbnail}`
-          : "https://via.placeholder.com/80x60?text=No+Image";
+          : "https://via.placeholder.com/80x60?text=Không+ảnh";
         return (
           <Image
             src={imageUrl}
-            alt="Thumbnail"
+            alt="Ảnh đại diện"
             width={80}
             height={60}
             className="object-cover rounded"
-            fallback="https://via.placeholder.com/80x60?text=No+Image"
+            fallback="https://via.placeholder.com/80x60?text=Không+ảnh"
           />
         );
       },
     },
     {
-      title: "Name",
+      title: "Tên loại phòng",
       dataIndex: "name",
       key: "name",
       width: 150,
     },
     {
-      title: "Price (VND)",
+      title: "Giá phòng (VND)",
       dataIndex: "price",
       key: "price",
       width: 120,
@@ -104,7 +104,7 @@ const RoomTypesPage = () => {
           : "--",
     },
     {
-      title: "Description",
+      title: "Mô tả",
       dataIndex: "description",
       key: "description",
       render: (text: string) => (
@@ -115,7 +115,7 @@ const RoomTypesPage = () => {
       ),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       width: 180,
       render: (_v, record) => (
@@ -125,16 +125,16 @@ const RoomTypesPage = () => {
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/roomtypes/${record.id}/edit`)}
           >
-            Edit
+            Sửa
           </Button>
           <Popconfirm
-            title="Delete this room type?"
+            title="Bạn có chắc chắn muốn xóa loại phòng này?"
             onConfirm={() => deleteMut.mutate(record.id)}
-            okText="Yes"
-            cancelText="No"
+            okText="Có"
+            cancelText="Không"
           >
             <Button type="primary" danger>
-              Delete
+              Xóa
             </Button>
           </Popconfirm>
         </Space>
@@ -145,10 +145,10 @@ const RoomTypesPage = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">ROOM TYPES</h1>
+        <h1 className="text-2xl font-bold">Danh sách loại phòng</h1>
         <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by name"
+            placeholder="Tìm kiếm theo tên loại phòng"
             allowClear
             style={{ width: 260 }}
             onChange={(e) => {
@@ -161,7 +161,7 @@ const RoomTypesPage = () => {
             icon={<PlusOutlined />}
             onClick={() => navigate("/admin/roomtypes/new")}
           >
-            New
+            Thêm loại phòng
           </Button>
         </div>
       </div>
@@ -175,7 +175,8 @@ const RoomTypesPage = () => {
           pagination={{
             pageSize,
             current: currentPage,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} trong tổng ${total}`,
             showQuickJumper: true,
             onChange: (p) => setCurrentPage(p),
           }}

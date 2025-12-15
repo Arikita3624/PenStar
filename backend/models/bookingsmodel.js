@@ -1,11 +1,58 @@
 import pool from "../db.js";
 
+// Check-in: cập nhật trạng thái và checked_in_by
+export const confirmCheckin = async (id, userId) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Lấy trạng thái hiện tại
+    const checkBooking = await client.query(
+      "SELECT stay_status_id, check_in FROM bookings b LEFT JOIN booking_items bi ON bi.booking_id = b.id WHERE b.id = $1 LIMIT 1",
+      [id]
+    );
+    if (!checkBooking.rows[0]) {
+      throw new Error("Booking không tồn tại");
+    }
+    const { stay_status_id, check_in } = checkBooking.rows[0];
+    if (stay_status_id !== 1) {
+      // 1 = reserved
+      throw new Error(
+        "Chỉ có thể check-in booking ở trạng thái Đã đặt (reserved)"
+      );
+    }
+    // Kiểm tra ngày/giờ check-in hợp lệ (>= hôm nay, >= 12:00)
+    const now = new Date();
+    const checkInDate = new Date(check_in);
+    // Giờ giới hạn check-in là 12:00
+    const checkInLimit = new Date(checkInDate);
+    checkInLimit.setHours(12, 0, 0, 0);
+    if (now < checkInLimit) {
+      throw new Error("Chỉ được check-in sau 12:00 ngày nhận phòng");
+    }
+    // Cập nhật trạng thái và checked_in_by
+    await client.query(
+      "UPDATE bookings SET stay_status_id = 2, checked_in_by = $1 WHERE id = $2",
+      [userId, id]
+    );
+    await client.query("COMMIT");
+    return { success: true };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 export const getBookings = async () => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone, 
+            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
      LEFT JOIN users u ON u.id = b.user_id
+    LEFT JOIN users checked_in_user ON checked_in_user.id = b.checked_in_by
+    LEFT JOIN users checked_out_user ON checked_out_user.id = b.checked_out_by
      ORDER BY b.created_at DESC`
   );
   return resuit.rows;
@@ -13,10 +60,13 @@ export const getBookings = async () => {
 
 export const getBookingById = async (id) => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone, 
+            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
      LEFT JOIN users u ON u.id = b.user_id
+    LEFT JOIN users checked_in_user ON checked_in_user.id = b.checked_in_by
+    LEFT JOIN users checked_out_user ON checked_out_user.id = b.checked_out_by
      WHERE b.id = $1`,
     [id]
   );
@@ -294,10 +344,7 @@ export const createBooking = async (data) => {
       ? data.services.reduce((sum, s) => sum + (s.total_service_price || 0), 0)
       : 0;
 
-    // Xử lý discount
-    const discount_amount = data.discount_amount || 0;
-    const original_total =
-      data.original_total || total_room_price + total_service_price;
+    // ...existing code...
 
     const insertBookingText = `INSERT INTO bookings (
       customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, created_at
@@ -409,12 +456,18 @@ export const updateBookingStatus = async (id, fields) => {
       }
     }
 
+    // Nếu chuyển sang canceled (4) hoặc no_show (5) thì luôn failed và không hoàn tiền
+    let patchFields = { ...fields };
+    if (fields.stay_status_id === 4 || fields.stay_status_id === 5) {
+      patchFields.payment_status = "failed";
+      patchFields.is_refunded = false;
+    }
     const keys = [];
     const vals = [];
     let idx = 1;
-    for (const k of Object.keys(fields)) {
+    for (const k of Object.keys(patchFields)) {
       keys.push(`${k} = $${idx++}`);
-      vals.push(fields[k]);
+      vals.push(patchFields[k]);
     }
     if (!keys.length) return null;
     const q = `UPDATE bookings SET ${keys.join(
@@ -470,7 +523,8 @@ export const updateBookingStatus = async (id, fields) => {
   }
 };
 
-export const confirmCheckout = async (id) => {
+// Check-out: cập nhật trạng thái và checked_out_by
+export const confirmCheckout = async (id, userId) => {
   // Admin confirms checkout -> room status changes to "cleaning", booking stays at checked_out (3)
   const client = await pool.connect();
   try {
@@ -478,7 +532,11 @@ export const confirmCheckout = async (id) => {
 
     // Check if booking is at checked_out status
     const checkBooking = await client.query(
-      "SELECT stay_status_id FROM bookings WHERE id = $1",
+      `SELECT b.stay_status_id, bi.check_in, bi.check_out
+       FROM bookings b
+       LEFT JOIN booking_items bi ON bi.booking_id = b.id
+       WHERE b.id = $1
+       LIMIT 1`,
       [id]
     );
     if (
@@ -488,6 +546,20 @@ export const confirmCheckout = async (id) => {
       throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
     }
 
+    // Validate checkout time: chỉ cho phép checkout nếu đã đến 12:00 ngày checkout hoặc sau đó
+    const now = new Date();
+    const checkOutDate = new Date(checkBooking.rows[0].check_out);
+    const checkInDate = new Date(checkBooking.rows[0].check_in);
+    // Giờ giới hạn checkout là 12:00
+    const checkOutLimit = new Date(checkOutDate);
+    checkOutLimit.setHours(12, 0, 0, 0);
+    if (now < checkInDate) {
+      throw new Error("Chưa đến thời gian check-in, không thể checkout!");
+    }
+    if (now < checkOutLimit) {
+      throw new Error("Chỉ được checkout sau 12:00 ngày trả phòng");
+    }
+
     // Get rooms from this booking
     const items = await client.query(
       "SELECT room_id FROM booking_items WHERE booking_id = $1",
@@ -495,7 +567,6 @@ export const confirmCheckout = async (id) => {
     );
 
     // Update all rooms to "cleaning" status
-
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         "cleaning",
@@ -505,8 +576,8 @@ export const confirmCheckout = async (id) => {
 
     // Update booking stay_status_id to checked_out (3)
     await client.query(
-      "UPDATE bookings SET stay_status_id = $1 WHERE id = $2",
-      [3, id]
+      "UPDATE bookings SET stay_status_id = $1, checked_out_by = $2 WHERE id = $3",
+      [3, userId, id]
     );
 
     await client.query("COMMIT");
@@ -527,7 +598,12 @@ export const confirmCheckout = async (id) => {
   }
 };
 
-export const cancelBooking = async (id, userId, isAdmin = false) => {
+export const cancelBooking = async (
+  id,
+  userId,
+  isAdmin = false,
+  cancelReason = ""
+) => {
   // Cancel booking with business logic: check permissions, calculate refund
   const client = await pool.connect();
   try {
@@ -600,14 +676,16 @@ export const cancelBooking = async (id, userId, isAdmin = false) => {
       }
     }
 
-    // NEW LOGIC: When cancel, set payment_status to "failed"
-    // Admin can later change to "refunded" if needed
+    // NEW LOGIC: When cancel, set payment_status to "failed"; lưu lý do, người hủy, thời điểm hủy
     await client.query(
       `UPDATE bookings 
        SET stay_status_id = 4,
-           payment_status = 'failed'
+           payment_status = 'failed',
+           cancel_reason = $2,
+           canceled_by = $3,
+           canceled_at = NOW()
        WHERE id = $1`,
-      [id]
+      [id, cancelReason, userId]
     );
 
     // Update room status to available

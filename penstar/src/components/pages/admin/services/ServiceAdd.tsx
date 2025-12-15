@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { createService } from "@/services/servicesApi";
-import { getServiceTypes } from "@/services/serviceTypesApi";
+// import { getServiceTypes } from "@/services/serviceTypesApi";
 import { useNavigate } from "react-router-dom";
 import { PlusOutlined } from "@ant-design/icons";
 import { useState } from "react";
@@ -26,27 +26,24 @@ const ServiceAdd = () => {
   const [imageFileList, setImageFileList] = useState<UploadFile[]>([]);
   const [thumbnailFileList, setThumbnailFileList] = useState<UploadFile[]>([]);
 
-  const { data: serviceTypes = [] } = useQuery({
-    queryKey: ["service-types"],
-    queryFn: getServiceTypes,
-  });
+  // Removed serviceTypes logic
 
   const createMut = useMutation({
     mutationFn: (payload: FormData) => createService(payload),
     onSuccess: () => {
-      message.success("Service created");
+      message.success("Tạo dịch vụ thành công");
       queryClient.invalidateQueries({ queryKey: ["services"] });
       navigate("/admin/services");
     },
-    onError: () => message.error("Failed to create"),
+    onError: () => message.error("Tạo dịch vụ thất bại"),
   });
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">NEW SERVICE</h2>
+        <h2 className="text-2xl font-bold mb-4">THÊM DỊCH VỤ MỚI</h2>
         <Link to="/admin/services">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
@@ -82,67 +79,50 @@ const ServiceAdd = () => {
             createMut.mutate(formData);
           }}
           initialValues={{
-            service_type_code: "optional",
             is_included: false,
           }}
         >
           <Form.Item
             name="name"
-            label="Service Name"
+            label="Tên dịch vụ"
             rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., Buffet sáng, Spa massage..." />
+            <Input placeholder="VD: Buffet sáng, Spa massage..." />
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">
             <Form.Item
               name="price"
-              label="Price (VND)"
+              label="Giá (VND)"
               rules={[{ required: true }]}
             >
               <InputNumber style={{ width: "100%" }} min={0} />
             </Form.Item>
 
-            <Form.Item
-              name="service_type_code"
-              label="Service Type"
-              rules={[{ required: true }]}
-            >
-              <Select placeholder="Select service type">
-                {serviceTypes.map((type) => (
-                  <Select.Option key={type.code} value={type.code}>
-                    {type.name}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+            {/* Removed service_type_code field */}
           </div>
 
           <Form.Item
             name="is_included"
-            label="Included in room price"
+            label="Bao gồm giá phòng"
             valuePropName="checked"
           >
             <Switch />
           </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="Description"
-            valuePropName="value"
-          >
+          <Form.Item name="description" label="Mô tả" valuePropName="value">
             <QuillEditor />
           </Form.Item>
 
-          <Form.Item name="note" label="Additional Notes">
+          <Form.Item name="note" label="Ghi chú thêm">
             <Input.TextArea
               rows={3}
-              placeholder="e.g., Buffet served 6:00 - 10:00 AM"
+              placeholder="VD: Buffet phục vụ 6:00 - 10:00 sáng"
             />
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">
-            <Form.Item label="Image">
+            <Form.Item label="Ảnh dịch vụ">
               <Upload
                 listType="picture-card"
                 fileList={imageFileList}
@@ -153,13 +133,13 @@ const ServiceAdd = () => {
                 {imageFileList.length === 0 && (
                   <div>
                     <PlusOutlined />
-                    <div style={{ marginTop: 8 }}>Upload</div>
+                    <div style={{ marginTop: 8 }}>Tải ảnh</div>
                   </div>
                 )}
               </Upload>
             </Form.Item>
 
-            <Form.Item label="Thumbnail">
+            <Form.Item label="Ảnh đại diện">
               <Upload
                 listType="picture-card"
                 fileList={thumbnailFileList}
@@ -170,7 +150,7 @@ const ServiceAdd = () => {
                 {thumbnailFileList.length === 0 && (
                   <div>
                     <PlusOutlined />
-                    <div style={{ marginTop: 8 }}>Upload</div>
+                    <div style={{ marginTop: 8 }}>Tải ảnh</div>
                   </div>
                 )}
               </Upload>
@@ -183,7 +163,7 @@ const ServiceAdd = () => {
               htmlType="submit"
               loading={createMut.isPending}
             >
-              Create Service
+              Tạo dịch vụ
             </Button>
           </div>
         </Form>

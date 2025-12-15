@@ -47,14 +47,14 @@ const Rooms = () => {
   const { mutate: deleteMut } = useMutation({
     mutationFn: async (id: number) => deleteRoom(id),
     onSuccess: () => {
-      messageApi.success("Room deleted successfully");
+      messageApi.success("Xóa phòng thành công");
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
     },
-    onError: () => messageApi.error("Failed to delete room"),
+    onError: () => messageApi.error("Xóa phòng thất bại"),
   });
 
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error</div>;
+  if (isLoading) return <div>Đang tải...</div>;
+  if (isError) return <div>Lỗi</div>;
 
   const filteredRooms = rooms?.filter((r) => {
     if (filterTypeId && String(r.type_id) !== String(filterTypeId))
@@ -81,23 +81,23 @@ const Rooms = () => {
       width: 80,
     },
     {
-      title: "Thumbnail",
+      title: "Ảnh đại diện",
       dataIndex: "thumbnail",
       key: "thumbnail",
       render: (thumb) => <img src={thumb} width={50} alt="" />,
     },
-    { title: "Name", dataIndex: "name", key: "name" },
+    { title: "Tên phòng", dataIndex: "name", key: "name" },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       key: "status",
       render: (status) => {
         const meta: Record<string, { label: string; color: string }> = {
-          available: { label: "Available", color: "green" },
-          booked: { label: "Booked", color: "gold" },
-          occupied: { label: "Occupied", color: "orange" },
-          cleaning: { label: "Cleaning", color: "cyan" },
-          unavailable: { label: "Unavailable", color: "red" },
+          available: { label: "Còn trống", color: "green" },
+          booked: { label: "Đã đặt", color: "gold" },
+          occupied: { label: "Đang ở", color: "orange" },
+          cleaning: { label: "Đang dọn", color: "cyan" },
+          unavailable: { label: "Không khả dụng", color: "red" },
         };
         const m = meta[String(status)] || {
           label: String(status).toUpperCase(),
@@ -107,20 +107,20 @@ const Rooms = () => {
       },
     },
     {
-      title: "Type",
+      title: "Loại phòng",
       dataIndex: "type_name",
       key: "type_name",
       render: (type_name) => type_name || "N/A",
     },
     {
-      title: "Floor",
+      title: "Tầng",
       dataIndex: "floor_name",
       key: "floor_name",
       render: (floor_name) => floor_name || "N/A",
     },
     // Price column removed, now managed in room type
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       render: (_, room) => (
         <div className="flex gap-2">
@@ -129,15 +129,15 @@ const Rooms = () => {
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/rooms/${(room as Room).id}/edit`)}
           >
-            Edit
+            Sửa
           </Button>
           <Popconfirm
-            title="Delete"
-            description="Are you sure to delete this room?"
+            title="Xóa phòng"
+            description="Bạn có chắc chắn muốn xóa phòng này?"
             onConfirm={() => deleteMut((room as Room).id)}
           >
             <Button type="primary" danger>
-              Delete
+              Xóa
             </Button>
           </Popconfirm>
         </div>
@@ -149,10 +149,10 @@ const Rooms = () => {
     <div>
       {contextHolder}
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">ROOM LIST</h1>
+        <h1 className="text-2xl font-bold">DANH SÁCH PHÒNG</h1>
         <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by room name"
+            placeholder="Tìm theo tên phòng"
             allowClear
             style={{ width: 260 }}
             onChange={(e) => {
@@ -162,7 +162,7 @@ const Rooms = () => {
           />
           <Select
             allowClear
-            placeholder="Filter by room type"
+            placeholder="Lọc theo loại phòng"
             style={{ width: 200 }}
             value={filterTypeId ?? undefined}
             onChange={(val) => {
@@ -179,7 +179,7 @@ const Rooms = () => {
           </Select>
           <Select
             allowClear
-            placeholder="Filter by floor"
+            placeholder="Lọc theo tầng"
             style={{ width: 200 }}
             value={filterFloorId ?? undefined}
             onChange={(val) => {
@@ -201,14 +201,14 @@ const Rooms = () => {
               setCurrentPage(1);
             }}
           >
-            Clear
+            Xóa lọc
           </Button>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate("/admin/rooms/add")}
           >
-            Create
+            Thêm mới
           </Button>
         </div>
       </div>
@@ -220,7 +220,8 @@ const Rooms = () => {
           pagination={{
             pageSize,
             current: currentPage,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} trong ${total}`,
             showQuickJumper: true,
             onChange: (page) => setCurrentPage(page),
           }}

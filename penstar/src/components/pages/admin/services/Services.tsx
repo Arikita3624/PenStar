@@ -7,7 +7,6 @@ import {
   Table,
   message,
   Space,
-  Tag,
   Avatar,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -16,7 +15,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
-import { getServiceTypes } from "@/services/serviceTypesApi";
 
 const ServicesPage = () => {
   const queryClient = useQueryClient();
@@ -28,11 +26,6 @@ const ServicesPage = () => {
   const { data: services = [], isLoading } = useQuery({
     queryKey: ["services"],
     queryFn: getServices,
-  });
-
-  const { data: serviceTypes = [] } = useQuery({
-    queryKey: ["service-types"],
-    queryFn: getServiceTypes,
   });
 
   const filteredServices = services.filter((s: Services) => {
@@ -48,10 +41,10 @@ const ServicesPage = () => {
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteService(id),
     onSuccess: () => {
-      message.success("Service deleted");
+      message.success("Xoá dịch vụ thành công");
       queryClient.invalidateQueries({ queryKey: ["services"] });
     },
-    onError: () => message.error("Failed to delete"),
+    onError: () => message.error("Xoá dịch vụ thất bại"),
   });
 
   const columns: ColumnsType<Services> = [
@@ -62,7 +55,7 @@ const ServicesPage = () => {
       width: 80,
     },
     {
-      title: "Image",
+      title: "Ảnh",
       key: "thumbnail",
       width: 80,
       render: (_v, record) =>
@@ -70,32 +63,9 @@ const ServicesPage = () => {
           <Avatar shape="square" size={50} src={record.thumbnail} />
         ) : null,
     },
-    { title: "Name", dataIndex: "name", key: "name" },
+    { title: "Tên dịch vụ", dataIndex: "name", key: "name" },
     {
-      title: "Type",
-      key: "service_type_code",
-      width: 120,
-      render: (_v, record) => {
-        const type = serviceTypes.find(
-          (t) => t.code === record.service_type_code
-        );
-        return type ? (
-          <Tag
-            color={
-              type.code === "mandatory"
-                ? "red"
-                : type.code === "optional"
-                  ? "blue"
-                  : "green"
-            }
-          >
-            {type.name}
-          </Tag>
-        ) : null;
-      },
-    },
-    {
-      title: "Price",
+      title: "Giá (VND)",
       dataIndex: "price",
       key: "price",
       width: 120,
@@ -106,14 +76,7 @@ const ServicesPage = () => {
         }).format(p),
     },
     {
-      title: "Included",
-      key: "is_included",
-      width: 100,
-      render: (_v, record) =>
-        record.is_included ? <Tag color="success">Yes</Tag> : <Tag>No</Tag>,
-    },
-    {
-      title: "Description",
+      title: "Mô tả",
       dataIndex: "description",
       key: "description",
       render: (text: string) => (
@@ -124,7 +87,7 @@ const ServicesPage = () => {
       ),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       fixed: "right",
       width: 180,
@@ -135,14 +98,14 @@ const ServicesPage = () => {
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/services/${record.id}/edit`)}
           >
-            Edit
+            Sửa
           </Button>
           <Popconfirm
-            title="Delete?"
+            title="Bạn có chắc muốn xoá?"
             onConfirm={() => deleteMut.mutate(record.id)}
           >
             <Button type="primary" danger>
-              Delete
+              Xoá
             </Button>
           </Popconfirm>
         </Space>
@@ -153,10 +116,10 @@ const ServicesPage = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">SERVICES</h1>
+        <h1 className="text-2xl font-bold">DANH SÁCH DỊCH VỤ</h1>
         <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by name"
+            placeholder="Tìm theo tên dịch vụ"
             allowClear
             style={{ width: 260 }}
             onChange={(e) => {
@@ -169,7 +132,7 @@ const ServicesPage = () => {
             icon={<PlusOutlined />}
             onClick={() => navigate("/admin/services/new")}
           >
-            New
+            Thêm mới
           </Button>
         </div>
       </div>
@@ -183,7 +146,8 @@ const ServicesPage = () => {
           pagination={{
             pageSize,
             current: currentPage,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} trong ${total}`,
             showQuickJumper: true,
             onChange: (p) => setCurrentPage(p),
           }}

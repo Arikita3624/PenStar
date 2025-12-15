@@ -114,7 +114,7 @@ const BookingConfirm = () => {
 
       // Nếu chọn online payment (vnpay/momo), tạo payment URL
       try {
-        let paymentUrl = "";
+        let paymentUrl: string = "";
         const paymentParams = {
           bookingId: bookingId,
           amount: totalRoomPrice,
@@ -123,10 +123,12 @@ const BookingConfirm = () => {
 
         if (paymentMethod === "vnpay") {
           const paymentRes = await createPayment(paymentParams);
-          paymentUrl = paymentRes.paymentUrl || paymentRes.data?.paymentUrl;
+          paymentUrl =
+            paymentRes.paymentUrl ?? paymentRes.data?.paymentUrl ?? "";
         } else if (paymentMethod === "momo") {
           const paymentRes = await createMoMoPayment(paymentParams);
-          paymentUrl = paymentRes.paymentUrl || paymentRes.data?.paymentUrl;
+          paymentUrl =
+            paymentRes.paymentUrl ?? paymentRes.data?.paymentUrl ?? "";
         }
 
         if (paymentUrl) {
@@ -142,10 +144,6 @@ const BookingConfirm = () => {
       } catch (paymentError: any) {
         console.error("Payment error:", paymentError);
         message.error("Lỗi khi tạo thanh toán. Vui lòng thử lại.");
-        // Fallback: chuyển sang PaymentMethodSelect
-        navigate("/bookings/payment-method", {
-          state: { bookingId, bookingInfo: booking },
-        });
       }
     },
     onError: (err: any) => {

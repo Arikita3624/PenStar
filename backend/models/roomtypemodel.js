@@ -4,28 +4,28 @@ export const getRoomTypes = async () => {
   let result;
   try {
     result = await pool.query(`
-    SELECT 
-      rt.id,
-      rt.name,
-      rt.description,
-      rt.created_at,
-      rt.capacity,
-      rt.room_size,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
-      rt.price,
-      rt.bed_type,
-      rt.view_direction,
-      rt.free_amenities,
-      rt.paid_amenities,
-      rt.base_adults,
-      rt.base_children,
-      rt.extra_adult_fee,
-      rt.extra_child_fee,
-      rt.child_age_limit,
-      rt.policies
-    FROM room_types rt
+      SELECT 
+        rt.id,
+        rt.name,
+        rt.description,
+        rt.created_at,
+        rt.capacity,
+        rt.base_adults,
+        rt.base_children,
+        rt.extra_adult_fee,
+        rt.extra_child_fee,
+        rt.child_age_limit,
+        rt.thumbnail,
+        rt.price,
+        rt.bed_type,
+        rt.view_direction,
+        rt.amenities,
+        rt.free_amenities,
+        rt.paid_amenities,
+        rt.room_size,
+        rt.policies
+      FROM room_types rt
     `);
-    console.log("Kết quả truy vấn room_types:", result.rows);
   } catch (err) {
     console.error("Lỗi truy vấn room_types:", err);
     throw err;
@@ -47,7 +47,7 @@ export const getRoomTypes = async () => {
     imagesByRoomType[img.room_type_id].push(img.image_url);
   }
 
-  // Group devices for each room type
+  // Lấy devices qua bảng room_type_devices
   const roomTypes = {};
   for (const row of result.rows) {
     if (!roomTypes[row.id]) {
@@ -71,9 +71,11 @@ export const getRoomTypes = async () => {
         extra_child_fee: row.extra_child_fee,
         child_age_limit: row.child_age_limit,
         policies: row.policies,
+        // devices: [],
       };
     }
   }
+
   return Object.values(roomTypes);
 };
 
@@ -82,25 +84,45 @@ export const createRoomType = async (data) => {
     name,
     description,
     thumbnail,
-    images,
     capacity,
-    max_adults,
-    max_children,
+    base_adults,
+    base_children,
+    extra_adult_fee,
+    extra_child_fee,
+    child_age_limit,
     price,
-    devices_id,
+    bed_type,
+    view_direction,
+    amenities,
+    free_amenities,
+    paid_amenities,
+    room_size,
+    policies,
   } = data;
   const result = await pool.query(
-    "INSERT INTO room_types (name, description, thumbnail, images, capacity, max_adults, max_children, price, devices_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+    `INSERT INTO room_types (
+      name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, amenities, free_amenities, paid_amenities, room_size, policies
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+    ) RETURNING *`,
     [
       name,
       description,
-      thumbnail || null,
-      images ? JSON.stringify(images) : null,
       capacity,
-      max_adults,
-      max_children,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      thumbnail || null,
       price,
-      devices_id || [],
+      bed_type,
+      view_direction,
+      amenities || null,
+      free_amenities || null,
+      paid_amenities || null,
+      room_size,
+      policies ? JSON.stringify(policies) : null,
     ]
   );
   return result.rows[0];
@@ -113,121 +135,108 @@ export const getRoomTypeById = async (id) => {
       rt.name,
       rt.description,
       rt.created_at,
-      rt.max_adults,
-      rt.max_children,
       rt.capacity,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
-      rt.price,
-      rt.devices_id,
-      rt.bed_type,
-      rt.view_direction,
-      rt.safety_info,
-      rt.free_amenities,
-      rt.paid_amenities,
       rt.base_adults,
       rt.base_children,
       rt.extra_adult_fee,
       rt.extra_child_fee,
       rt.child_age_limit,
-      rt.policies,
-      d.id as device_id,
-      d.name as device_name,
-      d.type as device_type,
-      d.fee as device_fee,
-      d.description as device_description
+      rt.thumbnail,
+      rt.price,
+      rt.bed_type,
+      rt.view_direction,
+      rt.amenities,
+      rt.free_amenities,
+      rt.paid_amenities,
+      rt.room_size,
+      rt.policies
     FROM room_types rt
-    LEFT JOIN LATERAL (
-      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
-    ) d ON TRUE
     WHERE rt.id = $1`,
     [id]
   );
   const row = result.rows[0];
   if (row) {
-    // Parse JSON fields
-    if (row.images) row.images = JSON.parse(row.images);
-    // Collect all devices
-    const devices = [];
-    for (const r of result.rows) {
-      if (r.device_id) {
-        devices.push({
-          id: r.device_id,
-          name: r.device_name,
-          type: r.device_type,
-          fee: r.device_fee,
-          description: r.device_description,
-        });
-      }
-    }
-    row.devices = devices;
+    if (row.policies && typeof row.policies === "string")
+      row.policies = JSON.parse(row.policies);
+    // row.devices = await getDevicesByRoomType(row.id);
   }
   return row;
 };
 
 export const updateRoomType = async (id, data) => {
-  const {
+  let {
     name,
     description,
     capacity,
-    max_adults,
-    max_children,
+    base_adults,
+    base_children,
+    extra_adult_fee,
+    extra_child_fee,
+    child_age_limit,
+    thumbnail,
     price,
-    devices_id,
+    bed_type,
+    view_direction,
+    amenities,
+    free_amenities,
+    paid_amenities,
+    room_size,
+    policies,
   } = data;
+
+  // Nếu thumbnail không được gửi lên, lấy lại từ DB
+  if (typeof thumbnail === "undefined") {
+    const old = await pool.query(
+      "SELECT thumbnail FROM room_types WHERE id = $1",
+      [id]
+    );
+    thumbnail = old.rows[0]?.thumbnail || null;
+  }
+
   const result = await pool.query(
-    "UPDATE room_types SET name = $1, description = $2, capacity = $3, max_adults = $4, max_children = $5, price = $6, devices_id = $7 WHERE id = $8 RETURNING *",
+    `UPDATE room_types SET
+      name = $1,
+      description = $2,
+      capacity = $3,
+      base_adults = $4,
+      base_children = $5,
+      extra_adult_fee = $6,
+      extra_child_fee = $7,
+      child_age_limit = $8,
+      thumbnail = $9,
+      price = $10,
+      bed_type = $11,
+      view_direction = $12,
+      amenities = $13,
+      free_amenities = $14,
+      paid_amenities = $15,
+      room_size = $16,
+      policies = $18
+    WHERE id = $19 RETURNING *`,
     [
       name,
       description,
       capacity,
-      max_adults,
-      max_children,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      thumbnail || null,
       price,
-      devices_id || [],
+      bed_type,
+      view_direction,
+      amenities || null,
+      free_amenities || null,
+      paid_amenities || null,
+      room_size,
+      policies ? JSON.stringify(policies) : null,
       id,
     ]
   );
-
-  // Get thumbnail and devices
-  const withDevices = await pool.query(
-    `SELECT 
-      rt.id,
-      rt.name,
-      rt.description,
-      rt.created_at,
-      rt.max_adults,
-      rt.max_children,
-      rt.capacity,
-      (SELECT image_url FROM room_type_images WHERE room_type_id = rt.id AND is_thumbnail = true LIMIT 1) as thumbnail,
-      rt.price,
-      rt.devices_id,
-      d.id as device_id,
-      d.name as device_name,
-      d.type as device_type,
-      d.fee as device_fee,
-      d.description as device_description
-    FROM room_types rt
-    LEFT JOIN LATERAL (
-      SELECT * FROM devices WHERE id = ANY(rt.devices_id)
-    ) d ON TRUE
-    WHERE rt.id = $1`,
-    [id]
-  );
-  const row = withDevices.rows[0];
+  const row = result.rows[0];
   if (row) {
-    const devices = [];
-    for (const r of withDevices.rows) {
-      if (r.device_id) {
-        devices.push({
-          id: r.device_id,
-          name: r.device_name,
-          type: r.device_type,
-          fee: r.device_fee,
-          description: r.device_description,
-        });
-      }
-    }
-    row.devices = devices;
+    row.devices = await getDevicesByRoomType(row.id);
   }
   return row;
 };

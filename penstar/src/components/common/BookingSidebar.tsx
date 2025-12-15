@@ -1,17 +1,17 @@
 import { Card, Button, Empty, Collapse } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import type { BookingSidebarProps, BookingRoom } from "@/types/bookings";
+import type { BookingRoom } from "@/types/bookings";
 
-const BookingSidebar: React.FC<BookingSidebarProps> = ({
-  checkIn,
-  checkOut,
-  rooms,
-  // promoCode,
-  onCheckout,
-  onRemoveRoom,
-  loading,
-}) => {
+// Removed unused promoCode prop from BookingSidebarProps
+const BookingSidebar: React.FC<{
+  checkIn: string;
+  checkOut: string;
+  rooms: BookingRoom[];
+  onCheckout: () => void;
+  onRemoveRoom?: (index: number) => void;
+  loading?: boolean;
+}> = ({ checkIn, checkOut, rooms, onCheckout, onRemoveRoom, loading }) => {
   const nights = dayjs(checkOut).diff(dayjs(checkIn), "day");
   const totalPrice = rooms.reduce(
     (sum, room) =>
