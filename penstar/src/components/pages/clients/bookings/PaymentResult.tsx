@@ -13,17 +13,18 @@ const PaymentResult: React.FC = () => {
   React.useEffect(() => {
     // Lấy query parameters từ callback
     const queryParams = new URLSearchParams(location.search);
-    
+
     // Kiểm tra xem là VNPay hay MoMo
     // MoMo thật có thể không có paymentMethod, nhưng có resultCode, partnerCode
     const paymentMethod = queryParams.get("paymentMethod");
     const resultCode = queryParams.get("resultCode");
     const partnerCode = queryParams.get("partnerCode");
-    
+
     // Nếu có resultCode hoặc partnerCode thì là MoMo thật
     // Nếu có paymentMethod=momo thì là MoMo (mock hoặc có paymentMethod)
-    const isMoMo = paymentMethod === "momo" || (resultCode !== null || partnerCode === "MOMO");
-    
+    const isMoMo =
+      paymentMethod === "momo" || resultCode !== null || partnerCode === "MOMO";
+
     let status: any = {
       success: false,
       responseCode: null,
@@ -40,7 +41,7 @@ const PaymentResult: React.FC = () => {
       const orderId = queryParams.get("orderId");
       const amount = queryParams.get("amount");
       const transId = queryParams.get("transId");
-      
+
       // Nếu có resultCode thì là MoMo thật, nếu không thì là mock
       if (resultCode !== null) {
         // MoMo thật: resultCode = "0" hoặc 0 là thành công
@@ -92,7 +93,7 @@ const PaymentResult: React.FC = () => {
       return;
     }
 
-    // Lấy bookingInfo từ localStorage nếu có (đã được lưu từ PaymentMethodSelect)
+    // Lấy bookingInfo từ localStorage nếu có
     let bookingInfoFromStorage = null;
     try {
       const stored = localStorage.getItem("bookingInfo");
@@ -231,8 +232,12 @@ const PaymentResult: React.FC = () => {
                     const bookingId = localStorage.getItem("bookingId");
                     if (bookingId) {
                       try {
-                        const { getBookingById } = await import("@/services/bookingsApi");
-                        const bookingInfo = await getBookingById(Number(bookingId));
+                        const { getBookingById } = await import(
+                          "@/services/bookingsApi"
+                        );
+                        const bookingInfo = await getBookingById(
+                          Number(bookingId)
+                        );
                         navigate("/bookings/payment-method", {
                           state: {
                             bookingId: Number(bookingId),
@@ -249,7 +254,8 @@ const PaymentResult: React.FC = () => {
                   }}
                   size="middle"
                   style={{
-                    background: "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
+                    background:
+                      "linear-gradient(135deg, #0a4f86 0%, #0d6eab 100%)",
                     borderColor: "transparent",
                   }}
                 >

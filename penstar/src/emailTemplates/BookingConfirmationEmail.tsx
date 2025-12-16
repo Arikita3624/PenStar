@@ -10,11 +10,11 @@ interface BookingConfirmationEmailProps {
     checkOut: string;
     numAdults: number;
     numChildren: number;
-  }>;
-  services?: Array<{
-    name: string;
-    quantity: number;
-    price: number;
+    basePrice?: number;
+    extraAdultFees?: number;
+    extraChildFees?: number;
+    promoCode?: string;
+    discountAmount?: number;
   }>;
   totalPrice: number;
   paymentStatus: string;
@@ -22,14 +22,7 @@ interface BookingConfirmationEmailProps {
 
 export const BookingConfirmationEmail: React.FC<
   BookingConfirmationEmailProps
-> = ({
-  customerName,
-  bookingId,
-  rooms,
-  services = [],
-  totalPrice,
-  paymentStatus,
-}) => (
+> = ({ customerName, bookingId, rooms, totalPrice, paymentStatus }) => (
   <div style={{ fontFamily: "Arial, sans-serif", color: "#333" }}>
     <h2>Xác nhận đặt phòng #{bookingId}</h2>
     <p>
@@ -39,29 +32,35 @@ export const BookingConfirmationEmail: React.FC<
     <h3>Thông tin phòng</h3>
     <ul>
       {rooms.map((i, idx) => (
-        <li key={idx}>
+        <li key={idx} style={{ marginBottom: 12 }}>
           <strong>{i.roomType}</strong> - Phòng: {i.roomId}
           <br />
           Checkin: {i.checkIn} - Checkout: {i.checkOut}
           <br />
           {i.numAdults} người lớn, {i.numChildren} trẻ em
+          {typeof i.basePrice === "number" && (
+            <>
+              <br />
+              Giá gốc: {i.basePrice.toLocaleString("vi-VN")}đ
+            </>
+          )}
+          {i.extraAdultFees ? (
+            <>
+              <br />
+              Phụ thu người lớn: {i.extraAdultFees.toLocaleString("vi-VN")}đ
+            </>
+          ) : null}
+          {i.extraChildFees ? (
+            <>
+              <br />
+              Phụ thu trẻ em: {i.extraChildFees.toLocaleString("vi-VN")}đ
+            </>
+          ) : null}
         </li>
       ))}
     </ul>
-    {services.length > 0 && (
-      <>
-        <h3>Dịch vụ</h3>
-        <ul>
-          {services.map((s, idx) => (
-            <li key={idx}>
-              {s.name} - Số lượng: {s.quantity} - Giá: {s.price}
-            </li>
-          ))}
-        </ul>
-      </>
-    )}
     <p>
-      <strong>Tổng cộng: {totalPrice.toLocaleString("vi-VN")}</strong>
+      <strong>Tổng cộng: {totalPrice.toLocaleString("vi-VN")}đ</strong>
     </p>
     <p>
       Trạng thái thanh toán: <strong>{paymentStatus}</strong>

@@ -3,7 +3,7 @@ import RoomSearchBar from "@/components/common/RoomSearchBar";
 import { useState } from "react";
 
 // Import images from assets
-import heroImage from "@/assets/images/heroImage.png";
+import bannerImage from "@/assets/images/banner-tin-tuc-uu-dai_1686539225_1686815922.jpg";
 import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
@@ -93,67 +93,40 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section with Background Image - Mường Thanh Style */}
-      <section
-        className="relative min-h-[650px] flex items-center overflow-visible pb-28"
-        style={{
-          backgroundImage: `url(${heroImage})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        {/* Subtle gradient overlay */}
-        <div
-          className="absolute inset-0 z-0"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(10,79,134,0.5) 0%, rgba(13,110,171,0.3) 50%, rgba(0,0,0,0.4) 100%)",
-          }}
-        />
-
-        {/* Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10 w-full">
-          <div className="max-w-3xl mb-16">
-            <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
-              style={{ textShadow: "2px 4px 8px rgba(0,0,0,0.5)" }}
-            >
-              Đặt phòng cùng
-              <br />
-              PenStar
-            </h1>
-            <p
-              className="text-lg md:text-xl text-white leading-relaxed max-w-2xl"
-              style={{ textShadow: "1px 2px 4px rgba(0,0,0,0.5)" }}
-            >
-              Với nguồn lực dồi dào, kinh nghiệm và uy tín trong lĩnh vực dịch
-              vụ, Lữ hành PenStar luôn mang đến cho khách hàng những dịch vụ
-              khách sạn giá trị nhất.
-            </p>
-          </div>
+      {/* Hero Section with Banner Image */}
+      <section className="relative flex flex-col items-stretch justify-end overflow-visible p-0">
+        <div className="w-full relative">
+          <img
+            src={bannerImage}
+            alt="PenStar Banner"
+            className="w-full h-full object-cover"
+          />
         </div>
-
-        {/* Search Bar - Floating at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 z-20">
-          <div className="max-w-6xl mx-auto px-4">
-            <RoomSearchBar
-              onSearch={(params: RoomSearchParams) => {
-                // Đảm bảo không truyền num_rooms vào searchParams
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { num_rooms, ...rest } = params as RoomSearchParams & {
-                  num_rooms?: number;
-                };
-                navigate("/rooms/search-results", {
-                  state: { searchParams: rest },
-                });
-              }}
-            />
+        {/* Search Bar - Floating, shadow, overlap banner bottom, bo góc, full rộng, margin lớn hơn */}
+        <div
+          className="absolute left-1/2 bottom-0 w-full flex justify-center z-20"
+          style={{ transform: "translate(-50%, 70%)" }}
+        >
+          <div className="w-full max-w-6xl px-2 md:px-2">
+            <div className="bg-white shadow-2xl md:p-1">
+              <RoomSearchBar
+                onSearch={(params: RoomSearchParams) => {
+                  // Đảm bảo không truyền num_rooms vào searchParams
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { num_rooms, ...rest } = params as RoomSearchParams & {
+                    num_rooms?: number;
+                  };
+                  navigate("/rooms/search-results", {
+                    state: { searchParams: rest },
+                  });
+                }}
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section - Below Hero like Mường Thanh */}
+      {/* Features Section*/}
       <section className="py-12 mt-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

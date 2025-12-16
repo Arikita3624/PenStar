@@ -33,13 +33,13 @@ const FloorList = () => {
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteFloor(id),
     onSuccess: () => {
-      message.success("Floor deleted");
+      message.success("Xoá tầng thành công");
       queryClient.invalidateQueries({ queryKey: ["floors"] });
     },
     onError: (err: unknown) => {
       const serverMsg = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
-      const msg = serverMsg || "Failed to delete floor";
+      const msg = serverMsg || "Xoá tầng thất bại";
       message.error(msg);
     },
   });
@@ -51,9 +51,9 @@ const FloorList = () => {
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
       width: 80,
     },
-    { title: "Name", dataIndex: "name", key: "name" },
+    { title: "Tên tầng", dataIndex: "name", key: "name" },
     {
-      title: "Description",
+      title: "Mô tả",
       dataIndex: "description",
       key: "description",
       render: (text: string) => (
@@ -64,7 +64,7 @@ const FloorList = () => {
       ),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       render: (_v, record) => (
         <Space>
@@ -73,14 +73,14 @@ const FloorList = () => {
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/floors/${record.id}/edit`)}
           >
-            Edit
+            Sửa
           </Button>
           <Popconfirm
-            title="Delete?"
+            title="Bạn có chắc muốn xoá?"
             onConfirm={() => deleteMut.mutate(record.id)}
           >
             <Button type="primary" danger>
-              Delete
+              Xoá
             </Button>
           </Popconfirm>
         </Space>
@@ -91,10 +91,10 @@ const FloorList = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">FLOORS</h1>
+        <h1 className="text-2xl font-bold">DANH SÁCH TẦNG</h1>
         <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by name"
+            placeholder="Tìm theo tên tầng"
             allowClear
             style={{ width: 260 }}
             onChange={(e) => {
@@ -107,7 +107,7 @@ const FloorList = () => {
             icon={<PlusOutlined />}
             onClick={() => navigate("/admin/floors/new")}
           >
-            New
+            Thêm mới
           </Button>
         </div>
       </div>
@@ -121,7 +121,8 @@ const FloorList = () => {
           pagination={{
             pageSize,
             current: currentPage,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} trong ${total}`,
             showQuickJumper: true,
             onChange: (p) => setCurrentPage(p),
           }}

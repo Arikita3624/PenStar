@@ -30,6 +30,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     const [modalImageIndex, setModalImageIndex] = useState(0);
     const [amenitiesModalOpen, setAmenitiesModalOpen] = useState(false);
     const [policyModalOpen, setPolicyModalOpen] = useState(false);
+    // const isInitialExpansion = React.useRef(false); // Removed: unused
 
     // Khởi tạo mảng độc lập cho từng phòng
 
@@ -153,7 +154,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           const fees = calculateRoomExtraFees(idx);
           const basePrice = roomType.price || 0; // Lấy giá từ room_types
           const totalPrice = basePrice + fees.totalExtraFees;
-
           return {
             room_id: suitableRooms[idx]?.id || 0,
             room_type_id: roomType.id,
@@ -168,6 +168,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
             extra_child_fees: fees.childFees, // Phụ phí trẻ em
             extra_adults_count: fees.extraAdults, // Số người lớn thêm
             extra_children_count: fees.extraChildren, // Số trẻ em thêm
+            quantity: 1, // Bổ sung trường quantity cho đúng type
           };
         });
         onSelectRoomType(
@@ -211,8 +212,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
             expandIcon={() => null}
             className="bg-transparent border-none"
             style={{ borderRadius: 0 }}
-            onChange={(keys) => setIsExpanded(keys.length > 0)}
-            // Luôn cho phép mở, dù không đủ phòng
+            activeKey={isExpanded ? ["1"] : []}
           >
             <Panel
               header={

@@ -74,9 +74,9 @@ const RoomAdd: React.FC = () => {
     <div>
       {/* use global message so notifications persist across navigation */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">ADD ROOM</h2>
+        <h2 className="text-2xl font-bold mb-4">THÊM PHÒNG</h2>
         <Link to="/admin/rooms">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
@@ -106,14 +106,14 @@ const RoomAdd: React.FC = () => {
               const created = await createRoom(payload);
               const roomId = created && (created as { id?: number }).id;
               if (roomId) await uploadSelectedFiles(roomId);
-              message.success("Room created");
+              message.success("Tạo phòng thành công");
               navigate("/admin/rooms");
             } catch (err) {
               // surface server-side validation message if available
               const e = err as { response?: { data?: { message?: string } } };
               const serverMsg = e?.response?.data?.message;
               console.error("Error creating room:", e, serverMsg ?? "");
-              message.error(serverMsg ?? "Failed to create room");
+              message.error(serverMsg ?? "Tạo phòng thất bại");
             }
           }}
         >
@@ -121,7 +121,7 @@ const RoomAdd: React.FC = () => {
             <div className="col-span-8">
               <Form.Item
                 name="name"
-                label="Room Name"
+                label="Tên phòng"
                 rules={[{ required: true }]}
               >
                 <Input />
@@ -130,10 +130,10 @@ const RoomAdd: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <Form.Item
                   name="type_id"
-                  label="Room Type"
+                  label="Loại phòng"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select room type" loading={typesLoading}>
+                  <Select placeholder="Chọn loại phòng" loading={typesLoading}>
                     {roomTypes.map((t: RoomType) => (
                       <Select.Option key={t.id} value={t.id}>
                         {t.name}
@@ -143,10 +143,10 @@ const RoomAdd: React.FC = () => {
                 </Form.Item>
                 <Form.Item
                   name="floor_id"
-                  label="Floor"
+                  label="Tầng"
                   rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select floor" loading={floorsLoading}>
+                  <Select placeholder="Chọn tầng" loading={floorsLoading}>
                     {floors.map((f: Floor) => (
                       <Select.Option key={f.id} value={f.id}>
                         {f.name}
@@ -160,7 +160,7 @@ const RoomAdd: React.FC = () => {
 
               <Form.Item
                 name="short_desc"
-                label="Short Description"
+                label="Mô tả ngắn"
                 rules={[{ required: true }]}
               >
                 <Input.TextArea rows={3} />
@@ -168,7 +168,7 @@ const RoomAdd: React.FC = () => {
 
               <Form.Item
                 name="long_desc"
-                label="Long Description"
+                label="Mô tả chi tiết"
                 valuePropName="value"
               >
                 <QuillEditor />
@@ -176,7 +176,7 @@ const RoomAdd: React.FC = () => {
             </div>
 
             <div className="col-span-4">
-              <Form.Item label="Thumbnail">
+              <Form.Item label="Ảnh đại diện">
                 <Upload
                   accept="image/*"
                   listType="picture-card"
@@ -216,13 +216,13 @@ const RoomAdd: React.FC = () => {
                   {!thumb && (
                     <div className="flex flex-col items-center justify-center">
                       <div className="text-2xl">+</div>
-                      <div>Upload</div>
+                      <div>Tải ảnh</div>
                     </div>
                   )}
                 </Upload>
               </Form.Item>
 
-              <Form.Item label="Additional images (extras)">
+              <Form.Item label="Ảnh bổ sung (không bắt buộc)">
                 <Upload
                   accept="image/*"
                   listType="picture-card"
@@ -289,12 +289,12 @@ const RoomAdd: React.FC = () => {
                 >
                   <div className="flex flex-col items-center justify-center">
                     <div className="text-2xl">+</div>
-                    <div>Upload</div>
+                    <div>Tải ảnh</div>
                   </div>
                 </Upload>
 
                 <div className="text-xs text-gray-500 mt-2">
-                  Selected: {extras.length} file(s)
+                  Đã chọn: {extras.length} ảnh
                 </div>
               </Form.Item>
             </div>
@@ -302,7 +302,7 @@ const RoomAdd: React.FC = () => {
 
           <div className="mt-4">
             <Button type="primary" htmlType="submit">
-              Create
+              Tạo mới
             </Button>
           </div>
         </Form>

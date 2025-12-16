@@ -1,5 +1,11 @@
-import { Button, message, Space } from "antd";
-import { PhoneOutlined } from "@ant-design/icons";
+import { Button, message, Dropdown, Avatar } from "antd";
+import FullLogo from "@/assets/images/FullLogo.jpg";
+import {
+  UserOutlined,
+  ProfileOutlined,
+  BookOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import useAuth from "@/hooks/useAuth";
@@ -45,79 +51,66 @@ const AppHeader = () => {
         scrolled ? "shadow-md py-2" : "py-3"
       }`}
     >
-      <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-            PS
+      <div
+        className="container mx-auto px-4 flex items-center relative"
+        style={{ minHeight: 72 }}
+      >
+        {/* Left: Slogan */}
+        <div className="flex flex-col justify-center z-10 min-w-[180px]">
+          <div className="text-xl font-bold text-gray-800 leading-tight">
+            Khách sạn Penstar
           </div>
-          <div>
-            <div className="text-xl font-bold text-gray-800">
-              Khách sạn Penstar
-            </div>
-            <div className="text-xs text-gray-600">
-              Trải nghiệm thoải mái, tiện nghi hiện đại
-            </div>
+          <div className="text-xs text-gray-600 leading-tight">
+            Trải nghiệm thoải mái, tiện nghi hiện đại
           </div>
-        </Link>
+        </div>
 
-        <nav className="hidden md:flex items-center gap-8">
-          <Link
-            to="/"
-            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
-          >
-            Trang chủ
+        {/* Center: Logo only */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 flex flex-col items-center">
+          <Link to="/">
+            <img
+              src={FullLogo}
+              alt="Logo"
+              className="h-24 w-auto object-contain"
+              style={{ maxHeight: 120 }}
+            />
           </Link>
-          <Link
-            to="/rooms"
-            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
-          >
-            Phòng
-          </Link>
-          <Link
-            to="/bookings"
-            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
-          >
-            Đặt phòng
-          </Link>
-          <Link
-            to="/contact"
-            className="text-gray-700 hover:text-[#0a4f86] font-medium transition"
-          >
-            Liên hệ
-          </Link>
-        </nav>
+        </div>
 
-        <div className="flex items-center gap-3">
-          <a
-            href="tel:+84 394879813"
-            className="hidden md:flex items-center gap-2 text-sm text-gray-700 hover:text-[#0a4f86] transition"
-          >
-            <PhoneOutlined className="text-base" /> <span>+84 394879813</span>
-          </a>
+        {/* Right: Profile/Avatar and mobile booking button */}
+        <div className="flex items-center gap-3 flex-shrink-0 ml-auto z-10">
           {isLogged ? (
-            <Space>
-              <Link to="/profile">
-                <Button
-                  style={{
-                    backgroundColor: "#0a4f86",
-                    borderColor: "#0a4f86",
-                    color: "#ffffff",
-                  }}
-                >
-                  Tài khoản
-                </Button>
-              </Link>
-              <Button
-                onClick={handleLogout}
-                style={{
-                  backgroundColor: "#dc2626",
-                  borderColor: "#dc2626",
-                  color: "#ffffff",
-                }}
-              >
-                Đăng xuất
-              </Button>
-            </Space>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "profile",
+                    icon: <ProfileOutlined />,
+                    label: <Link to="/profile">Thông tin</Link>,
+                  },
+                  {
+                    key: "bookings",
+                    icon: <BookOutlined />,
+                    label: <Link to="/bookings">Đặt phòng</Link>,
+                  },
+                  { type: "divider" },
+                  {
+                    key: "logout",
+                    icon: <LogoutOutlined style={{ color: "#dc2626" }} />,
+                    label: <span style={{ color: "#dc2626" }}>Đăng xuất</span>,
+                    onClick: handleLogout,
+                  },
+                ],
+              }}
+              placement="bottomRight"
+              trigger={["click"]}
+            >
+              <Avatar
+                style={{ backgroundColor: "#444", cursor: "pointer" }}
+                size={40}
+                icon={<UserOutlined style={{ fontSize: 24 }} />}
+              />
+            </Dropdown>
           ) : (
             <Link to="/signin">
               <Button
@@ -128,24 +121,24 @@ const AppHeader = () => {
                   fontWeight: "500",
                 }}
               >
-                Đăng xuất
+                Đăng nhập
               </Button>
             </Link>
           )}
-        </div>
-        <div className="md:hidden">
-          <Link to="/booking">
-            <Button
-              size="small"
-              style={{
-                backgroundColor: "#0a66a3",
-                borderColor: "#0a66a3",
-                color: "#ffffff",
-              }}
-            >
-              Đặt
-            </Button>
-          </Link>
+          <div className="md:hidden">
+            <Link to="/booking">
+              <Button
+                size="small"
+                style={{
+                  backgroundColor: "#0a66a3",
+                  borderColor: "#0a66a3",
+                  color: "#ffffff",
+                }}
+              >
+                Đặt
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </header>

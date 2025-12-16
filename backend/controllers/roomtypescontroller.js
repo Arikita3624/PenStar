@@ -28,14 +28,60 @@ export const createRoomType = async (req, res) => {
     const { existsRoomTypeWithName } = await import(
       "../models/roomtypemodel.js"
     );
-    const { name } = req.body;
+    const {
+      name,
+      description,
+      thumbnail,
+      capacity,
+      price,
+      devices_id,
+      bed_type,
+      view_direction,
+      amenities,
+      paid_amenities,
+      free_amenities,
+      room_size,
+      area,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      policies,
+    } = req.body;
     if (await existsRoomTypeWithName(String(name))) {
       return res
         .status(400)
         .json({ success: false, message: "Room type name already exists" });
     }
-    // Accept devices_id as array of device IDs
-    const newRoomType = await modelCreateRoomType(req.body);
+    // Validate required fields (name, price, capacity, ...)
+    if (!name || !price || !capacity) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: name, price, capacity",
+      });
+    }
+    const newRoomType = await modelCreateRoomType({
+      name,
+      description,
+      thumbnail,
+      capacity,
+      price,
+      devices_id,
+      bed_type,
+      view_direction,
+      amenities,
+      paid_amenities,
+      free_amenities,
+      room_size,
+      area,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      policies,
+    });
     res.status(201).json({
       success: true,
       message: "✅ Room type created successfully",
@@ -74,14 +120,60 @@ export const updateRoomType = async (req, res) => {
     const { existsRoomTypeWithName } = await import(
       "../models/roomtypemodel.js"
     );
-    const { name } = req.body;
+    const {
+      name,
+      description,
+      thumbnail,
+      capacity,
+      price,
+      devices_id,
+      bed_type,
+      view_direction,
+      amenities,
+      paid_amenities,
+      free_amenities,
+      room_size,
+      area,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      policies,
+    } = req.body;
     if (name && (await existsRoomTypeWithName(String(name), Number(id)))) {
       return res
         .status(400)
         .json({ success: false, message: "Room type name already exists" });
     }
-    // Accept devices_id as array of device IDs
-    const updated = await modelUpdateRoomType(id, req.body);
+    // Validate required fields (name, price, capacity)
+    if (!name || !price || !capacity) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: name, price, capacity",
+      });
+    }
+    const updated = await modelUpdateRoomType(id, {
+      name,
+      description,
+      thumbnail,
+      capacity,
+      price,
+      devices_id,
+      bed_type,
+      view_direction,
+      amenities,
+      paid_amenities,
+      free_amenities,
+      room_size,
+      area,
+      base_adults,
+      base_children,
+      extra_adult_fee,
+      extra_child_fee,
+      child_age_limit,
+      policies,
+    });
     if (!updated)
       return res
         .status(404)

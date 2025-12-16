@@ -4,6 +4,7 @@ import {
   updateBookingStatus,
   confirmCheckout,
   cancelBooking,
+  confirmCheckin,
 } from "@/services/bookingsApi";
 import { getRoomID } from "@/services/roomsApi";
 import { getServiceById, getServices } from "@/services/servicesApi";
@@ -19,6 +20,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+
 import {
   Spin,
   Card,
@@ -191,14 +193,16 @@ const BookingDetail = () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
     try {
-      await updateBookingStatus(booking.id, { stay_status_id: 2 }); // 2 = checked_in
+      await confirmCheckin(booking.id);
       message.success(
-        "Đã nhận phòng - Trạng thái booking chuyển sang Đã nhận phòng"
+        "Đã nhận phòng - Trạng thái booking chuyển sang Đã nhận phòng và đã lưu người check-in"
       );
       refetch();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi nhận phòng:", err);
-      message.error("Lỗi nhận phòng");
+      // Hiển thị message chi tiết từ backend nếu có
+      const backendMsg = err?.response?.data?.message;
+      message.error(backendMsg || "Lỗi nhận phòng");
     } finally {
       setUpdating(false);
     }
@@ -653,23 +657,10 @@ const BookingDetail = () => {
             `
                 : ""
             }
-            ${
-              booking.promo_code && booking.discount_amount
-                ? `
-            <div class="total-row">
-              <span>Tổng tiền gốc:</span>
-              <span style="text-decoration: line-through; color: #999;">${formatPrice(booking.original_total || booking.total_amount || 0)}</span>
-            </div>
-            <div class="total-row">
-              <span>Mã giảm giá (${booking.promo_code}):</span>
-              <span style="color: #52c41a;">-${formatPrice(booking.discount_amount)}</span>
-            </div>
-            `
-                : ""
-            }
+
             <div class="total-row total-final">
               <span>TỔNG CỘNG:</span>
-              <span>${formatPrice(booking.total_price || booking.total_amount || 0)}</span>
+              <span>${formatPrice(booking.total_price || 0)}</span>
             </div>
           </div>
 
@@ -751,7 +742,7 @@ const BookingDetail = () => {
           </Row>
         </Card>
 
-        {/* Customer Info */}
+        {/* Customer Info + Người check-in/out */}
         <Card
           title={
             <Space>
@@ -790,6 +781,27 @@ const BookingDetail = () => {
                   ? "📱 Online"
                   : "🏨 Trực tiếp"}
               </Tag>
+            </Col>
+          </Row>
+          <Divider />
+          <Row gutter={16}>
+            <Col span={12}>
+              <Text type="secondary">Người check-in</Text>
+              <br />
+              <Text>
+                {booking.checked_in_by_email || (
+                  <span style={{ color: "#aaa" }}>Chưa check-in</span>
+                )}
+              </Text>
+            </Col>
+            <Col span={12}>
+              <Text type="secondary">Người check-out</Text>
+              <br />
+              <Text>
+                {booking.checked_out_by_email || (
+                  <span style={{ color: "#aaa" }}>Chưa check-out</span>
+                )}
+              </Text>
             </Col>
           </Row>
         </Card>
@@ -1452,36 +1464,14 @@ const BookingDetail = () => {
                 <Text strong>{formatPrice(booking.total_service_price)}</Text>
               </Row>
             ) : null}
-            {booking.promo_code && booking.discount_amount ? (
-              <>
-                <Divider style={{ margin: "12px 0" }} />
-                <Row justify="space-between">
-                  <Text>Tổng tiền gốc</Text>
-                  <Text
-                    style={{ textDecoration: "line-through", color: "#999" }}
-                  >
-                    {formatPrice(
-                      booking.original_total || booking.total_amount || 0
-                    )}
-                  </Text>
-                </Row>
-                <Row justify="space-between">
-                  <Text>
-                    Mã giảm giá: <Tag color="green">{booking.promo_code}</Tag>
-                  </Text>
-                  <Text strong style={{ color: "#52c41a" }}>
-                    -{formatPrice(booking.discount_amount)}
-                  </Text>
-                </Row>
-              </>
-            ) : null}
+            {/* Đã loại bỏ logic hiển thị giảm giá, mã giảm giá */}
             <Divider style={{ margin: "12px 0" }} />
             <Row justify="space-between">
               <Title level={4} style={{ margin: 0 }}>
                 Tổng cộng
               </Title>
               <Title level={4} type="danger" style={{ margin: 0 }}>
-                {formatPrice(booking.total_price || booking.total_amount || 0)}
+                {formatPrice(booking.total_price || 0)}
               </Title>
             </Row>
           </Space>

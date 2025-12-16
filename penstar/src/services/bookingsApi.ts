@@ -1,3 +1,7 @@
+export const confirmCheckin = async (id: number): Promise<Booking> => {
+  const { data } = await instance.post(`/bookings/${id}/confirm-checkin`);
+  return data.data;
+};
 import { instance } from "./api";
 import type {
   Booking,

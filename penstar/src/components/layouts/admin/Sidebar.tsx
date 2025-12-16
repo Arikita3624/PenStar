@@ -11,7 +11,7 @@ const Sidebar = () => {
   const navItems = [
     {
       to: "/admin",
-      label: "Dashboard",
+      label: "Bảng điều khiển",
       icon: (
         <svg
           className="w-6 h-6"
@@ -31,7 +31,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/rooms",
-      label: "Rooms",
+      label: "Phòng",
       icon: (
         <svg
           className="w-6 h-6"
@@ -51,7 +51,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/roomtypes",
-      label: "Room Types",
+      label: "Loại phòng",
       icon: (
         <svg
           className="w-6 h-6"
@@ -71,7 +71,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/floors",
-      label: "Floors",
+      label: "Tầng",
       icon: (
         <svg
           className="w-6 h-6"
@@ -91,7 +91,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/users",
-      label: "Users",
+      label: "Người dùng",
       requireRole: "manager", // Only manager and admin
       icon: (
         <svg
@@ -112,7 +112,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/bookings",
-      label: "Bookings",
+      label: "Đặt phòng",
       icon: (
         <svg
           className="w-6 h-6"
@@ -132,7 +132,7 @@ const Sidebar = () => {
     },
     {
       to: "/admin/services",
-      label: "Services",
+      label: "Dịch vụ",
       icon: (
         <svg
           className="w-6 h-6"
@@ -186,12 +186,14 @@ const Sidebar = () => {
       <div className="p-4 border-b border-gray-700 flex items-center justify-between">
         <Link to="/admin" className="flex items-center gap-3">
           <div className="bg-white rounded-full w-9 h-9 flex items-center justify-center text-gray-800 font-bold">
-            A
+            QL
           </div>
           {!collapsed && (
             <div>
-              <div className="text-lg font-bold">Admin Panel</div>
-              <div className="text-sm text-gray-400">Welcome, Admin</div>
+              <div className="text-lg font-bold">Quản trị hệ thống</div>
+              <div className="text-sm text-gray-400">
+                Xin chào, Quản trị viên
+              </div>
             </div>
           )}
         </Link>
