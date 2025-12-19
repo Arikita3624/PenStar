@@ -12,6 +12,7 @@ import {
   Col,
   Spin,
 } from "antd";
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
@@ -76,7 +77,7 @@ const RoomTypeEdit = () => {
       name: data.name,
       description: data.description,
       // amenities: data.amenities || [],
-      free_amenities: data.free_amenities || [],
+      // Đã loại bỏ free_amenities
       paid_amenities: data.paid_amenities || [],
       capacity: data.capacity,
       base_adults: data.base_adults,
@@ -96,7 +97,7 @@ const RoomTypeEdit = () => {
     name: string;
     description: string;
     // amenities?: string[];
-    free_amenities?: string[];
+    // Đã loại bỏ free_amenities
     paid_amenities?: string[];
     capacity?: number;
     base_adults?: number;
@@ -116,7 +117,7 @@ const RoomTypeEdit = () => {
         name: values.name,
         description: values.description,
         // amenities: values.amenities,
-        free_amenities: values.free_amenities,
+        // Đã loại bỏ free_amenities
         paid_amenities: values.paid_amenities,
         capacity: values.capacity ? Number(values.capacity) : undefined,
         base_adults: values.base_adults
@@ -293,13 +294,7 @@ const RoomTypeEdit = () => {
                 />
               </Form.Item>
               */}
-              <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập tiện nghi miễn phí và nhấn Enter"
-                  style={{ width: "100%" }}
-                />
-              </Form.Item>
+              {/* Đã loại bỏ field free_amenities */}
               <Form.Item name="paid_amenities" label="Tiện nghi tính phí">
                 <Select
                   mode="tags"

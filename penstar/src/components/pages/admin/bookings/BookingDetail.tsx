@@ -10,6 +10,10 @@ import {
 import { getRoomID } from "@/services/roomsApi";
 import { getServiceById, getServices } from "@/services/servicesApi";
 import { createBookingService } from "@/services/bookingServicesApi";
+import {
+  getBookingIncidents,
+  createBookingIncident,
+} from "@/services/bookingIncidentsApi";
 import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
@@ -34,6 +38,8 @@ import {
   Empty,
   Modal,
   Select,
+  Input,
+  InputNumber,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -61,6 +67,14 @@ const BookingDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null);
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [incidentModal, setIncidentModal] = useState(false);
+  const [incidentEquipmentId, setIncidentEquipmentId] = useState<number | null>(
+    null
+  );
+  const [incidentQuantity, setIncidentQuantity] = useState<number>(1);
+  const [incidentNote, setIncidentNote] = useState("");
+  // const [equipments, setEquipments] = useState<any[]>([]);
 
   const {
     data: booking,
@@ -184,6 +198,12 @@ const BookingDetail = () => {
     return () => {
       mounted = false;
     };
+  }, [booking]);
+
+  // Load incidents
+  useEffect(() => {
+    if (!booking || !booking.id) return;
+    getBookingIncidents(booking.id).then(setIncidents);
   }, [booking]);
 
   const formatPrice = (price: number | string) => {
@@ -378,6 +398,21 @@ const BookingDetail = () => {
       printWindow.print();
       printWindow.close();
     }, 250);
+  };
+
+  const handleAddIncident = async () => {
+    if (!booking || !booking.id || !incidentEquipmentId) return;
+    await createBookingIncident({
+      booking_id: booking.id,
+      equipment_id: incidentEquipmentId,
+      quantity: incidentQuantity,
+      note: incidentNote,
+    });
+    setIncidentModal(false);
+    setIncidentEquipmentId(null);
+    setIncidentQuantity(1);
+    setIncidentNote("");
+    getBookingIncidents(booking.id).then(setIncidents);
   };
 
   if (isLoading) {
@@ -869,6 +904,64 @@ const BookingDetail = () => {
               />
             </Card>
           )}
+
+        {/* Sự cố & Đền bù */}
+        <Card title="Sự cố & Đền bù" style={{ marginBottom: 24 }}>
+          <Button
+            type="primary"
+            onClick={() => setIncidentModal(true)}
+            style={{ marginBottom: 12 }}
+          >
+            + Báo hỏng/đền bù
+          </Button>
+          <List
+            dataSource={incidents}
+            locale={{ emptyText: "Chưa có sự cố nào" }}
+            renderItem={(item) => (
+              <List.Item>
+                <span>
+                  {item.equipment_name} x{item.quantity} -{" "}
+                  {item.compensation_price
+                    ? `${Number(item.compensation_price).toLocaleString("vi-VN")} ₫`
+                    : ""}{" "}
+                  {item.note && `- ${item.note}`}
+                </span>
+              </List.Item>
+            )}
+          />
+          <Modal
+            open={incidentModal}
+            title="Báo hỏng/đền bù thiết bị"
+            onCancel={() => setIncidentModal(false)}
+            onOk={handleAddIncident}
+          >
+            {/* TODO: Cập nhật lấy danh sách thiết bị thực tế theo room_id ở đây */}
+            <Select
+              style={{ width: "100%", marginBottom: 12 }}
+              placeholder="Chọn thiết bị"
+              value={incidentEquipmentId}
+              onChange={setIncidentEquipmentId}
+              disabled
+            >
+              <Select.Option value={null} disabled>
+                (Cần cập nhật lấy thiết bị thực tế từng phòng)
+              </Select.Option>
+            </Select>
+            <InputNumber
+              min={1}
+              value={incidentQuantity}
+              onChange={(v) => setIncidentQuantity(v || 1)}
+              style={{ width: "100%", marginBottom: 12 }}
+              placeholder="Số lượng"
+            />
+            <Input.TextArea
+              rows={2}
+              value={incidentNote}
+              onChange={(e) => setIncidentNote(e.target.value)}
+              placeholder="Ghi chú (nếu có)"
+            />
+          </Modal>
+        </Card>
 
         {/* Payment Summary */}
         <Card

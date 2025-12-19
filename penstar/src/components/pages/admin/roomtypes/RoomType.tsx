@@ -117,7 +117,7 @@ const RoomTypesPage = () => {
     {
       title: "Thao tác",
       key: "action",
-      width: 180,
+      width: 240,
       render: (_v, record) => (
         <Space>
           <Button
