@@ -15,6 +15,7 @@ export const getRoomTypes = async (req, res) => {
       data,
     });
   } catch (error) {
+    console.error("[getRoomTypes]", error);
     res.status(500).json({
       success: false,
       message: "🚨 Internal server error",
@@ -36,9 +37,9 @@ export const createRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      amenities,
+      // amenities đã bị loại bỏ
       paid_amenities,
-      free_amenities,
+      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -68,9 +69,9 @@ export const createRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      amenities,
+      // amenities đã bị loại bỏ
       paid_amenities,
-      free_amenities,
+      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -86,6 +87,7 @@ export const createRoomType = async (req, res) => {
       data: newRoomType,
     });
   } catch (error) {
+    console.error("[createRoomType]", error);
     res.status(500).json({
       success: false,
       message: "🚨 Internal server error",
@@ -104,6 +106,7 @@ export const getRoomTypeById = async (req, res) => {
         .json({ success: false, message: "Room type not found" });
     res.json({ success: true, message: "✅ Get room type", data: item });
   } catch (error) {
+    console.error("[getRoomTypeById]", error);
     res.status(500).json({
       success: false,
       message: "🚨 Internal server error",
@@ -126,9 +129,9 @@ export const updateRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      amenities,
+      // amenities đã bị loại bỏ
       paid_amenities,
-      free_amenities,
+      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -158,9 +161,9 @@ export const updateRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      amenities,
+      // amenities đã bị loại bỏ
       paid_amenities,
-      free_amenities,
+      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -176,6 +179,7 @@ export const updateRoomType = async (req, res) => {
         .json({ success: false, message: "Room type not found" });
     res.json({ success: true, message: "✅ Room type updated", data: updated });
   } catch (error) {
+    console.error("[updateRoomType]", error);
     res.status(500).json({
       success: false,
       message: "🚨 Internal server error",
@@ -204,6 +208,7 @@ export const deleteRoomType = async (req, res) => {
         .json({ success: false, message: "Room type not found" });
     res.json({ success: true, message: "✅ Room type deleted", data: deleted });
   } catch (error) {
+    console.error("[deleteRoomType]", error);
     // handle FK violation
     if (error && error.code === "23503") {
       return res.status(400).json({

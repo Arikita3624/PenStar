@@ -19,7 +19,6 @@ export const getRoomTypes = async () => {
         rt.price,
         rt.bed_type,
         rt.view_direction,
-        rt.amenities,
         rt.free_amenities,
         rt.paid_amenities,
         rt.room_size,
@@ -93,7 +92,6 @@ export const createRoomType = async (data) => {
     price,
     bed_type,
     view_direction,
-    amenities,
     free_amenities,
     paid_amenities,
     room_size,
@@ -101,7 +99,7 @@ export const createRoomType = async (data) => {
   } = data;
   const result = await pool.query(
     `INSERT INTO room_types (
-      name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, amenities, free_amenities, paid_amenities, room_size, policies
+      name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, free_amenities, paid_amenities, room_size, policies
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
     ) RETURNING *`,
@@ -118,7 +116,7 @@ export const createRoomType = async (data) => {
       price,
       bed_type,
       view_direction,
-      amenities || null,
+      // amenities đã bị loại bỏ
       free_amenities || null,
       paid_amenities || null,
       room_size,
@@ -145,7 +143,6 @@ export const getRoomTypeById = async (id) => {
       rt.price,
       rt.bed_type,
       rt.view_direction,
-      rt.amenities,
       rt.free_amenities,
       rt.paid_amenities,
       rt.room_size,
@@ -177,7 +174,7 @@ export const updateRoomType = async (id, data) => {
     price,
     bed_type,
     view_direction,
-    amenities,
+
     free_amenities,
     paid_amenities,
     room_size,
@@ -207,7 +204,6 @@ export const updateRoomType = async (id, data) => {
       price = $10,
       bed_type = $11,
       view_direction = $12,
-      amenities = $13,
       free_amenities = $14,
       paid_amenities = $15,
       room_size = $16,
@@ -226,7 +222,6 @@ export const updateRoomType = async (id, data) => {
       price,
       bed_type,
       view_direction,
-      amenities || null,
       free_amenities || null,
       paid_amenities || null,
       room_size,

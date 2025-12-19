@@ -1111,35 +1111,31 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                 </div>
                 <Row gutter={[16, 16]}>
                   {roomType.free_amenities.map(
-                    (amenity: string, idx: number) => {
-                      // ...existing code...
-
-                      return (
-                        <Col span={12} key={`free-${idx}`}>
+                    (amenity: string, idx: number) => (
+                      <Col span={12} key={`free-${idx}`}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            padding: "8px 0",
+                          }}
+                        >
                           <div
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "10px",
-                              padding: "8px 0",
+                              color: "#52c41a",
+                              width: "24px",
+                              textAlign: "center",
                             }}
                           >
-                            <div
-                              style={{
-                                color: "#52c41a",
-                                width: "24px",
-                                textAlign: "center",
-                              }}
-                            >
-                              {getAmenityIcon(amenity)}
-                            </div>
-                            <span style={{ color: "#333", fontSize: "14px" }}>
-                              {amenity}
-                            </span>
+                            {getAmenityIcon(amenity)}
                           </div>
-                        </Col>
-                      );
-                    }
+                          <span style={{ color: "#333", fontSize: "14px" }}>
+                            {amenity}
+                          </span>
+                        </div>
+                      </Col>
+                    )
                   )}
                 </Row>
               </div>

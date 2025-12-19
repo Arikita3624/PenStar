@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import pool from "./db.js";
 import roomsRouter from "./routers/rooms.js";
+import roomDevicesRouter from "./routers/roomdevices.js";
 import roomTypeRouter from "./routers/roomstype.js";
 import FloorsRouter from "./routers/floors.js";
 import serviceRouter from "./routers/services.js";
@@ -17,6 +18,9 @@ import bookingServicesRouter from "./routers/booking_services.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import paymentRouter from "./routers/payment.js";
 import statisticsRouter from "./routers/statistics.js";
+import masterEquipmentsRouter from "./routers/master_equipments.js";
+import bookingIncidentsRouter from "./routers/booking_incidents.js";
+import equipmentStockLogsRouter from "./routers/equipment_stock_logs.js";
 dotenv.config();
 const app = express();
 
@@ -24,6 +28,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/rooms", roomsRouter);
+app.use("/api/room-devices", roomDevicesRouter);
 app.use("/api/roomtypes", roomTypeRouter);
 app.use("/api/floors", FloorsRouter);
 app.use("/api/services", serviceRouter);
@@ -38,6 +43,11 @@ app.use("/api/booking-services", bookingServicesRouter);
 app.use("/api/stay-status", stayStatusRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/statistics", statisticsRouter);
+app.use("/api/master-equipments", masterEquipmentsRouter);
+app.use("/api/booking-incidents", bookingIncidentsRouter);
+
+// Route nhập/xuất/điều chuyển kho thiết bị
+app.use("/api/equipment-stock-logs", equipmentStockLogsRouter);
 
 import path from "path";
 // serve uploaded files from /uploads

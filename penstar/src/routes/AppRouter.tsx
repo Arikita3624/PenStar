@@ -33,6 +33,11 @@ import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBooking";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
+import EquipmentListUnified from "@/components/pages/admin/equipments/EquipmentListUnified";
+import EquipmentCreate from "@/components/pages/admin/equipments/EquipmentCreate";
+import EquipmentImport from "@/components/pages/admin/equipments/EquipmentImport";
+import RoomDeviceEdit from "@/components/pages/admin/equipments/RoomDeviceEdit";
+import RoomDeviceTransfer from "@/components/pages/admin/equipments/RoomDeviceTransfer";
 
 const AppRouter = () => {
   return (
@@ -117,6 +122,14 @@ const AppRouter = () => {
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
+          <Route path="equipments" element={<EquipmentListUnified />} />
+          <Route path="equipments/create" element={<EquipmentCreate />} />
+          <Route path="equipments/import" element={<EquipmentImport />} />
+          <Route path="room-devices/:id/edit" element={<RoomDeviceEdit />} />
+          <Route
+            path="room-devices/:id/transfer"
+            element={<RoomDeviceTransfer />}
+          />
 
           {/* Users management - Manager+ */}
           <Route

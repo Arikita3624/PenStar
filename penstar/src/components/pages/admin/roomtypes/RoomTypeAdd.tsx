@@ -92,7 +92,7 @@ const RoomTypeAdd: React.FC = () => {
               bed_type: values.bed_type,
               view_direction: values.view_direction,
               // amenities: values.amenities || [],
-              free_amenities: values.free_amenities || [],
+              // Đã loại bỏ free_amenities
               paid_amenities: values.paid_amenities || [],
               room_size: values.room_size
                 ? Number(values.room_size)
@@ -147,13 +147,7 @@ const RoomTypeAdd: React.FC = () => {
                   placeholder="2"
                 />
               </Form.Item>
-              <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập tiện nghi miễn phí và nhấn Enter"
-                  style={{ width: "100%" }}
-                />
-              </Form.Item>
+              {/* Đã loại bỏ field free_amenities */}
               <Form.Item name="paid_amenities" label="Tiện nghi tính phí">
                 <Select
                   mode="tags"
