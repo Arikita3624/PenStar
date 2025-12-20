@@ -29,3 +29,8 @@ export const transferRoomDevice = (data: {
   note?: string;
   created_by?: string;
 }) => instance.post("/room-devices/transfer", data);
+
+export const checkRoomDevicesStandard = async (roomId: number | string) => {
+  const res = await instance.get(`/room-devices/check-standard/${roomId}`);
+  return res.data;
+};

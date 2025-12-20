@@ -5,6 +5,7 @@ import pool from "./db.js";
 import roomsRouter from "./routers/rooms.js";
 import roomDevicesRouter from "./routers/roomdevices.js";
 import roomTypeRouter from "./routers/roomstype.js";
+import roomTypeEquipmentsRouter from "./routers/roomtype_equipments.js";
 import FloorsRouter from "./routers/floors.js";
 import serviceRouter from "./routers/services.js";
 // Đã xóa serviceTypesRouter
@@ -30,6 +31,7 @@ app.use(express.json());
 app.use("/api/rooms", roomsRouter);
 app.use("/api/room-devices", roomDevicesRouter);
 app.use("/api/roomtypes", roomTypeRouter);
+app.use("/api/roomtype-equipments", roomTypeEquipmentsRouter);
 app.use("/api/floors", FloorsRouter);
 app.use("/api/services", serviceRouter);
 // Đã xóa route /api/service-types
