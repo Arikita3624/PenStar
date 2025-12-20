@@ -5,16 +5,26 @@ export const createStockLog = async (data) => {
   const {
     equipment_id,
     type,
-    quantity,
-    from_room_id,
-    to_room_id,
-    note,
-    created_by,
+    action = null,
+    quantity = null,
+    from_room_id = null,
+    to_room_id = null,
+    note = null,
+    created_by = null,
   } = data;
   const result = await pool.query(
-    `INSERT INTO equipment_stock_logs (equipment_id, type, quantity, from_room_id, to_room_id, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [equipment_id, type, quantity, from_room_id, to_room_id, note, created_by]
+    `INSERT INTO equipment_stock_logs (equipment_id, type, action, quantity, from_room_id, to_room_id, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [
+      equipment_id,
+      type,
+      action,
+      quantity,
+      from_room_id,
+      to_room_id,
+      note,
+      created_by,
+    ]
   );
   return result.rows[0];
 };

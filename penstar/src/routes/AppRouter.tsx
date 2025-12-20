@@ -34,10 +34,13 @@ import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBoo
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
 import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
 import EquipmentListUnified from "@/components/pages/admin/equipments/EquipmentListUnified";
+import EquipmentLogDetail from "@/components/pages/admin/equipments/EquipmentLogDetail";
 import EquipmentCreate from "@/components/pages/admin/equipments/EquipmentCreate";
 import EquipmentImport from "@/components/pages/admin/equipments/EquipmentImport";
 import RoomDeviceEdit from "@/components/pages/admin/equipments/RoomDeviceEdit";
+import RoomDeviceCreate from "@/components/pages/admin/equipments/RoomDeviceCreate";
 import RoomDeviceTransfer from "@/components/pages/admin/equipments/RoomDeviceTransfer";
+import EquipmentLogHistory from "@/components/pages/admin/equipments/EquipmentLogHistory";
 
 const AppRouter = () => {
   return (
@@ -125,6 +128,30 @@ const AppRouter = () => {
           <Route path="equipments" element={<EquipmentListUnified />} />
           <Route path="equipments/create" element={<EquipmentCreate />} />
           <Route path="equipments/import" element={<EquipmentImport />} />
+          <Route
+            path="equipments/log-history"
+            element={
+              <RequireRole role="staff">
+                <EquipmentLogHistory />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="equipments/log-detail/:id"
+            element={
+              <RequireRole role="staff">
+                <EquipmentLogDetail />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="room-devices/create"
+            element={
+              <RequireRole role="staff">
+                <RoomDeviceCreate />
+              </RequireRole>
+            }
+          />
           <Route path="room-devices/:id/edit" element={<RoomDeviceEdit />} />
           <Route
             path="room-devices/:id/transfer"

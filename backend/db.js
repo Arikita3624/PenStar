@@ -17,5 +17,4 @@ pool
   .connect()
   .then(() => console.log("PostgreSQL connected successfully"))
   .catch((err) => console.error("❌ Connection error:", err));
-
 export default pool;
